@@ -1,11 +1,11 @@
 # Instalando o Quartus Prime Lite
 
-O Quartus **precisa estar instalado direto em `/opt`** antes de configurar o
-runner self-hosted (ver [RUNNER_SETUP.md](RUNNER_SETUP.md)): instalado como
-um programa global (`/opt/altera_lite`, em vez do home de um usuário), pra
-ficar acessível a qualquer usuário/serviço da máquina sem precisar de grupo
-especial. Como o destino é `/opt`, que pertence ao `root`, a instalação
-precisa de `sudo`.
+O Quartus precisa estar instalado direto em `/opt`, como um programa global
+(`/opt/altera_lite`, em vez do home de um usuário), pra ficar acessível a
+qualquer usuário/serviço da máquina sem precisar de grupo especial (por
+exemplo, o runner self-hosted descrito em [RUNNER_SETUP.md](RUNNER_SETUP.md)).
+Como o destino é `/opt`, que pertence ao `root`, a instalação precisa de
+`sudo`.
 
 ## 1. Baixar o instalador oficial
 
@@ -77,9 +77,9 @@ EOF
 sudo update-desktop-database /usr/share/applications
 ```
 
-Precisa estar em `/usr/share/applications/`, para aparecer pra
-todo mundo. `desktop-file-validate` confere se o arquivo está sintaticamente
-correto:
+Precisa estar em `/usr/share/applications/`, não em
+`~/.local/share/applications/` (que vale só pro usuário atual).
+`desktop-file-validate` confere se o arquivo está sintaticamente correto:
 
 ```bash
 desktop-file-validate /usr/share/applications/quartus-lite.desktop
