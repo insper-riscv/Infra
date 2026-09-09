@@ -44,17 +44,15 @@ Por causa do `nologin`, `sudo -iu runner ...` e `sudo su - runner` falham:
 todos os comandos deste guia usam `sudo -u runner bash -lc '...'` (sem
 `-i`) em vez disso.
 
-**Confira depois que a conta bateu certo**: é comum o `/etc/passwd` acabar
-registrando `HOME=/home/runner` (diretório que nunca existiu) em vez de
-`/opt/actions-runner`, caso o `-d` seja omitido ou perdido em algum momento
-depois da criação original (ex: um `usermod` posterior sem `-d`, ou a conta
-recriada por outro caminho). Isso não afeta o serviço `systemd` (Fase 3 já
-fixa `WorkingDirectory=/opt/actions-runner` explicitamente), mas quebra
-silenciosamente qualquer ferramenta que dependa de `$HOME` quando rodada
-manualmente via `sudo -u runner`: por exemplo, o `uv` (ver
-[SPIKE_SETUP.md](SPIKE_SETUP.md)) falha com `Failed to initialize cache at
-/home/runner/.cache/uv: Permission denied` porque tenta criar cache num
-diretório inexistente/sem dono certo.
+**Confira depois que a conta bateu certo**: o `-d` acima só garante o
+`HOME` certo até a próxima vez que alguém mexer na conta. Um `usermod`
+posterior sem `-d`, ou a conta recriada por outro caminho, pode deixar o
+`/etc/passwd` registrando `HOME=/home/runner` (diretório que nunca
+existiu) em vez de `/opt/actions-runner`, o que quebra silenciosamente
+qualquer ferramenta que dependa de `$HOME` quando rodada manualmente via
+`sudo -u runner`: por exemplo, o `uv` (ver [SPIKE_SETUP.md](SPIKE_SETUP.md))
+falha com `Failed to initialize cache at /home/runner/.cache/uv: Permission
+denied` porque tenta criar cache num diretório inexistente/sem dono certo.
 
 Verificar:
 ```bash
