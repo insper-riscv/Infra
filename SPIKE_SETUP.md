@@ -36,12 +36,13 @@ uv --version
 ## 2. Dependências `apt` pro build do Spike
 
 O Spike é clonado e compilado a partir do código-fonte na primeira vez que
-esse passo roda, não vem pré-compilado. `./configure` do Spike **falha sem
-`device-tree-compiler`**; os pacotes do Boost evitam um `make` mais
-lento/com warnings.
+esse passo roda, não vem pré-compilado. Isso precisa de `git` pra buscar o
+código-fonte (não vem instalado por padrão em toda distro/imagem mínima), e
+`./configure` do Spike **falha sem `device-tree-compiler`**; os pacotes do
+Boost evitam um `make` mais lento/com warnings.
 
 ```bash
-sudo apt-get install -y device-tree-compiler libboost-regex-dev libboost-system-dev
+sudo apt-get install -y git device-tree-compiler libboost-regex-dev libboost-system-dev
 ```
 
 Uso os dois pacotes específicos do Boost (o mesmo conjunto mínimo que
@@ -51,13 +52,14 @@ Uso os dois pacotes específicos do Boost (o mesmo conjunto mínimo que
 com o mesmo resultado mas sem puxar a suíte Boost inteira.
 
 **Conferido contra o [README oficial do Spike](https://github.com/riscv-software-src/riscv-isa-sim)**
-(via GitHub, sem clonar o repo inteiro): ele pede exatamente esses três
-pacotes pra Linux/apt (`device-tree-compiler`, `libboost-regex-dev`,
-`libboost-system-dev`), então a lista acima está completa.
+(via GitHub, sem clonar o repo inteiro): ele pede exatamente
+`device-tree-compiler`/`libboost-regex-dev`/`libboost-system-dev` pra
+configurar/compilar; `git` é exigido à parte, pelo próprio passo de clone
+(seção 3), não pelo `configure`/`make` do Spike em si.
 
 Verificar o que já está instalado antes de rodar o `apt-get install`:
 ```bash
-dpkg -s device-tree-compiler libboost-regex-dev libboost-system-dev
+dpkg -s git device-tree-compiler libboost-regex-dev libboost-system-dev
 ```
 
 ## 3. Compilar o Spike no cache global (`/opt/riscv-foundation`)
