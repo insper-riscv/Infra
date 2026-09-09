@@ -27,13 +27,28 @@ O runner roda como um usuário de sistema **sem senha, sem sudo próprio, sem es
 no grupo do usuário admin** — isolamento deliberado.
 
 ```bash
-sudo useradd -r -m -d /opt/actions-runner -s /bin/bash runner
+sudo useradd -r -m -d /opt/actions-runner -s /usr/sbin/nologin runner
 sudo passwd -l runner              # sem login por senha; só via sudo/systemd
 sudo usermod -aG plugdev runner    # acesso ao USB-Blaster (defesa em profundidade)
 ```
 
 - `-r` → UID/GID na faixa de sistema (aqui: `999`/`998`).
 - `-m -d /opt/actions-runner` → cria o home já no lugar certo, dono `runner:runner`.
+- `-s /usr/sbin/nologin` → proposital: `runner` não deveria ter shell
+  interativo de login algum — todo acesso é via `sudo -u runner`/`systemd`,
+  nunca login direto. Reduz a superfície de ataque de uma conta de serviço
+  sem nenhuma perda de funcionalidade (nem o `systemd`, nem `sudo -u runner
+  bash -lc '...'`, que passa `bash` explicitamente, consultam o shell
+  registrado).
+
+**O `nologin` quebra qualquer comando que force o shell de login
+registrado** — `sudo -iu runner ...` (a flag `-i`, "simular login") ou
+`sudo su - runner` sem `-s` tentam executar `nologin` como o shell em si,
+que recusa e sai sem rodar nada. Prefira sempre `sudo -u runner bash -lc
+'...'` (sem `-i`), que passa `bash` diretamente e nunca consulta o shell
+registrado — é o padrão usado em todos os comandos deste guia. Pra um
+shell interativo de depuração pontual, force explicitamente: `sudo su -s
+/bin/bash - runner`.
 
 **Confira depois que a conta bateu certo** — é comum o `/etc/passwd` acabar
 registrando `HOME=/home/runner` (diretório que nunca existiu) em vez de
@@ -57,13 +72,6 @@ Se estiver errado, corrigir:
 sudo usermod -d /opt/actions-runner runner
 ```
 
-O shell registrado também pode aparecer como `/usr/sbin/nologin` em vez do
-`/bin/bash` do comando acima (algum hardening aplicado depois, não
-documentado aqui) — isso é inofensivo pro `systemd` e pra `sudo -u runner
-bash -lc '...'` (que passa `bash` explicitamente, contornando o shell de
-login registrado), só não dá pra fazer `sudo su - runner` esperando cair
-num shell interativo utilizável sem também passar `-s /bin/bash`.
-
 ## Fase 2 — Registrar o runner no GitHub
 
 **Onde pegar o token/URL**: no repo (ou na org, se for um runner de nível de
@@ -71,7 +79,7 @@ organização) → **Settings → Actions → Runners → New runner**. O token 
 ~1h, precisa copiar na hora.
 
 ```bash
-sudo -iu runner bash -lc '
+sudo -u runner HOME=/opt/actions-runner bash -lc '
   cd /opt/actions-runner
   curl -o actions-runner.tar.gz -L <URL_DE_DOWNLOAD_DA_PAGINA>
   tar xzf actions-runner.tar.gz
@@ -80,7 +88,11 @@ sudo -iu runner bash -lc '
 '
 ```
 
-- `sudo -iu runner` roda como `runner`
+- `sudo -u runner ... bash -lc` (sem `-i`) roda como `runner` sem consultar
+  o shell registrado — necessário porque `runner` usa `/usr/sbin/nologin`
+  (Fase 1); `sudo -iu runner` quebraria aqui. `HOME=/opt/actions-runner`
+  explícito por segurança, caso o `HOME` da conta esteja incorreto (ver a
+  nota na Fase 1).
 - **Se o token der erro de permissão do tipo "refusing to allow a Personal Access
   Token to create or update workflow ... without `workflow` scope"**: o token
   (fine-grained PAT) precisa da permissão **"Workflows"** habilitada (Read and
