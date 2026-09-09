@@ -26,11 +26,20 @@ workstation nova é:
 
 ## Escopo
 
-Documentação genérica, reutilizável por qualquer projeto/repo da
-organização que precise dessa infra: não é log de status de uma máquina
-específica, nem específica de um repositório consumidor. Onde um doc cita
-um projeto real como exemplo (ex: `insper-riscv/Testes`), é só ilustração
-de como um consumidor usa a infra; não faz esse doc pertencer àquele repo.
+Não é infraestrutura opcional pros repos de RISC-V/FPGA da organização: sem
+o Quartus (`QUARTUS_INSTALL.md`), não tem como sintetizar nem programar o
+hardware que o `RV32IM` implementa; sem o runner (`RUNNER_SETUP.md`), não
+tem como rodar os testes de hardware real do `Testes`; sem o Spike
+(`SPIKE_SETUP.md`), os testes de memória do `Testes` não têm golden de
+referência. As três docs juntas são a base da qual `RV32IM`, `Testes` e
+`Tools` dependem pra funcionar como pretendido, não uma conveniência
+genérica que algum repo talvez venha a usar.
+
+Ainda assim, a documentação em si é escrita de forma reutilizável, não
+amarrada a uma máquina específica nem a um repositório dono: não é log de
+status de uma máquina, e onde um doc cita um projeto real como exemplo
+(ex: `insper-riscv/Testes`), é ilustração de como um consumidor atual usa a
+infra, não faz esse doc pertencer àquele repo.
 
 ---
 
