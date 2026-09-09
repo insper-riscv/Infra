@@ -49,7 +49,7 @@ Uso os dois pacotes específicos do Boost (o mesmo conjunto mínimo que
 `sim.yml`/`certification.yml` costumam instalar em CI) em vez do
 `libboost-all-dev` mais genérico que aparece na
 [documentação do pacote `riscv-tools`](https://github.com/insper-riscv/Tools/blob/main/docs/generating-a-golden.md),
-com o mesmo resultado mas sem puxar a suíte Boost inteira.
+com o mesmo resultado.
 
 **Conferido contra o [README oficial do Spike](https://github.com/riscv-software-src/riscv-isa-sim)**:
 ele pede exatamente
