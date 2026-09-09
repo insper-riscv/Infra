@@ -1,7 +1,7 @@
 # Instalando o Quartus Prime Lite
 
 O Quartus **precisa estar instalado direto em `/opt`** antes de configurar o
-runner self-hosted (ver [RUNNER_SETUP.md](RUNNER_SETUP.md)) — instalado como
+runner self-hosted (ver [RUNNER_SETUP.md](RUNNER_SETUP.md)): instalado como
 um programa global (`/opt/altera_lite`, em vez do home de um usuário), pra
 ficar acessível a qualquer usuário/serviço da máquina sem precisar de grupo
 especial. Como o destino é `/opt`, que pertence ao `root`, a instalação
@@ -30,7 +30,7 @@ chmod +x qinst-lite-linux-*.run
 sudo ./qinst-lite-linux-*.run
 ```
 Na tela de destino, apontar pra `/opt/altera_lite`. Precisa de `sudo` porque
-`/opt` é do `root` — sem `sudo`, o instalador não consegue criar o diretório
+`/opt` é do `root`; sem `sudo`, o instalador não consegue criar o diretório
 de destino.
 
 **Modo CLI** (sem display, ex: máquina headless/SSH):
@@ -43,7 +43,7 @@ sudo /opt/altera_lite/qinst.sh --cli   # --help pra ver as opções
 
 Binários em `/opt/altera_lite/25.1std/quartus/bin/`, dono `root:root`,
 permissão `755`/`555` (leitura+execução pra todo mundo, escrita só pro
-root) — é isso que garante que qualquer usuário do sistema (incluindo o
+root): é isso que garante que qualquer usuário do sistema (incluindo o
 usuário de serviço `runner`) consiga rodar o Quartus sem precisar estar em
 nenhum grupo especial.
 
@@ -57,7 +57,7 @@ sudo chmod +x /etc/profile.d/quartus.sh
 
 Isso resolve o `PATH` (`quartus`, `quartus_pgm`, `jtagconfig`, etc.) pra
 **qualquer shell interativo/login de qualquer usuário**. **Não** resolve pro
-`runner` rodando via `systemd` — esse caso é tratado à parte, na Fase 4 do
+`runner` rodando via `systemd`; esse caso é tratado à parte, na Fase 4 do
 [RUNNER_SETUP.md](RUNNER_SETUP.md).
 
 ## 6. (Opcional) Atalho `.desktop` global

@@ -1,14 +1,15 @@
-# Configurando o Spike (golden_generator)
+# Configurando o Spike
 
-Pré-requisitos pra `golden_generator.setup()` conseguir compilar o Spike
-(`vendor/riscv-isa-sim`) e pro `uv` rodar os comandos do projeto. Ver
+Pré-requisitos pra compilar e usar o Spike (o simulador de referência
+RISC-V que gera os valores de memória esperados, usados pra comparação nos
+testes) e pro `uv` rodar os comandos do projeto. Ver
 [QUARTUS_INSTALL.md](QUARTUS_INSTALL.md) e [RUNNER_SETUP.md](RUNNER_SETUP.md)
 pros outros pré-requisitos (Quartus, runner do CI).
 
-## 1. `uv` — instalar globalmente
+## 1. Instalar o `uv` globalmente
 
 Via o instalador oficial (`https://astral.sh/uv/install.sh`), apontado pra
-`/usr/local/bin` em vez do padrão `~/.local/bin` — assim fica disponível pra
+`/usr/local/bin` em vez do padrão `~/.local/bin`: assim fica disponível pra
 qualquer usuário da máquina, sem precisar de PATH extra (`/usr/local/bin` já
 está no `PATH` padrão de todo mundo).
 
@@ -19,7 +20,7 @@ sudo UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 /tmp/uv-install.sh
 rm /tmp/uv-install.sh
 ```
 
-- Baixa o script primeiro em vez de `curl | sudo sh` direto — dá pra
+- Baixa o script primeiro em vez de `curl | sudo sh` direto: dá pra
   inspecionar antes de rodar como root.
 - O instalador baixa um binário pré-compilado (não compila nada) e confere
   o SHA256 contra um hash fixo no próprio script antes de instalar.
@@ -34,10 +35,10 @@ uv --version
 
 ## 2. Dependências `apt` pro build do Spike
 
-`golden_generator.setup()` clona e compila `riscv-isa-sim` (Spike) a partir
-do código-fonte na primeira vez que é chamado. `./configure` do Spike
-**falha sem `device-tree-compiler`**; os pacotes do Boost evitam um `make`
-mais lento/com warnings.
+O Spike é clonado e compilado a partir do código-fonte na primeira vez que
+esse passo roda, não vem pré-compilado. `./configure` do Spike **falha sem
+`device-tree-compiler`**; os pacotes do Boost evitam um `make` mais
+lento/com warnings.
 
 ```bash
 sudo apt-get install -y device-tree-compiler libboost-regex-dev libboost-system-dev
@@ -46,11 +47,11 @@ sudo apt-get install -y device-tree-compiler libboost-regex-dev libboost-system-
 Uso os dois pacotes específicos do Boost (o mesmo conjunto mínimo que
 `sim.yml`/`certification.yml` costumam instalar em CI) em vez do
 `libboost-all-dev` mais genérico que aparece na
-[documentação do pacote `riscv-tools`](https://github.com/insper-riscv/Tools/blob/main/docs/generating-a-golden.md)
-— mesmo resultado, sem puxar a suíte Boost inteira.
+[documentação do pacote `riscv-tools`](https://github.com/insper-riscv/Tools/blob/main/docs/generating-a-golden.md),
+com o mesmo resultado mas sem puxar a suíte Boost inteira.
 
-**Conferido contra o [README oficial do `riscv-isa-sim`](https://github.com/riscv-software-src/riscv-isa-sim)**
-(via GitHub, sem clonar o repo inteiro) — ele pede exatamente esses três
+**Conferido contra o [README oficial do Spike](https://github.com/riscv-software-src/riscv-isa-sim)**
+(via GitHub, sem clonar o repo inteiro): ele pede exatamente esses três
 pacotes pra Linux/apt (`device-tree-compiler`, `libboost-regex-dev`,
 `libboost-system-dev`), então a lista acima está completa.
 
@@ -62,18 +63,18 @@ dpkg -s device-tree-compiler libboost-regex-dev libboost-system-dev
 ## 3. Compilar o Spike no cache global (`/opt/riscv-foundation`)
 
 Dá pra rodar como qualquer usuário no grupo `runner` (dono do cache fica
-esse usuário — ver [RUNNER_SETUP.md](RUNNER_SETUP.md), Fase 5) ou como o
+esse usuário; ver [RUNNER_SETUP.md](RUNNER_SETUP.md), Fase 5) ou como o
 próprio usuário `runner` (dono fica `runner:runner`, igual ao cache do GCC
-`riscv32-elf`) — rodar como `runner` é o recomendado, pra manter o dono
+`riscv32-elf`): rodar como `runner` é o recomendado, pra manter o dono
 consistente entre os dois caches. Precisa rodar a partir de algum checkout
-do repositório que `runner` consiga ler — o home de um usuário comum
+do repositório que `runner` consiga ler: o home de um usuário comum
 normalmente não serve, já que `runner` não consegue atravessar um `/home/*`
 com permissão `750` sem estar no grupo dono dele.
 
 O `actions/checkout` de um job do GitHub Actions cria automaticamente um
 checkout em `/opt/actions-runner/_work/<repo>/<repo>` (substitua `<repo>`
-pelo nome do repositório) — mas só depois que **algum job já rodou** nesse
-runner para esse repositório; num runner recém-configurado, esse diretório
+pelo nome do repositório), mas só depois que **algum job já rodou** nesse
+runner para esse repositório: num runner recém-configurado, esse diretório
 ainda não existe. Confira antes de usá-lo:
 
 ```bash
@@ -88,7 +89,7 @@ sudo -u runner HOME=/opt/actions-runner bash -lc '
 '
 ```
 
-Se ainda não existir (nenhum job rodou nesse runner ainda), ou clona um
+Se ainda não existir (nenhum job rodou nesse runner ainda), clona um
 checkout à parte que `runner` já é dono por construção:
 ```bash
 sudo -u runner HOME=/opt/actions-runner bash -lc '
@@ -109,17 +110,17 @@ error: Failed to initialize cache at `/home/runner/.cache/uv`
 Passar `HOME=` explícito contorna isso independente da conta estar
 corrigida ou não, e não tem efeito colateral se já estiver certa.
 
-- `golden_generator.setup()`
-  ([`riscv_tools/golden_generator/setup.py`](https://github.com/insper-riscv/Tools/blob/main/src/riscv_tools/golden_generator/setup.py),
-  no repo `insper-riscv/Tools`) clona `riscv-isa-sim` direto em
-  `RISCV_ISA_SIM_DIR` (não precisa inicializar nenhum submódulo local pra
-  isso), faz checkout do commit pinado, e roda `configure && make -j$(nproc)`.
-- Não é rápido — compilação real de C++.
+- O comando acima clona `riscv-isa-sim` direto em `RISCV_ISA_SIM_DIR` (não
+  precisa inicializar nenhum submódulo local pra isso), faz checkout do
+  commit fixado que o projeto usa, e roda `configure && make -j$(nproc)`.
+  Implementação: [riscv_tools/golden_generator/setup.py](https://github.com/insper-riscv/Tools/blob/main/src/riscv_tools/golden_generator/setup.py),
+  repo `insper-riscv/Tools`.
+- Não é rápido: compilação real de C++.
 - O workflow de hardware real do projeto que consome esse runner
   (exemplo: `real.yml` em
   [insper-riscv/Testes](https://github.com/insper-riscv/Testes)) tipicamente
   usa o mesmo `RISCV_ISA_SIM_DIR=/opt/riscv-foundation/riscv-isa-sim`, então
-  o binário compilado aqui é reaproveitado pelo CI também — não precisa
+  o binário compilado aqui é reaproveitado pelo CI também; não precisa
   compilar de novo lá.
 
 Verificar depois:
@@ -139,10 +140,10 @@ echo 'export PATH="$PATH:/opt/riscv-foundation/riscv32-elf/bin"' | \
 sudo chmod +x /etc/profile.d/riscv-foundation.sh
 ```
 
-**Isso só ajuda terminais interativos/login** — `/etc/profile.d/` nunca é
+**Isso só ajuda terminais interativos/login**: `/etc/profile.d/` nunca é
 lido por shells não-interativos (automação, scripts chamados via `bash -c`,
 o `systemd` do `runner`). Rodar `riscv-tools` manualmente por fora de um
-terminal de verdade — inclusive por ferramentas de automação/IA — continua
+terminal de verdade (inclusive por ferramentas de automação/IA) continua
 exigindo o `export PATH=...` explícito documentado no passo 3 acima; é a
 mesma razão pela qual o workflow do projeto tipicamente seta `$GITHUB_PATH`
 em vez de confiar no `profile.d` (ver [RUNNER_SETUP.md](RUNNER_SETUP.md),
