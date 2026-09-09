@@ -51,8 +51,8 @@ Uso os dois pacotes específicos do Boost (o mesmo conjunto mínimo que
 [documentação do pacote `riscv-tools`](https://github.com/insper-riscv/Tools/blob/main/docs/generating-a-golden.md),
 com o mesmo resultado mas sem puxar a suíte Boost inteira.
 
-**Conferido contra o [README oficial do Spike](https://github.com/riscv-software-src/riscv-isa-sim)**
-(via GitHub, sem clonar o repo inteiro): ele pede exatamente
+**Conferido contra o [README oficial do Spike](https://github.com/riscv-software-src/riscv-isa-sim)**:
+ele pede exatamente
 `device-tree-compiler`/`libboost-regex-dev`/`libboost-system-dev` pra
 configurar/compilar; `git` é exigido à parte, pelo próprio passo de clone
 (seção 3), não pelo `configure`/`make` do Spike em si.
