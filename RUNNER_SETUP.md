@@ -33,8 +33,7 @@ sudo usermod -aG plugdev runner    # acesso ao USB-Blaster (defesa em profundida
 ```
 
 - `-r` → UID/GID na faixa de sistema (normalmente abaixo de `1000`), escolhidos
-  automaticamente entre os que já estão livres nesta máquina; o número exato
-  varia de máquina pra máquina.
+  automaticamente entre os que já estão livres na máquina onde o comando roda.
 - `-m -d /opt/actions-runner` → cria o home já no lugar certo, dono `runner:runner`.
 - `-s /usr/sbin/nologin` → proposital: `runner` não deveria ter shell
   interativo de login algum, o que reduz a superfície de ataque de uma
