@@ -142,14 +142,25 @@ sudo systemctl status gh-actions-runner --no-pager   # deve mostrar "active (run
 
 ## Fase 4: PATH do Quartus dentro do workflow
 
+Diferente das outras fases, isto não é uma configuração da máquina que se
+faz uma vez: é uma linha que precisa estar em cada workflow YAML (e em cada
+job desse workflow, se houver mais de um) que for rodar Quartus.
+
 O `/etc/profile.d/quartus.sh` ([QUARTUS_INSTALL.md](QUARTUS_INSTALL.md), passo 5) resolve o `PATH` pra
 **shells interativos/login**: ou seja, qualquer usuário abrindo um terminal
 normal já tem `quartus`/`quartus_pgm`/`jtagconfig` disponíveis.
 
 Isso **não** cobre o `runner`: o serviço roda via `systemd` (Fase 3), que não
 passa por `/etc/profile` nem por nenhum shell de login. O processo herda só o
-ambiente que o `systemd` monta pra unit, sem sourcing de rc files, então o
-workflow precisa adicionar o caminho manualmente ao `$GITHUB_PATH`:
+ambiente que o `systemd` monta pra unit, sem sourcing de rc files.
+
+`$GITHUB_PATH` não é uma variável de ambiente do sistema operacional: é um
+arquivo temporário que o próprio processo do runner (`Runner.Worker`,
+rodando como `runner`) recria do zero em cada execução de job, e cujo
+conteúdo só vale pros steps daquele job específico. Um reboot da máquina não
+tem nenhum efeito sobre ele, porque ele nunca é uma configuração
+persistente: cada job novo começa sem nada nele, e por isso o workflow
+precisa adicionar o caminho de novo a cada vez:
 
 ```yaml
 run: echo "/opt/altera_lite/25.1std/quartus/bin" >> "$GITHUB_PATH"
