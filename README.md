@@ -33,12 +33,6 @@ tem como rodar os testes de hardware real do `Testes`; sem o Spike
 referência. As três docs juntas são a base da qual `RV32IM`, `Testes` e
 `Tools` dependem pra funcionar como pretendido.
 
-Ainda assim, a documentação em si é escrita de forma reutilizável, não
-amarrada a uma máquina específica nem a um repositório dono: não é log de
-status de uma máquina, e onde um doc cita um projeto real como exemplo
-(ex: `insper-riscv/Testes`), é ilustração de como um consumidor atual usa a
-infra, não faz esse doc pertencer àquele repo.
-
 ---
 
 Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).
