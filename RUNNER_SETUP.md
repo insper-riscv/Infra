@@ -188,10 +188,6 @@ nenhum privilégio além do acesso a `/opt/riscv-foundation`:
 sudo usermod -aG runner <usuario>
 ```
 
-É a direção oposta (`runner` no grupo de outro usuário) que teria que ser
-evitada: isso sim daria ao `runner` acesso a tudo que aquele usuário tem,
-não só ao cache.
-
 **Nota**: mudança de grupo só vale numa sessão de shell nova. Pra usar na sessão
 atual sem deslogar: `sg runner -c "<comando>"`.
 
@@ -201,6 +197,11 @@ runner, exemplo [insper-riscv/Testes](https://github.com/insper-riscv/Testes),
 pro padrão exato usado com o GCC).
 
 ## Fase 6: Secret pra confirmar acionamento manual
+
+Diferente das outras fases, isto se configura por repositório nas
+configurações do GitHub, não na máquina: precisa ser repetido em cada repo
+que usar esse runner pra hardware real, e é opcional dependendo do modelo
+de confiança do time.
 
 Além do controle de acesso do repo (Fase 2), um segundo portão pra disparo manual
 via `workflow_dispatch`: útil se algum dia mais gente tiver acesso de escrita ao
