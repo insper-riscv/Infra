@@ -40,14 +40,9 @@ sudo usermod -aG plugdev runner    # acesso ao USB-Blaster (defesa em profundida
   conta de serviço sem perda de funcionalidade. Detalhes de quais comandos
   isso afeta logo abaixo.
 
-**O `nologin` quebra qualquer comando que force o shell de login
-registrado**: `sudo -iu runner ...` (a flag `-i`, "simular login") ou
-`sudo su - runner` sem `-s` tentam executar `nologin` como o shell em si,
-que recusa e sai sem rodar nada. Prefira sempre `sudo -u runner bash -lc
-'...'` (sem `-i`), que passa `bash` diretamente e nunca consulta o shell
-registrado; é o padrão usado em todos os comandos deste guia. Pra um
-shell interativo de depuração pontual, force explicitamente: `sudo su -s
-/bin/bash - runner`.
+Por causa do `nologin`, `sudo -iu runner ...` e `sudo su - runner` falham:
+todos os comandos deste guia usam `sudo -u runner bash -lc '...'` (sem
+`-i`) em vez disso.
 
 **Confira depois que a conta bateu certo**: é comum o `/etc/passwd` acabar
 registrando `HOME=/home/runner` (diretório que nunca existiu) em vez de
