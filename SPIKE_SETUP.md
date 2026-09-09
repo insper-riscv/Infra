@@ -92,7 +92,9 @@ sudo -u runner HOME=/opt/actions-runner bash -lc '
 ```
 
 Se ainda não existir (nenhum job rodou nesse runner ainda), clona um
-checkout à parte que `runner` já é dono por construção:
+checkout à parte que `runner` já é dono por construção (substitua
+`<url-do-repo>` pela URL de clone do repositório, ex:
+`git@github.com:<org>/<repo>.git`):
 ```bash
 sudo -u runner HOME=/opt/actions-runner bash -lc '
   git clone --recurse-submodules <url-do-repo> /opt/actions-runner/tmp-checkout
