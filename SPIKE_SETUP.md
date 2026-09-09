@@ -80,6 +80,13 @@ consiga ler: o home de um usuário comum normalmente não serve, já que
 `runner` não consegue atravessar um `/home/*` com permissão `750` sem
 estar no grupo dono dele.
 
+Essa exigência vale só pra rodar esse `setup()` (o passo de bootstrap que
+compila o Spike a primeira vez, ou depois de uma atualização de versão).
+Uma vez que `/opt/riscv-foundation/riscv-isa-sim/build/spike` já existe, é
+um binário comum: qualquer processo pode chamá-lo direto, de qualquer
+repositório, sem precisar de `riscv-tools` nem de nenhuma dependência do
+`Testes`.
+
 O `actions/checkout` de um job do GitHub Actions cria automaticamente um
 checkout em `/opt/actions-runner/_work/<repo>/<repo>` (substitua `<repo>`
 pelo nome do repositório), mas só depois que **algum job já rodou** nesse
