@@ -106,14 +106,17 @@ sudo -u runner HOME=/opt/actions-runner bash -lc '
 ```
 
 Se ainda não existir (nenhum job rodou nesse runner ainda), clona um
-checkout à parte que `runner` já é dono por construção (substitua
-`<url-do-repo>` pela URL de clone do repositório, ex:
-`git@github.com:<org>/<repo>.git`):
+checkout à parte que `runner` já é dono por construção, só pra ter
+`riscv-tools` importável, e apaga em seguida (substitua `<url-do-repo>`
+pela URL de clone do repositório, ex: `git@github.com:<org>/<repo>.git`):
 ```bash
 sudo -u runner HOME=/opt/actions-runner bash -lc '
-  git clone --recurse-submodules <url-do-repo> /opt/actions-runner/tmp-checkout
+  git clone <url-do-repo> /opt/actions-runner/tmp-checkout
+  git -C /opt/actions-runner/tmp-checkout submodule update --init tools/Tools
   cd /opt/actions-runner/tmp-checkout
   RISCV_ISA_SIM_DIR=/opt/riscv-foundation/riscv-isa-sim uv run python -c "from riscv_tools import golden_generator; golden_generator.setup()"
+  cd /
+  rm -rf /opt/actions-runner/tmp-checkout
 '
 ```
 
