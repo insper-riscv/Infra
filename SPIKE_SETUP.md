@@ -68,10 +68,17 @@ Dá pra rodar como qualquer usuário no grupo `runner` (dono do cache fica
 esse usuário; ver [RUNNER_SETUP.md](RUNNER_SETUP.md), Fase 5) ou como o
 próprio usuário `runner` (dono fica `runner:runner`, igual ao cache do GCC
 `riscv32-elf`): rodar como `runner` é o recomendado, pra manter o dono
-consistente entre os dois caches. Precisa rodar a partir de algum checkout
-do repositório que `runner` consiga ler: o home de um usuário comum
-normalmente não serve, já que `runner` não consegue atravessar um `/home/*`
-com permissão `750` sem estar no grupo dono dele.
+consistente entre os dois caches.
+
+O comando abaixo importa `golden_generator` do pacote `riscv-tools`, então
+só funciona dentro de um checkout de um repositório que declare
+`riscv-tools` como dependência (hoje, o único exemplo na org é
+[insper-riscv/Testes](https://github.com/insper-riscv/Testes); um checkout
+de outro repositório qualquer não tem esse pacote instalado e falha com
+`ModuleNotFoundError`). Precisa também ser um checkout que `runner`
+consiga ler: o home de um usuário comum normalmente não serve, já que
+`runner` não consegue atravessar um `/home/*` com permissão `750` sem
+estar no grupo dono dele.
 
 O `actions/checkout` de um job do GitHub Actions cria automaticamente um
 checkout em `/opt/actions-runner/_work/<repo>/<repo>` (substitua `<repo>`
