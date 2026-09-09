@@ -242,3 +242,7 @@ documentado em
 - [ ] `jtagconfig` lê o device ID da placa sem erro
 - [ ] `cat /sys/bus/usb/devices/usb1/power/control` → `on` (ajuste o nome do hub)
 - [ ] Secret de confirmação manual configurado, se aplicável
+
+---
+
+Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).

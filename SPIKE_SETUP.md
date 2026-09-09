@@ -169,3 +169,7 @@ exigindo o `export PATH=...` explícito documentado no passo 3 acima; é a
 mesma razão pela qual o workflow do projeto tipicamente seta `$GITHUB_PATH`
 em vez de confiar no `profile.d` (ver [RUNNER_SETUP.md](RUNNER_SETUP.md),
 Fase 4).
+
+---
+
+Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).

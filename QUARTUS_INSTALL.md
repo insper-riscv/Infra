@@ -84,3 +84,7 @@ Precisa estar em `/usr/share/applications/`, não em
 ```bash
 desktop-file-validate /usr/share/applications/quartus-lite.desktop
 ```
+
+---
+
+Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).
