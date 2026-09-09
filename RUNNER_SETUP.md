@@ -1,11 +1,11 @@
 # Configurando um runner self-hosted (guia passo a passo)
 
-Guia genérico pra configurar um runner self-hosted do GitHub Actions numa
-workstation com acesso a hardware FPGA (Quartus + JTAG). `/opt` em si é
-padrão do FHS (Filesystem Hierarchy Standard) pra software instalado
-manualmente/add-on, fora do gerenciador de pacotes da distro; os nomes das
-subpastas abaixo dele (`actions-runner`, `altera_lite`, `riscv-foundation`)
-são uma convenção sugerida. Ajuste conforme o setup da sua máquina.
+Cobre uma workstation com acesso a hardware FPGA (Quartus + JTAG). `/opt`
+em si é padrão do FHS (Filesystem Hierarchy Standard) pra software
+instalado manualmente/add-on, fora do gerenciador de pacotes da distro; os
+nomes das subpastas abaixo dele (`actions-runner`, `altera_lite`,
+`riscv-foundation`) são uma convenção sugerida. Ajuste conforme o setup da
+sua máquina.
 
 ## Visão geral
 
@@ -35,11 +35,9 @@ sudo usermod -aG plugdev runner    # acesso ao USB-Blaster (defesa em profundida
 - `-r` → UID/GID na faixa de sistema (aqui: `999`/`998`).
 - `-m -d /opt/actions-runner` → cria o home já no lugar certo, dono `runner:runner`.
 - `-s /usr/sbin/nologin` → proposital: `runner` não deveria ter shell
-  interativo de login algum. Todo acesso é via `sudo -u runner`/`systemd`,
-  nunca login direto, o que reduz a superfície de ataque de uma conta de
-  serviço sem nenhuma perda de funcionalidade (nem o `systemd`, nem `sudo -u
-  runner bash -lc '...'`, que passa `bash` explicitamente, consultam o shell
-  registrado).
+  interativo de login algum, o que reduz a superfície de ataque de uma
+  conta de serviço sem perda de funcionalidade. Detalhes de quais comandos
+  isso afeta logo abaixo.
 
 **O `nologin` quebra qualquer comando que force o shell de login
 registrado**: `sudo -iu runner ...` (a flag `-i`, "simular login") ou

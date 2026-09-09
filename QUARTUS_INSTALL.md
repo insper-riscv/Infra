@@ -43,9 +43,7 @@ sudo /opt/altera_lite/qinst.sh --cli   # --help pra ver as opções
 
 Binários em `/opt/altera_lite/25.1std/quartus/bin/`, dono `root:root`,
 permissão `755`/`555` (leitura+execução pra todo mundo, escrita só pro
-root): é isso que garante que qualquer usuário do sistema (incluindo o
-usuário de serviço `runner`) consiga rodar o Quartus sem precisar estar em
-nenhum grupo especial.
+root).
 
 ## 5. PATH para usuários interativos
 
