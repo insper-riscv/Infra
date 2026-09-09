@@ -26,14 +26,12 @@ workstation nova é:
 
 ## Escopo
 
-Não é infraestrutura opcional pros repos de RISC-V/FPGA da organização: sem
-o Quartus (`QUARTUS_INSTALL.md`), não tem como sintetizar nem programar o
-hardware que o `RV32IM` implementa; sem o runner (`RUNNER_SETUP.md`), não
+Sem o Quartus (`QUARTUS_INSTALL.md`), não tem como sintetizar nem programar
+o hardware que o `RV32IM` implementa; sem o runner (`RUNNER_SETUP.md`), não
 tem como rodar os testes de hardware real do `Testes`; sem o Spike
 (`SPIKE_SETUP.md`), os testes de memória do `Testes` não têm golden de
 referência. As três docs juntas são a base da qual `RV32IM`, `Testes` e
-`Tools` dependem pra funcionar como pretendido, não uma conveniência
-genérica que algum repo talvez venha a usar.
+`Tools` dependem pra funcionar como pretendido.
 
 Ainda assim, a documentação em si é escrita de forma reutilizável, não
 amarrada a uma máquina específica nem a um repositório dono: não é log de
