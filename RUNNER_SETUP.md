@@ -1,9 +1,11 @@
 # Configurando um runner self-hosted (guia passo a passo)
 
 Guia genérico pra configurar um runner self-hosted do GitHub Actions numa
-workstation com acesso a hardware FPGA (Quartus + JTAG). Os caminhos abaixo
-(`/opt/actions-runner`, `/opt/altera_lite`, `/opt/riscv-foundation`) são uma
-convenção sugerida — ajuste conforme o setup da sua máquina.
+workstation com acesso a hardware FPGA (Quartus + JTAG). `/opt` em si é
+padrão do FHS (Filesystem Hierarchy Standard) pra software instalado
+manualmente/add-on, fora do gerenciador de pacotes da distro — os nomes das
+subpastas abaixo dele (`actions-runner`, `altera_lite`, `riscv-foundation`)
+é que são uma convenção sugerida — ajuste conforme o setup da sua máquina.
 
 ## Visão geral
 
