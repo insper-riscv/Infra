@@ -180,9 +180,11 @@ sudo chown runner:runner /opt/riscv-foundation
 sudo chmod 2775 /opt/riscv-foundation   # setgid: arquivos novos herdam o grupo "runner"
 ```
 
-Pra outro usuário (não precisa ser admin) também poder escrever nesse cache
-sem `sudo` toda vez, basta colocar ele no grupo `runner`: isso não dá
-nenhum privilégio além do acesso a `/opt/riscv-foundation`:
+Pra outro usuário (não precisa ser admin) também poder criar arquivos
+nesse cache sem `sudo` toda vez, basta colocar ele no grupo `runner`: isso
+não dá nenhum privilégio além do acesso a `/opt/riscv-foundation`, e não
+garante escrita em arquivos que já existam com dono/permissão diferentes
+(depende do modo de cada arquivo individual):
 
 ```bash
 sudo usermod -aG runner <usuario>
