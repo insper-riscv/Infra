@@ -232,7 +232,7 @@ Pegadinhas de hardware JTAG (porta USB mudando de número, autosuspend
 derrubando a conexão, "chain broken" que só resolve com power-cycle) são
 comportamento do hardware em si, não conteúdo de setup do runner: exemplo
 documentado em
-[HARDWARE_PROGRAMMING.md do insper-riscv/Testes](https://github.com/insper-riscv/Testes/blob/main/HARDWARE_PROGRAMMING.md).
+[HARDWARE_PROGRAMMING.md do insper-riscv/Testes](https://github.com/insper-riscv/Testes/blob/main/docs/HARDWARE_PROGRAMMING.md).
 
 ## Checklist final
 
