@@ -36,8 +36,8 @@ rm /tmp/uv-install.sh
   inspecionar antes de rodar como root.
 - O instalador baixa um binário pré-compilado (não compila nada) e confere
   o SHA256 contra um hash fixo no próprio script antes de instalar.
-- `UV_NO_MODIFY_PATH=1`: não precisa mexer em `~/.bashrc` de ninguém, já que
-  `/usr/local/bin` já está no `PATH`.
+- `UV_NO_MODIFY_PATH=1`: não é necessário alterar o `~/.bashrc` de ninguém,
+  já que `/usr/local/bin` já está no `PATH`.
 
 Verificar:
 ```bash

@@ -44,15 +44,16 @@ Por causa do `nologin`, `sudo -iu runner ...` e `sudo su - runner` falham:
 todos os comandos deste guia usam `sudo -u runner bash -lc '...'` (sem
 `-i`) em vez disso.
 
-**Confira depois que a conta bateu certo**: o `-d` acima só garante o
-`HOME` certo até a próxima vez que alguém mexer na conta. Um `usermod`
-posterior sem `-d`, ou a conta recriada por outro caminho, pode deixar o
-`/etc/passwd` registrando `HOME=/home/runner` (diretório que nunca
-existiu) em vez de `/opt/actions-runner`, o que quebra silenciosamente
+**Verifique, posteriormente, se a conta ficou configurada corretamente**:
+o `-d` acima só garante o `HOME` certo no momento da criação. Se a conta
+`runner` for recriada depois por outro caminho (outro script de
+provisionamento, ou um `useradd runner` repetido sem quem o rodar saber
+dessa convenção), o `/etc/passwd` passa a registrar `HOME=/home/runner`
+(diretório que nunca existiu) em vez de `/opt/actions-runner`, o que
+quebra silenciosamente
 qualquer ferramenta que dependa de `$HOME` quando rodada manualmente via
 `sudo -u runner`: por exemplo, o `uv` (ver [SPIKE_SETUP.md](SPIKE_SETUP.md))
-falha com `Failed to initialize cache at /home/runner/.cache/uv: Permission
-denied` porque tenta criar cache num diretório inexistente/sem dono certo.
+falha com `Failed to initialize cache at /home/runner/.cache/uv: Permission denied` porque tenta criar cache num diretório inexistente/sem dono certo.
 
 Verificar:
 ```bash
@@ -100,16 +101,19 @@ caiu → **Repository access → Selected repositories → só os repos que prec
 mesmo tocar hardware**. Sem isso, qualquer repo público da org alcança essa
 máquina através do mesmo runner.
 
-**O grupo tem que se chamar `FPGA`** (não o default "Default", nem qualquer outro
-nome tipo "Workstation - FPGA"): é esse o grupo que os workflows deste projeto
-esperam poder alcançar. Durante o registro interativo (`config.sh` sem
-`--runnergroup`), o CLI pergunta em qual grupo colocar o runner; escolha/crie o
-grupo `FPGA` ali. Se o runner já foi registrado num grupo errado, mova-o depois em
-Org Settings → Actions → Runner groups → `FPGA` → **Runners → Add runner** (ou
-mude o grupo do runner existente pela própria página do grupo). Um runner no
-grupo errado não dá erro claro; o job de um workflow que precisa dele
-simplesmente fica preso em "Queued" para sempre, sem nenhuma mensagem explicando
-por quê.
+**O grupo tem que se chamar `FPGA`** (não o default "Default", nem
+qualquer outro nome como "Workstation - FPGA"): é esse o grupo que os
+workflows deste projeto esperam poder alcançar.
+
+- **No registro** (`config.sh` sem `--runnergroup`): o CLI pergunta em
+  qual grupo colocar o runner; escolha ou crie o grupo `FPGA` ali.
+- **Se o runner já foi registrado num grupo errado**: mova-o em Org
+  Settings → Actions → Runner groups → `FPGA` → **Runners → Add runner**,
+  ou mude o grupo dele pela própria página do grupo em que está.
+
+Um runner no grupo errado não dá erro claro: o job de um workflow que
+precisa dele simplesmente fica preso em "Queued" para sempre, sem nenhuma
+mensagem explicando por quê.
 
 ## Fase 3: Serviço systemd (autorun, sobrevive a reboot)
 
@@ -164,7 +168,7 @@ sudo usermod -aG runner <usuario>
 **Nota**: mudança de grupo só vale numa sessão de shell nova. Para usar na sessão
 atual sem deslogar: `sg runner -c "<comando>"`.
 
-## Fase 5: Secret para confirmar acionamento manual
+## Fase 5 (opcional, no GitHub): Secret para confirmar acionamento manual
 
 Diferente das outras fases, isto se configura por repositório nas
 configurações do GitHub, não na máquina: precisa ser repetido em cada repo
