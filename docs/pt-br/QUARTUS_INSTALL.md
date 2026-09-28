@@ -45,18 +45,21 @@ Binários em `/opt/altera_lite/25.1std/quartus/bin/`, dono `root:root`,
 permissão `755`/`555` (leitura+execução pra todo mundo, escrita só pro
 root).
 
-## 5. PATH para usuários interativos
+## 5. PATH global
+
+Adiciona os binários do Quartus (`quartus`, `quartus_pgm`, `jtagconfig`,
+etc.) ao `PATH` global, symlinkando pra `/usr/local/bin`:
 
 ```bash
-echo 'export PATH="$PATH:/opt/altera_lite/25.1std/quartus/bin"' | \
-  sudo tee /etc/profile.d/quartus.sh
-sudo chmod +x /etc/profile.d/quartus.sh
+for f in /opt/altera_lite/25.1std/quartus/bin/*; do
+  sudo ln -sf "$f" /usr/local/bin/
+done
 ```
 
-Isso resolve o `PATH` (`quartus`, `quartus_pgm`, `jtagconfig`, etc.) pra
-**qualquer shell interativo/login de qualquer usuário**. **Não** resolve pro
-`runner` rodando via `systemd`; esse caso é tratado à parte, na Fase 4 do
-[RUNNER_SETUP.md](RUNNER_SETUP.md).
+Verificar:
+```bash
+which quartus
+```
 
 ## 6. (Opcional) Atalho `.desktop` global
 
@@ -87,4 +90,4 @@ desktop-file-validate /usr/share/applications/quartus-lite.desktop
 
 ---
 
-Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).
+Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](../../LICENSE).
