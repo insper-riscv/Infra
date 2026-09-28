@@ -1,7 +1,7 @@
 # Configurando um runner self-hosted (guia passo a passo)
 
 Cobre uma workstation com acesso a hardware FPGA (Quartus + JTAG). `/opt`
-em si é padrão do FHS (Filesystem Hierarchy Standard) pra software
+em si é padrão do FHS (Filesystem Hierarchy Standard) para software
 instalado manualmente/add-on, fora do gerenciador de pacotes da distro; os
 nomes das subpastas abaixo dele (`actions-runner`, `altera_lite`,
 `riscv-foundation`) são uma convenção sugerida. Ajuste conforme o setup da
@@ -12,7 +12,7 @@ sua máquina.
 ```
 /opt/actions-runner/      home do usuário de serviço "runner" (o runner do GitHub Actions em si)
 /opt/altera_lite/         instalação real do Quartus, direto em /opt (pré-requisito, ver QUARTUS_INSTALL.md)
-/opt/riscv-foundation/    cache compartilhado do que é compilado localmente pra RISC-V (GCC, Spike)
+/opt/riscv-foundation/    cache compartilhado do que é compilado localmente para RISC-V (GCC, Spike)
 ```
 
 ## Pré-requisito: Instalar o Quartus Prime Lite
@@ -92,7 +92,7 @@ sudo -u runner HOME=/opt/actions-runner bash -lc '
 ### Segurança: runner de nível de organização
 
 Se o runner for registrado na ORG (não num repo específico), ele fica disponível
-pra **qualquer repo** que o *runner group* dele permitir: por padrão isso costuma
+para **qualquer repo** que o *runner group* dele permitir: por padrão isso costuma
 ser "All repositories", o que expõe essa máquina a repos públicos da mesma org.
 
 **Obrigatório**: Org Settings → Actions → Runner groups → grupo onde esse runner
@@ -108,7 +108,7 @@ grupo `FPGA` ali. Se o runner já foi registrado num grupo errado, mova-o depois
 Org Settings → Actions → Runner groups → `FPGA` → **Runners → Add runner** (ou
 mude o grupo do runner existente pela própria página do grupo). Um runner no
 grupo errado não dá erro claro; o job de um workflow que precisa dele
-simplesmente fica preso em "Queued" pra sempre, sem nenhuma mensagem explicando
+simplesmente fica preso em "Queued" para sempre, sem nenhuma mensagem explicando
 por quê.
 
 ## Fase 3: Serviço systemd (autorun, sobrevive a reboot)
@@ -140,7 +140,7 @@ sudo systemctl enable --now gh-actions-runner
 sudo systemctl status gh-actions-runner --no-pager   # deve mostrar "active (running)"
 ```
 
-## Fase 4: Cache compartilhado pra GCC e Spike (`/opt/riscv-foundation`)
+## Fase 4: Cache compartilhado para GCC e Spike (`/opt/riscv-foundation`)
 
 Sem esse cache, cada bateria de testes que o runner rodasse teria que
 recompilar o GCC RISC-V e o Spike do zero antes mesmo de começar; com o
@@ -151,7 +151,7 @@ no `PATH` global são passos específicos de cada toolchain:
 - GCC RISC-V: [GCC_SETUP.md](GCC_SETUP.md).
 - Spike: [SPIKE_SETUP.md](SPIKE_SETUP.md).
 
-Pra outro usuário (não precisa ser admin) também poder criar arquivos
+Para outro usuário (não precisa ser admin) também poder criar arquivos
 nesse cache sem `sudo` toda vez, basta colocar ele no grupo `runner`: isso
 não dá nenhum privilégio além do acesso a `/opt/riscv-foundation`, e não
 garante escrita em arquivos que já existam com dono/permissão diferentes
@@ -161,17 +161,17 @@ garante escrita em arquivos que já existam com dono/permissão diferentes
 sudo usermod -aG runner <usuario>
 ```
 
-**Nota**: mudança de grupo só vale numa sessão de shell nova. Pra usar na sessão
+**Nota**: mudança de grupo só vale numa sessão de shell nova. Para usar na sessão
 atual sem deslogar: `sg runner -c "<comando>"`.
 
-## Fase 5: Secret pra confirmar acionamento manual
+## Fase 5: Secret para confirmar acionamento manual
 
 Diferente das outras fases, isto se configura por repositório nas
 configurações do GitHub, não na máquina: precisa ser repetido em cada repo
-que usar esse runner pra hardware real, e é opcional dependendo do modelo
+que usar esse runner para hardware real, e é opcional dependendo do modelo
 de confiança do time.
 
-Além do controle de acesso do repo (Fase 2), um segundo portão pra disparo manual
+Além do controle de acesso do repo (Fase 2), um segundo portão para disparo manual
 via `workflow_dispatch`: útil se algum dia mais gente tiver acesso de escrita ao
 repo sem dever poder acionar hardware físico.
 
@@ -180,13 +180,13 @@ repo sem dever poder acionar hardware físico.
 - No workflow, um `workflow_dispatch.inputs.confirm` comparado contra esse secret
   antes de qualquer passo que toque a placa (ver `real.yml` do projeto).
 
-## Fase 6: Permissão pro runner resetar o JTAG
+## Fase 6: Permissão para o runner resetar o JTAG
 
 O workflow de hardware real do projeto (exemplo: `real.yml` em
 [insper-riscv/Testes](https://github.com/insper-riscv/Testes)) tipicamente
 checa `jtagconfig` antes de compilar e, se a chain estiver presa, tenta um
 `killall jtagd` com recheck automático antes de falhar com uma mensagem clara
-pedindo intervenção manual. Isso precisa de sudo sem senha só pra esse
+pedindo intervenção manual. Isso precisa de sudo sem senha só para esse
 comando exato:
 
 ```bash

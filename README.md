@@ -4,7 +4,7 @@
 
 Documentação dos requisitos e de como instalar/configurar a infraestrutura
 da organização (workstations com hardware FPGA, runners self-hosted do
-GitHub Actions, ferramentas compartilhadas), feita pra distros Debian-like
+GitHub Actions, ferramentas compartilhadas), feita para distros Debian-like
 (`apt`) e RHEL-like (`dnf`/`yum`).
 
 ## Docs
@@ -21,7 +21,7 @@ GitHub Actions, ferramentas compartilhadas), feita pra distros Debian-like
 
 ## Ordem sugerida
 
-Cada doc já linka seus próprios pré-requisitos, mas a ordem natural pra uma
+Cada doc já linka seus próprios pré-requisitos, mas a ordem natural para uma
 workstation nova é:
 
 1. [QUARTUS_INSTALL.md](docs/pt-br/QUARTUS_INSTALL.md)
@@ -39,15 +39,15 @@ workstation nova é:
   JTAG). Sem ele, não tem como rodar os testes de hardware real do
   `Testes`.
 - **[GCC_SETUP.md](docs/pt-br/GCC_SETUP.md)**: compila o GCC RISC-V
-  (binutils, compilador, picolibc, gdb) pro alvo `rv32im`. Sem ele, não
+  (binutils, compilador, picolibc, gdb) para o alvo `rv32im`. Sem ele, não
   tem como compilar os programas de teste em C que o `Testes` e o `Tools`
   usam.
 - **[SPIKE_SETUP.md](docs/pt-br/SPIKE_SETUP.md)**: compila o Spike, o
   simulador de referência RISC-V. Sem ele, os testes de memória do
-  `Testes` não têm golden de referência pra comparar.
+  `Testes` não têm golden de referência para comparar.
 
 Esses docs juntos são a base da qual `RV32IM`, `Testes` e `Tools` dependem
-pra funcionar como pretendido.
+para funcionar como pretendido.
 
 ---
 

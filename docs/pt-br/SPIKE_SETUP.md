@@ -20,8 +20,8 @@ bibliotecas:
 
 ### 1.1. Instalar o `uv` globalmente
 
-Via o instalador oficial (`https://astral.sh/uv/install.sh`), apontado pra
-`/usr/local/bin` em vez do padrão `~/.local/bin`: assim fica disponível pra
+Via o instalador oficial (`https://astral.sh/uv/install.sh`), apontado para
+`/usr/local/bin` em vez do padrão `~/.local/bin`: assim fica disponível para
 qualquer usuário da máquina, sem precisar de PATH extra (`/usr/local/bin` já
 está no `PATH` padrão de todo mundo).
 
@@ -32,7 +32,7 @@ sudo UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 /tmp/uv-install.sh
 rm /tmp/uv-install.sh
 ```
 
-- Baixa o script primeiro em vez de `curl | sudo sh` direto: dá pra
+- Baixa o script primeiro em vez de `curl | sudo sh` direto: dá para
   inspecionar antes de rodar como root.
 - O instalador baixa um binário pré-compilado (não compila nada) e confere
   o SHA256 contra um hash fixo no próprio script antes de instalar.
@@ -51,10 +51,10 @@ instalação: `/usr/local/bin` é do `root`):
 sudo uv self update
 ```
 
-### 1.2. Dependências pro build do Spike
+### 1.2. Dependências para o build do Spike
 
 O Spike é clonado e compilado a partir do código-fonte, não vem
-pré-compilado. Isso precisa de `git` pra buscar o código-fonte (não vem
+pré-compilado. Isso precisa de `git` para buscar o código-fonte (não vem
 instalado por padrão em toda distro/imagem mínima), e `./configure` do
 Spike **falha sem `device-tree-compiler`**; os pacotes do Boost evitam um
 `make` mais lento/com warnings.
@@ -79,8 +79,8 @@ equivalentes.
 sudo dnf install -y git dtc boost-devel boost-regex boost-system
 ```
 
-O README oficial do Spike só documenta a troca pra `yum` do pacote de
-`device-tree-compiler` (`dtc`); os pacotes do Boost não são citados lá pro
+O README oficial do Spike só documenta a troca para `yum` do pacote de
+`device-tree-compiler` (`dtc`); os pacotes do Boost não são citados lá para o
 `yum`/`dnf`, então `boost-devel` (headers) mais `boost-regex`/`boost-system`
 (bibliotecas) são os equivalentes RHEL dos pacotes `apt` acima.
 
@@ -98,9 +98,9 @@ rpm -q git dtc boost-devel boost-regex boost-system
 
 ## 2. Criar o diretório do cache e o código-fonte
 
-`/opt/riscv-foundation` é um diretório único de cache, pra que ninguém
+`/opt/riscv-foundation` é um diretório único de cache, para que ninguém
 precise manter uma cópia própria dos toolchains RISC-V grandes. `/opt` em si
-é padrão do FHS (Filesystem Hierarchy Standard) pra software instalado
+é padrão do FHS (Filesystem Hierarchy Standard) para software instalado
 manualmente/add-on, fora do gerenciador de pacotes da distro; o nome
 `riscv-foundation` da subpasta é uma convenção sugerida, ajuste conforme o
 setup da sua máquina. O Spike fica em `/opt/riscv-foundation/spike`, e o
@@ -131,7 +131,7 @@ sudo chmod 2775 /opt/riscv-foundation
 
 ### 2.2. Máquina de teste, sem o usuário `runner`
 
-Sem `runner` pra ser dono do diretório e sem outro processo concorrente
+Sem `runner` para ser dono do diretório e sem outro processo concorrente
 escrevendo nele, o esquema de grupo/setgid da seção 2.1 não tem o que
 resolver: como é um binário global, o build sempre roda via `sudo` (nunca
 como usuário comum), então o dono já sai `root:root` do próprio `mkdir`, sem
@@ -150,7 +150,7 @@ Este script e o da seção 3 rodam de acordo com o dono escolhido nas seções
 2.1/2.2:
 
 - **Workstation (seção 2.1)**: como o usuário `runner` (ou alguém do grupo
-  dele), pra que o dono do cache continue consistente:
+  dele), para que o dono do cache continue consistente:
   ```bash
   sudo -u runner bash -c '<script>'
   ```
@@ -163,7 +163,7 @@ Este script e o da seção 3 rodam de acordo com o dono escolhido nas seções
 O código-fonte fica em `/opt/riscv-foundation/riscv-isa-sim`, ao lado do
 `spike` do cache. Se `SRC_DIR` ainda não existir, o script clona o branch
 padrão do repositório; se já existir de uma execução anterior, dá um `pull`
-pra trazer os commits novos, sem precisar reclonar:
+para trazer os commits novos, sem precisar reclonar:
 
 ```bash
 set -euo pipefail
@@ -203,12 +203,12 @@ make install
 echo "$COMMIT" > "$CACHE_DIR/.tag"
 ```
 
-- `--prefix` aponta pro próprio cache: o `make` só compila; instalar os
+- `--prefix` aponta para o próprio cache: o `make` só compila; instalar os
   binários ali dentro exige rodar `make install` depois, como um segundo
   comando.
 - O build roda fora da árvore do source, em `/var/tmp`: isso permite
   reconfigurar/recompilar sem sujar o `SRC_DIR`; `/tmp` costuma ser tmpfs,
-  pequeno demais pra árvore de build.
+  pequeno demais para árvore de build.
 - O `.tag` é gravado por último: um build interrompido deixa o cache sem
   `.tag`, então a próxima execução recompila em vez de confiar num cache
   incompleto.
@@ -222,7 +222,7 @@ cat /opt/riscv-foundation/spike/.tag
 
 ## 5. PATH global
 
-Adiciona os binários do Spike ao `PATH` global, symlinkando pra
+Adiciona os binários do Spike ao `PATH` global, symlinkando para
 `/usr/local/bin`:
 
 ```bash
@@ -237,7 +237,7 @@ which spike
 ```
 
 Precisa rodar de novo só se uma versão nova adicionar um binário com nome
-novo; os já existentes continuam apontando pro mesmo caminho.
+novo; os já existentes continuam apontando para o mesmo caminho.
 
 ---
 

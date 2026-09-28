@@ -25,7 +25,7 @@ RHEL-like (`dnf`/`yum`). O build gera estes binários (todos com o prefixo
 | `gcov`, `gcov-dump`, `gcov-tool` | Cobertura de código |
 | `lto-dump` | Inspeciona informação de LTO dentro de um objeto |
 | `gdb` | Depurador: executa passo a passo, breakpoints, leitura de registrador e memória, contra um alvo remoto (simulador ou hardware via JTAG/debug module) |
-| `gdb-add-index` | Gera um índice de símbolos pro `gdb` carregar mais rápido |
+| `gdb-add-index` | Gera um índice de símbolos para o `gdb` carregar mais rápido |
 | `gstack` | Imprime o stack trace de um processo em execução, via `gdb` |
 | `run` | Único binário nativo do host (não RISC-V) da lista: roda um binário RISC-V compilado sob um simulador, repassando a I/O de semihosting da picolibc |
 | picolibc (`libc.a` + headers) | Biblioteca C para bare-metal, compilada para `rv32im`: cobre `printf`, `scanf`, `malloc` e `free` sem depender de um sistema operacional |
@@ -91,9 +91,9 @@ rpm -q autoconf automake curl git python3 libmpc-devel mpfr-devel gmp-devel \
 
 ## 2. Criar o diretório do cache e o código-fonte
 
-`/opt/riscv-foundation` é um diretório único de cache, pra que ninguém
+`/opt/riscv-foundation` é um diretório único de cache, para que ninguém
 precise manter uma cópia própria dos toolchains RISC-V grandes. `/opt` em si
-é padrão do FHS (Filesystem Hierarchy Standard) pra software instalado
+é padrão do FHS (Filesystem Hierarchy Standard) para software instalado
 manualmente/add-on, fora do gerenciador de pacotes da distro; o nome
 `riscv-foundation` da subpasta é uma convenção sugerida, ajuste conforme o
 setup da sua máquina. O GCC fica em `/opt/riscv-foundation/riscv32-elf`, e o
@@ -124,7 +124,7 @@ sudo chmod 2775 /opt/riscv-foundation
 
 ### 2.2. Máquina de teste, sem o usuário `runner`
 
-Sem `runner` pra ser dono do diretório e sem outro processo concorrente
+Sem `runner` para ser dono do diretório e sem outro processo concorrente
 escrevendo nele, o esquema de grupo/setgid da seção 2.1 não tem o que
 resolver: como é um binário global, o build sempre roda via `sudo` (nunca
 como usuário comum), então o dono já sai `root:root` do próprio `mkdir`, sem
@@ -143,7 +143,7 @@ Este script e o da seção 3 rodam de acordo com o dono escolhido nas seções
 2.1/2.2:
 
 - **Workstation (seção 2.1)**: como o usuário `runner` (ou alguém do grupo
-  dele), pra que o dono do cache continue consistente:
+  dele), para que o dono do cache continue consistente:
   ```bash
   sudo -u runner bash -c '<script>'
   ```
@@ -156,7 +156,7 @@ Este script e o da seção 3 rodam de acordo com o dono escolhido nas seções
 O código-fonte fica em `/opt/riscv-foundation/riscv-gnu-toolchain`, ao lado
 do `riscv32-elf` do cache. Se `SRC_DIR` ainda não existir, o script clona o
 branch padrão do repositório; se já existir de uma execução anterior, dá um
-`pull` pra trazer os commits novos, sem precisar reclonar:
+`pull` para trazer os commits novos, sem precisar reclonar:
 
 ```bash
 set -euo pipefail
@@ -172,7 +172,7 @@ git -C "$SRC_DIR" submodule update --init --recursive
 ```
 
 O clone inicial ocupa a maior parte dos cerca de 6,65 GB que o upstream cita
-pro repositório com submódulos, e fica em disco permanentemente em
+para o repositório com submódulos, e fica em disco permanentemente em
 `SRC_DIR` depois disso.
 
 ## 3. Compilar e instalar no cache
@@ -214,13 +214,13 @@ binutils, GCC (em dois estágios) e a picolibc para esse alvo, sem multilib.
 
 - O build roda fora da árvore do source, em `/var/tmp`: isso permite
   reconfigurar/recompilar sem sujar o `SRC_DIR`; `/tmp` costuma ser tmpfs,
-  pequeno demais pra árvore de build.
+  pequeno demais para árvore de build.
 - O `.tag` é gravado por último: um build interrompido deixa o cache sem
   `.tag`, então a próxima execução recompila em vez de confiar num cache
   incompleto.
 
 O build acrescenta a árvore de compilação, apagada ao final em `/var/tmp`.
-Levou por volta de dez minutos numa máquina com 22 núcleos. Pra adotar uma
+Levou por volta de dez minutos numa máquina com 22 núcleos. Para adotar uma
 release nova do riscv-gnu-toolchain, rode de novo os comandos das seções
 2.3 e 3.
 
@@ -250,7 +250,7 @@ As duas buscas não devem retornar nada: nem o Zicsr nem a extensão A
 
 ## 5. PATH global
 
-Adiciona os binários do GCC ao `PATH` global, symlinkando pra
+Adiciona os binários do GCC ao `PATH` global, symlinkando para
 `/usr/local/bin`:
 
 ```bash
@@ -265,7 +265,7 @@ which riscv32-unknown-elf-gcc
 ```
 
 Precisa rodar de novo só se uma release nova adicionar um binário com nome
-novo; os já existentes continuam apontando pro mesmo caminho.
+novo; os já existentes continuam apontando para o mesmo caminho.
 
 ---
 
