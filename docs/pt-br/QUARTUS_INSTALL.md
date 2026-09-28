@@ -1,7 +1,7 @@
 # Instalando o Quartus Prime Lite
 
 O Quartus precisa estar instalado direto em `/opt`, como um programa global
-(`/opt/altera_lite`, em vez do home de um usuário), pra ficar acessível a
+(`/opt/altera_lite`, em vez do home de um usuário), para ficar acessível a
 qualquer usuário/serviço da máquina sem precisar de grupo especial (por
 exemplo, o runner self-hosted descrito em [RUNNER_SETUP.md](RUNNER_SETUP.md)).
 Como o destino é `/opt`, que pertence ao `root`, a instalação precisa de
@@ -13,7 +13,7 @@ Quartus Prime Lite Edition, versão 25.1:
 [página de download](https://www.altera.com/downloads)
 
 O nome do arquivo muda a cada build (ex: `qinst-lite-linux-25.1std-1129.run`).
-Os comandos abaixo usam `qinst-lite-linux-*.run` pra não depender do número
+Os comandos abaixo usam `qinst-lite-linux-*.run` para não depender do número
 exato; confira o SHA1 publicado na página de download contra o arquivo
 baixado antes de instalar.
 
@@ -29,26 +29,26 @@ chmod +x qinst-lite-linux-*.run
 ```bash
 sudo ./qinst-lite-linux-*.run
 ```
-Na tela de destino, apontar pra `/opt/altera_lite`. Precisa de `sudo` porque
+Na tela de destino, apontar para `/opt/altera_lite`. Precisa de `sudo` porque
 `/opt` é do `root`; sem `sudo`, o instalador não consegue criar o diretório
 de destino.
 
 **Modo CLI** (sem display, ex: máquina headless/SSH):
 ```bash
 sudo ./qinst-lite-linux-*.run -- --target /opt/altera_lite
-sudo /opt/altera_lite/qinst.sh --cli   # --help pra ver as opções
+sudo /opt/altera_lite/qinst.sh --cli   # --help para ver as opções
 ```
 
 ## 4. Resultado esperado
 
 Binários em `/opt/altera_lite/25.1std/quartus/bin/`, dono `root:root`,
-permissão `755`/`555` (leitura+execução pra todo mundo, escrita só pro
+permissão `755`/`555` (leitura+execução para todo mundo, escrita só para o
 root).
 
 ## 5. PATH global
 
 Adiciona os binários do Quartus (`quartus`, `quartus_pgm`, `jtagconfig`,
-etc.) ao `PATH` global, symlinkando pra `/usr/local/bin`:
+etc.) ao `PATH` global, symlinkando para `/usr/local/bin`:
 
 ```bash
 for f in /opt/altera_lite/25.1std/quartus/bin/*; do
@@ -63,7 +63,7 @@ which quartus
 
 ## 6. (Opcional) Atalho `.desktop` global
 
-Pra o Quartus aparecer no menu de aplicativos de qualquer usuário:
+Para o Quartus aparecer no menu de aplicativos de qualquer usuário:
 
 ```bash
 sudo tee /usr/share/applications/quartus-lite.desktop <<'EOF'
@@ -81,7 +81,7 @@ sudo update-desktop-database /usr/share/applications
 ```
 
 Precisa estar em `/usr/share/applications/`, não em
-`~/.local/share/applications/` (que vale só pro usuário atual).
+`~/.local/share/applications/` (que vale só para o usuário atual).
 `desktop-file-validate` confere se o arquivo está sintaticamente correto:
 
 ```bash
