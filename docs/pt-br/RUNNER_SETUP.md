@@ -12,7 +12,7 @@ sua máquina.
 ```
 /opt/actions-runner/      home do usuário de serviço "runner" (o runner do GitHub Actions em si)
 /opt/altera_lite/         instalação real do Quartus, direto em /opt (pré-requisito, ver QUARTUS_INSTALL.md)
-/opt/riscv-foundation/    cache compartilhado de toolchains RISC-V (workstation inteira, não só um repo)
+/opt/riscv-foundation/    cache compartilhado do que é compilado localmente pra RISC-V (GCC, Spike)
 ```
 
 ## Pré-requisito: Instalar o Quartus Prime Lite
@@ -140,45 +140,16 @@ sudo systemctl enable --now gh-actions-runner
 sudo systemctl status gh-actions-runner --no-pager   # deve mostrar "active (running)"
 ```
 
-## Fase 4: PATH do Quartus dentro do workflow
+## Fase 4: Cache compartilhado pra GCC e Spike (`/opt/riscv-foundation`)
 
-Diferente das outras fases, isto não é uma configuração da máquina que se
-faz uma vez: é uma linha que precisa estar em cada workflow YAML (e em cada
-job desse workflow, se houver mais de um) que for rodar Quartus.
+Sem esse cache, cada bateria de testes que o runner rodasse teria que
+recompilar o GCC RISC-V e o Spike do zero antes mesmo de começar; com o
+cache, o job só confere se o commit já compilado é o mesmo e recompila só
+quando não é. Criar o diretório, clonar o código-fonte, compilar e colocar
+no `PATH` global são passos específicos de cada toolchain:
 
-O `/etc/profile.d/quartus.sh` ([QUARTUS_INSTALL.md](QUARTUS_INSTALL.md), passo 5) resolve o `PATH` pra
-**shells interativos/login**: ou seja, qualquer usuário abrindo um terminal
-normal já tem `quartus`/`quartus_pgm`/`jtagconfig` disponíveis.
-
-Isso **não** cobre o `runner`: o serviço roda via `systemd` (Fase 3), que não
-passa por `/etc/profile` nem por nenhum shell de login. O processo herda só o
-ambiente que o `systemd` monta pra unit, sem sourcing de rc files.
-
-`$GITHUB_PATH` não é uma variável de ambiente do sistema operacional: é um
-arquivo temporário que o próprio processo do runner (`Runner.Worker`,
-rodando como `runner`) recria do zero em cada execução de job, e cujo
-conteúdo só vale pros steps daquele job específico. Um reboot da máquina não
-tem nenhum efeito sobre ele, porque ele nunca é uma configuração
-persistente: cada job novo começa sem nada nele, e por isso o workflow
-precisa adicionar o caminho de novo a cada vez:
-
-```yaml
-run: echo "/opt/altera_lite/25.1std/quartus/bin" >> "$GITHUB_PATH"
-```
-
-(exemplo real: `.github/workflows/real.yml` no repo
-[insper-riscv/Testes](https://github.com/insper-riscv/Testes))
-
-## Fase 5: Cache compartilhado de toolchains (`/opt/riscv-foundation`)
-
-Em vez de cada repo/usuário baixar sua própria cópia de toolchains grandes
-(GCC RISC-V, Spike, etc.), um cache único pra workstation inteira:
-
-```bash
-sudo mkdir -p /opt/riscv-foundation
-sudo chown runner:runner /opt/riscv-foundation
-sudo chmod 2775 /opt/riscv-foundation   # setgid: arquivos novos herdam o grupo "runner"
-```
+- GCC RISC-V: [GCC_SETUP.md](GCC_SETUP.md).
+- Spike: [SPIKE_SETUP.md](SPIKE_SETUP.md).
 
 Pra outro usuário (não precisa ser admin) também poder criar arquivos
 nesse cache sem `sudo` toda vez, basta colocar ele no grupo `runner`: isso
@@ -193,12 +164,7 @@ sudo usermod -aG runner <usuario>
 **Nota**: mudança de grupo só vale numa sessão de shell nova. Pra usar na sessão
 atual sem deslogar: `sg runner -c "<comando>"`.
 
-O workflow então usa esse cache com verificação de versão (só baixa de novo se a
-tag/versão mudou desde a última vez; ver `real.yml` do projeto que consome esse
-runner, exemplo [insper-riscv/Testes](https://github.com/insper-riscv/Testes),
-pro padrão exato usado com o GCC).
-
-## Fase 6: Secret pra confirmar acionamento manual
+## Fase 5: Secret pra confirmar acionamento manual
 
 Diferente das outras fases, isto se configura por repositório nas
 configurações do GitHub, não na máquina: precisa ser repetido em cada repo
@@ -214,7 +180,7 @@ repo sem dever poder acionar hardware físico.
 - No workflow, um `workflow_dispatch.inputs.confirm` comparado contra esse secret
   antes de qualquer passo que toque a placa (ver `real.yml` do projeto).
 
-## Fase 7: Permissão pro runner resetar o JTAG
+## Fase 6: Permissão pro runner resetar o JTAG
 
 O workflow de hardware real do projeto (exemplo: `real.yml` em
 [insper-riscv/Testes](https://github.com/insper-riscv/Testes)) tipicamente
@@ -239,10 +205,10 @@ documentado em
 - [ ] `sudo systemctl status gh-actions-runner` → `active (running)`
 - [ ] Runner aparece **Idle** em Settings → Actions → Runners, com as labels certas
 - [ ] Runner group restrito a **Selected repositories** (não "All repositories")
+- [ ] GCC RISC-V e Spike compilados e no `PATH`: `which riscv32-unknown-elf-gcc` e `which spike`
 - [ ] `jtagconfig` lê o device ID da placa sem erro
-- [ ] `cat /sys/bus/usb/devices/usb1/power/control` → `on` (ajuste o nome do hub)
 - [ ] Secret de confirmação manual configurado, se aplicável
 
 ---
 
-Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).
+Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](../../LICENSE).
