@@ -21,7 +21,7 @@ binaries and libraries:
 ### 1.1. Install `uv` globally
 
 Via the official installer (`https://astral.sh/uv/install.sh`), pointed at
-`/usr/local/bin` instead of the default `~/.local/bin`: this way it's
+`/usr/local/bin` instead of the default `~/.local/bin`: this way it is
 available to any user on the machine, with no extra PATH needed
 (`/usr/local/bin` is already on everyone's default `PATH`).
 
@@ -36,7 +36,7 @@ rm /tmp/uv-install.sh
   you inspect it before running as root.
 - The installer downloads a pre-built binary (compiles nothing) and checks
   its SHA256 against a fixed hash baked into the script before installing.
-- `UV_NO_MODIFY_PATH=1`: no need to touch anyone's `~/.bashrc`, since
+- `UV_NO_MODIFY_PATH=1`: no need to modify anyone's `~/.bashrc`, since
   `/usr/local/bin` is already on the `PATH`.
 
 Verify:
@@ -53,7 +53,7 @@ sudo uv self update
 
 ### 1.2. Dependencies for building Spike
 
-Spike is cloned and built from source, it doesn't come pre-built. This
+Spike is cloned and built from source, it does not come pre-built. This
 needs `git` to fetch the source (not installed by default on every
 distro/minimal image), and Spike's `./configure` **fails without
 `device-tree-compiler`**; the Boost packages avoid a slower `make` with
@@ -65,7 +65,7 @@ warnings.
 sudo apt-get install -y git device-tree-compiler libboost-regex-dev libboost-system-dev
 ```
 
-Check what's already installed before running `apt-get install`:
+Check what is already installed before running `apt-get install`:
 ```bash
 dpkg -s git device-tree-compiler libboost-regex-dev libboost-system-dev
 ```
@@ -80,19 +80,19 @@ sudo dnf install -y git dtc boost-devel boost-regex boost-system
 ```
 
 Spike's official README only documents swapping in `dtc` for
-`device-tree-compiler` on `yum`; the Boost packages aren't mentioned there
+`device-tree-compiler` on `yum`; the Boost packages are not mentioned there
 for `yum`/`dnf`, so `boost-devel` (headers) plus
 `boost-regex`/`boost-system` (libraries) are the RHEL equivalents of the
 `apt` packages above.
 
-If `boost-devel` or `dtc` aren't found, the repository that holds them is
+If `boost-devel` or `dtc` are not found, the repository that holds them is
 disabled: enable `crb` (RHEL, Rocky, Alma 9) or `powertools` (8) and
 retry:
 ```bash
 sudo dnf config-manager --set-enabled crb   # or powertools
 ```
 
-Check what's already installed:
+Check what is already installed:
 ```bash
 rpm -q git dtc boost-devel boost-regex boost-system
 ```
@@ -107,7 +107,7 @@ subfolder name is a suggested convention, adjust it to your machine's
 setup. Spike lives in `/opt/riscv-foundation/spike`, and the `.tag` file
 inside it holds the commit hash of
 [riscv-software-src/riscv-isa-sim](https://github.com/riscv-software-src/riscv-isa-sim)
-that produced its contents; that's the file that decides whether the
+that produced its contents; that is the file that decides whether the
 cache is up to date.
 
 Who creates and maintains this directory changes depending on the
@@ -136,7 +136,7 @@ sudo chmod 2775 /opt/riscv-foundation
 
 Without `runner` to own the directory, and without another concurrent
 process writing to it, the group/setgid scheme from section 2.1 has
-nothing to solve: since it's a global binary, the build always runs via
+nothing to solve: since it is a global binary, the build always runs via
 `sudo` (never as a regular user), so the owner already comes out
 `root:root` from `mkdir` itself, with no need for `chown`. `755` (owner
 can write, everyone can read and execute) already leaves the installed
@@ -164,7 +164,7 @@ sections 2.1/2.2:
   ```
 
 The source lives in `/opt/riscv-foundation/riscv-isa-sim`, next to the
-cache's `spike`. If `SRC_DIR` doesn't exist yet, the script clones the
+cache's `spike`. If `SRC_DIR` does not exist yet, the script clones the
 repository's default branch; if it already exists from a previous run, it
 does a `pull` to bring in new commits, without needing to reclone:
 

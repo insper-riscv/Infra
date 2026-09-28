@@ -29,7 +29,7 @@ chmod +x qinst-lite-linux-*.run
 sudo ./qinst-lite-linux-*.run
 ```
 On the destination screen, point it to `/opt/altera_lite`. `sudo` is needed
-because `/opt` belongs to `root`; without it, the installer can't create
+because `/opt` belongs to `root`; without it, the installer cannot create
 the destination directory.
 
 **CLI mode** (no display, e.g. headless/SSH machine):

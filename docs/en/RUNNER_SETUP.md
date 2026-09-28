@@ -12,7 +12,7 @@ setup.
 ```
 /opt/actions-runner/      home of the "runner" service user (the GitHub Actions runner itself)
 /opt/altera_lite/         the actual Quartus install, directly in /opt (prerequisite, see QUARTUS_INSTALL.md)
-/opt/riscv-foundation/    shared cache for what's compiled locally for RISC-V (GCC, Spike)
+/opt/riscv-foundation/    shared cache for what is compiled locally for RISC-V (GCC, Spike)
 ```
 
 ## Prerequisite: Install Quartus Prime Lite
@@ -37,7 +37,7 @@ sudo usermod -aG plugdev runner    # access to the USB-Blaster (defense in depth
   runs on.
 - `-m -d /opt/actions-runner` → creates the home already in the right
   place, owned by `runner:runner`.
-- `-s /usr/sbin/nologin` → deliberate: `runner` shouldn't have any
+- `-s /usr/sbin/nologin` → deliberate: `runner` should not have any
   interactive login shell, which reduces a service account's attack
   surface with no loss of functionality. Details on which commands this
   affects right below.
@@ -46,23 +46,24 @@ Because of `nologin`, `sudo -iu runner ...` and `sudo su - runner` fail:
 every command in this guide uses `sudo -u runner bash -lc '...'` (without
 `-i`) instead.
 
-**Check that the account came out right afterward**: the `-d` above only
-guarantees the right `HOME` until the next time someone touches the
-account. A later `usermod` without `-d`, or the account recreated some
-other way, can leave `/etc/passwd` recording `HOME=/home/runner` (a
+**Verify afterward that the account is configured correctly**: the `-d`
+above only guarantees the right `HOME` at creation time. If the `runner`
+account is ever recreated some other way later (a different provisioning
+script, or a repeated `useradd runner` by someone who doesn't know about
+this convention), `/etc/passwd` ends up recording `HOME=/home/runner` (a
 directory that never existed) instead of `/opt/actions-runner`, which
-silently breaks any tool that depends on `$HOME` when run manually via
-`sudo -u runner`: for example, `uv` (see [SPIKE_SETUP.md](SPIKE_SETUP.md))
-fails with `Failed to initialize cache at /home/runner/.cache/uv:
-Permission denied` because it tries to create a cache in a
-nonexistent/wrongly-owned directory.
+silently breaks any tool that depends on
+`$HOME` when run manually via `sudo -u runner`: for example, `uv` (see
+[SPIKE_SETUP.md](SPIKE_SETUP.md)) fails with `Failed to initialize cache
+at /home/runner/.cache/uv: Permission denied` because it tries to create
+a cache in a nonexistent/wrongly-owned directory.
 
 Verify:
 ```bash
 getent passwd runner   # check the 6th field (home)
 ```
 
-If it's wrong, fix it:
+If it is wrong, fix it:
 ```bash
 sudo usermod -d /opt/actions-runner runner
 ```
@@ -90,7 +91,7 @@ sudo -u runner HOME=/opt/actions-runner bash -lc '
 - **If the token gives a permission error like "refusing to allow a
   Personal Access Token to create or update workflow ... without
   `workflow` scope"**: the token (fine-grained PAT) needs the
-  **"Workflows"** permission enabled (Read and write); it's different
+  **"Workflows"** permission enabled (Read and write); it is different
   from "Contents"/"Actions", and needs to be added explicitly on the
   token's edit screen.
 
@@ -98,7 +99,7 @@ sudo -u runner HOME=/opt/actions-runner bash -lc '
 
 If the runner is registered on the ORG (not on a specific repo), it
 becomes available to **any repo** that its *runner group* allows: by
-default that's usually "All repositories", which exposes this machine to
+default that is usually "All repositories", which exposes this machine to
 public repos in the same org.
 
 **Mandatory**: Org Settings → Actions → Runner groups → the group this
@@ -107,21 +108,26 @@ repos that actually need to touch hardware**. Without this, any public
 repo in the org reaches this machine through the same runner.
 
 **The group has to be named `FPGA`** (not the default "Default", nor any
-other name like "Workstation - FPGA"): that's the group this project's
-workflows expect to be able to reach. During interactive registration
-(`config.sh` without `--runnergroup`), the CLI asks which group to put the
-runner in; pick/create the `FPGA` group there. If the runner was already
-registered in the wrong group, move it afterward via Org Settings →
-Actions → Runner groups → `FPGA` → **Runners → Add runner** (or change the
-existing runner's group from the group's own page). A runner in the wrong
-group doesn't give a clear error; a workflow's job that needs it just sits
-stuck in "Queued" forever, with no message explaining why.
+other name like "Workstation - FPGA"): that is the group this project's
+workflows expect to be able to reach.
+
+- **At registration** (`config.sh` without `--runnergroup`): the CLI asks
+  which group to put the runner in; pick or create the `FPGA` group
+  there.
+- **If the runner was already registered in the wrong group**: move it
+  via Org Settings → Actions → Runner groups → `FPGA` → **Runners → Add
+  runner**, or change its group from the page of the group it is
+  currently in.
+
+A runner in the wrong group does not give a clear error: a workflow's job
+that needs it just sits stuck in "Queued" forever, with no message
+explaining why.
 
 ## Phase 3: systemd service (autorun, survives reboot)
 
 The `svc.sh` script that ships with the runner package assumes the service
 user itself has sudo (it calls `sudo systemctl` internally); since
-`runner` doesn't, the unit is written directly:
+`runner` does not, the unit is written directly:
 
 ```bash
 sudo tee /etc/systemd/system/gh-actions-runner.service <<'UNIT'
@@ -151,17 +157,17 @@ sudo systemctl status gh-actions-runner --no-pager   # should show "active (runn
 Without this cache, every batch of tests the runner ran would have to
 recompile the RISC-V GCC and Spike from scratch before even starting; with
 the cache, the job only checks whether the already-built commit is the
-same one, and only recompiles when it isn't. Creating the directory,
+same one, and only recompiles when it is not. Creating the directory,
 cloning the source, compiling, and putting it on the global `PATH` are
 steps specific to each toolchain:
 
 - RISC-V GCC: [GCC_SETUP.md](GCC_SETUP.md).
 - Spike: [SPIKE_SETUP.md](SPIKE_SETUP.md).
 
-For another user (doesn't need to be an admin) to also be able to create
+For another user (does not need to be an admin) to also be able to create
 files in this cache without `sudo` every time, just add them to the
-`runner` group: this doesn't grant any privilege beyond access to
-`/opt/riscv-foundation`, and doesn't guarantee write access to files that
+`runner` group: this does not grant any privilege beyond access to
+`/opt/riscv-foundation`, and does not guarantee write access to files that
 already exist with a different owner/permission (depends on each
 individual file's mode):
 
@@ -172,11 +178,11 @@ sudo usermod -aG runner <user>
 **Note**: a group change only applies to a new shell session. To use it in
 the current session without logging out: `sg runner -c "<command>"`.
 
-## Phase 5: Secret to confirm manual triggering
+## Phase 5 (optional, on GitHub): Secret to confirm manual triggering
 
 Unlike the other phases, this is configured per repository in GitHub's
 settings, not on the machine: it needs to be repeated in every repo that
-uses this runner for real hardware, and it's optional depending on the
+uses this runner for real hardware, and it is optional depending on the
 team's trust model.
 
 Beyond the repo's access control (Phase 2), a second gate for manual

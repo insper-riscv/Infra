@@ -47,7 +47,7 @@ sudo apt-get install -y autoconf automake autotools-dev curl python3 \
   libncurses-dev
 ```
 
-Check what's already installed:
+Check what is already installed:
 ```bash
 dpkg -s autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev \
   libgmp-dev gawk build-essential bison flex texinfo gperf libtool \
@@ -59,7 +59,7 @@ dpkg -s autoconf automake autotools-dev curl python3 libmpc-dev libmpfr-dev \
 The `expat` package usually shows up as `libexpat-dev` in the
 riscv-gnu-toolchain documentation, but on Debian-based distros the one
 that actually provides that file is `libexpat1-dev` (`libexpat-dev` is
-just a virtual name it provides); `dpkg -s libexpat-dev` won't find the
+just a virtual name it provides); `dpkg -s libexpat-dev` will not find the
 package even with it installed, which is why the check above already uses
 the real name.
 
@@ -74,7 +74,7 @@ sudo dnf install -y autoconf automake curl git python3 libmpc-devel \
   zlib-devel expat-devel libslirp-devel ncurses-devel meson ninja-build cmake
 ```
 
-If any `-devel`, `texinfo`, `meson` or `ninja-build` package isn't found,
+If any `-devel`, `texinfo`, `meson` or `ninja-build` package is not found,
 the repository that holds it is disabled (`ninja-build`, in particular,
 may require EPEL): enable `crb` (RHEL, Rocky, Alma 9) or `powertools` (8)
 and retry:
@@ -82,7 +82,7 @@ and retry:
 sudo dnf config-manager --set-enabled crb   # or powertools
 ```
 
-Check what's already installed:
+Check what is already installed:
 ```bash
 rpm -q autoconf automake curl git python3 libmpc-devel mpfr-devel gmp-devel \
   gawk bison flex texinfo patchutils gcc gcc-c++ zlib-devel expat-devel \
@@ -99,7 +99,7 @@ subfolder name is a suggested convention, adjust it to your machine's
 setup. GCC lives in `/opt/riscv-foundation/riscv32-elf`, and the `.tag`
 file inside it holds the commit hash of the
 [riscv-collab/riscv-gnu-toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain)
-that produced its contents; that's the file that decides whether the
+that produced its contents; that is the file that decides whether the
 cache is up to date.
 
 Who creates and maintains this directory changes depending on the
@@ -128,7 +128,7 @@ sudo chmod 2775 /opt/riscv-foundation
 
 Without `runner` to own the directory, and without another concurrent
 process writing to it, the group/setgid scheme from section 2.1 has
-nothing to solve: since it's a global binary, the build always runs via
+nothing to solve: since it is a global binary, the build always runs via
 `sudo` (never as a regular user), so the owner already comes out
 `root:root` from `mkdir` itself, with no need for `chown`. `755` (owner
 can write, everyone can read and execute) already leaves the installed
@@ -156,7 +156,7 @@ sections 2.1/2.2:
   ```
 
 The source lives in `/opt/riscv-foundation/riscv-gnu-toolchain`, next to
-the cache's `riscv32-elf`. If `SRC_DIR` doesn't exist yet, the script
+the cache's `riscv32-elf`. If `SRC_DIR` does not exist yet, the script
 clones the repository's default branch; if it already exists from a
 previous run, it does a `pull` to bring in new commits, without needing to
 reclone:
@@ -239,7 +239,7 @@ cat /opt/riscv-foundation/riscv32-elf/.tag
 
 The last line should print just `.;` (one variant, the root), confirming
 there's no multilib. To check that no picolibc code uses instructions the
-RV32IM core doesn't implement (CSR, atomics), the toolchain's own
+RV32IM core does not implement (CSR, atomics), the toolchain's own
 `objdump` reads `crt0.o` (the startup runtime) and `libc.a`:
 
 ```bash
