@@ -178,7 +178,7 @@ if [ -d "$SRC_DIR/.git" ]; then
 else
   git clone https://github.com/riscv-software-src/riscv-isa-sim "$SRC_DIR"
 fi
-sed -i 's/^#define DEBUG_START .*/#define DEBUG_START        0x70000000/' "$SRC_DIR/riscv/platform.h"
+sed -i "s/^#define DEBUG_START .*/#define DEBUG_START        0x70000000/" "$SRC_DIR/riscv/platform.h"
 ```
 
 ## 3. Compilar e instalar no cache
