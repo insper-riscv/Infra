@@ -48,17 +48,27 @@ root).
 ## 5. PATH global
 
 Adiciona os binários do Quartus (`quartus`, `quartus_pgm`, `jtagconfig`,
-etc.) ao `PATH` global, symlinkando para `/usr/local/bin`:
+etc.) ao `PATH` global, criando um wrapper para cada um em
+`/usr/local/bin`:
 
 ```bash
-for f in /opt/altera_lite/25.1std/quartus/bin/*; do
-  sudo ln -sf "$f" /usr/local/bin/
+QUARTUS_ROOTDIR=/opt/altera_lite/25.1std/quartus
+for f in "$QUARTUS_ROOTDIR"/bin/*; do
+  name=$(basename "$f")
+  sudo rm -f "/usr/local/bin/$name"
+  sudo tee "/usr/local/bin/$name" >/dev/null <<EOF
+#!/bin/sh
+export QUARTUS_ROOTDIR_OVERRIDE=$QUARTUS_ROOTDIR
+exec "$f" "\$@"
+EOF
+  sudo chmod 755 "/usr/local/bin/$name"
 done
 ```
 
 Verificar:
 ```bash
 which quartus
+bash -c 'quartus_pgm --version'
 ```
 
 ## 6. (Opcional) Atalho `.desktop` global

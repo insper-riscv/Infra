@@ -226,12 +226,19 @@ cat /opt/riscv-foundation/spike/.tag
 
 ## 5. Global PATH
 
-Adds the Spike binaries to the global `PATH`, by symlinking into
-`/usr/local/bin`:
+Adds the Spike binaries to the global `PATH`, by creating a wrapper for
+each one in `/usr/local/bin`:
 
 ```bash
 for f in /opt/riscv-foundation/spike/bin/*; do
-  sudo ln -sf "$f" /usr/local/bin/
+  [ -f "$f" ] || continue
+  name=$(basename "$f")
+  sudo rm -f "/usr/local/bin/$name"
+  sudo tee "/usr/local/bin/$name" >/dev/null <<EOF
+#!/bin/sh
+exec "$f" "\$@"
+EOF
+  sudo chmod 755 "/usr/local/bin/$name"
 done
 ```
 
