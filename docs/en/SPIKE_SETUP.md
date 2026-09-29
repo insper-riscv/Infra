@@ -166,17 +166,22 @@ sections 2.1/2.2:
 The source lives in `/opt/riscv-foundation/riscv-isa-sim`, next to the
 cache's `spike`. If `SRC_DIR` does not exist yet, the script clones the
 repository's default branch; if it already exists from a previous run, it
-does a `pull` to bring in new commits, without needing to reclone:
+does a `pull` to bring in new commits, without needing to reclone. Either
+way, the script ends by moving Spike's debug module from address `0x0` to
+`0x70000000`; before the `pull` it reverts that edit so it cannot conflict
+with upstream:
 
 ```bash
 set -euo pipefail
 SRC_DIR=/opt/riscv-foundation/riscv-isa-sim
 
 if [ -d "$SRC_DIR/.git" ]; then
+  git -C "$SRC_DIR" checkout -- riscv/platform.h
   git -C "$SRC_DIR" pull --ff-only
 else
   git clone https://github.com/riscv-software-src/riscv-isa-sim "$SRC_DIR"
 fi
+sed -i 's/^#define DEBUG_START .*/#define DEBUG_START        0x70000000/' "$SRC_DIR/riscv/platform.h"
 ```
 
 ## 3. Build and install into the cache
@@ -189,10 +194,10 @@ installs:
 set -euo pipefail
 CACHE_DIR=/opt/riscv-foundation/spike
 SRC_DIR=/opt/riscv-foundation/riscv-isa-sim
-COMMIT=$(git -C "$SRC_DIR" rev-parse HEAD)
+TAG="$(git -C "$SRC_DIR" rev-parse HEAD)-debug-start"
 
-if [ "$(cat "$CACHE_DIR/.tag" 2>/dev/null)" = "$COMMIT" ]; then
-  echo "Cache is already at $COMMIT, nothing to do"
+if [ "$(cat "$CACHE_DIR/.tag" 2>/dev/null)" = "$TAG" ]; then
+  echo "Cache is already at $TAG, nothing to do"
   exit 0
 fi
 
@@ -204,15 +209,20 @@ rm -rf "$CACHE_DIR" && mkdir -p "$CACHE_DIR"
 "$SRC_DIR/configure" --prefix="$CACHE_DIR"
 make -j"$(nproc)"
 make install
-echo "$COMMIT" > "$CACHE_DIR/.tag"
+echo "$TAG" > "$CACHE_DIR/.tag"
 ```
 
 - `--prefix` points at the cache itself: `make` only compiles; installing
   the binaries there requires running `make install` afterward, as a
   second command.
 - The build runs out-of-tree from the source, in `/var/tmp`: this allows
-  reconfiguring/rebuilding without dirtying `SRC_DIR`; `/tmp` is often
+  reconfiguring/rebuilding without dirtying `SRC_DIR` with build artifacts; `/tmp` is often
   tmpfs, too small for the build tree.
+- `DEBUG_START` (in `riscv/platform.h`) is the address where Spike places
+  its debug module. With the default (`0x0`), Spike aborts at startup with
+  `devices at [0, 1000) and [0, 10000) overlap` when the target's ROM starts
+  at `0x0`. The `-debug-start` suffix on `.tag` makes a cache built without
+  this edit get rebuilt.
 - `.tag` is written last: an interrupted build leaves the cache without
   `.tag`, so the next run rebuilds instead of trusting an incomplete
   cache.
@@ -222,7 +232,11 @@ echo "$COMMIT" > "$CACHE_DIR/.tag"
 ```bash
 cat /opt/riscv-foundation/spike/.tag
 /opt/riscv-foundation/spike/bin/spike --help
+/opt/riscv-foundation/spike/bin/spike --isa=rv32im -m0x0:0x10000 --pc=0 \
+  --disable-dtb /dev/null 2>&1 | grep overlap
 ```
+
+`.tag` must end in `-debug-start`, and the `grep` must print nothing.
 
 ## 5. Global PATH
 
