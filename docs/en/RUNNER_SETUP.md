@@ -223,6 +223,8 @@ a documented example is in
   right labels
 - [ ] Runner group restricted to **Selected repositories** (not "All
   repositories")
+- [ ] Quartus on the global `PATH`: `which quartus_pgm` and
+  `quartus_pgm --version`
 - [ ] RISC-V GCC and Spike compiled and on the `PATH`: `which
   riscv32-unknown-elf-gcc` and `which spike`
 - [ ] `jtagconfig` reads the board's device ID with no error

@@ -46,17 +46,26 @@ Binaries in `/opt/altera_lite/25.1std/quartus/bin/`, owned by `root:root`,
 ## 5. Global PATH
 
 Adds the Quartus binaries (`quartus`, `quartus_pgm`, `jtagconfig`, etc.) to
-the global `PATH`, by symlinking into `/usr/local/bin`:
+the global `PATH`, by creating a wrapper for each one in `/usr/local/bin`:
 
 ```bash
-for f in /opt/altera_lite/25.1std/quartus/bin/*; do
-  sudo ln -sf "$f" /usr/local/bin/
+QUARTUS_ROOTDIR=/opt/altera_lite/25.1std/quartus
+for f in "$QUARTUS_ROOTDIR"/bin/*; do
+  name=$(basename "$f")
+  sudo rm -f "/usr/local/bin/$name"
+  sudo tee "/usr/local/bin/$name" >/dev/null <<EOF
+#!/bin/sh
+export QUARTUS_ROOTDIR_OVERRIDE=$QUARTUS_ROOTDIR
+exec "$f" "\$@"
+EOF
+  sudo chmod 755 "/usr/local/bin/$name"
 done
 ```
 
 Verify:
 ```bash
 which quartus
+bash -c 'quartus_pgm --version'
 ```
 
 ## 6. (Optional) Global `.desktop` shortcut

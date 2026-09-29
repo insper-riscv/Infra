@@ -35,8 +35,8 @@ RHEL-like (`dnf`/`yum`). O build gera estes binários (todos com o prefixo
 O build precisa de um compilador C/C++, das ferramentas GNU de build, das
 bibliotecas de desenvolvimento que o GCC usa (GMP, MPFR, MPC) e do `meson`,
 que compila a picolibc. Os submódulos do toolchain (binutils, gcc, picolibc,
-gdb) são baixados pelo próprio `./configure`, por isso `git` e `curl` também
-são necessários.
+gdb) são baixados na seção 2, por isso `git` e `curl` também são
+necessários.
 
 ### 1.1. Debian-like (`apt`)
 
@@ -168,12 +168,13 @@ else
   git clone https://github.com/riscv-collab/riscv-gnu-toolchain "$SRC_DIR"
 fi
 git -C "$SRC_DIR" submodule sync --recursive
-git -C "$SRC_DIR" submodule update --init --recursive
+git -C "$SRC_DIR" submodule update --init --depth 1 binutils gcc gdb picolibc
 ```
 
-O clone inicial ocupa a maior parte dos cerca de 6,65 GB que o upstream cita
-para o repositório com submódulos, e fica em disco permanentemente em
-`SRC_DIR` depois disso.
+Só os quatro submódulos usados no build são baixados, cada um com
+`--depth 1`, sem o histórico completo. Os demais (newlib, glibc, musl, llvm,
+qemu, spike, pk, dejagnu, uclibc-ng) ficam de fora. O resultado ocupa cerca
+de 2,9 GB e fica em disco permanentemente em `SRC_DIR`.
 
 ## 3. Compilar e instalar no cache
 
@@ -250,12 +251,19 @@ As duas buscas não devem retornar nada: nem o Zicsr nem a extensão A
 
 ## 5. PATH global
 
-Adiciona os binários do GCC ao `PATH` global, symlinkando para
-`/usr/local/bin`:
+Adiciona os binários do GCC ao `PATH` global, criando um wrapper
+para cada um em `/usr/local/bin`:
 
 ```bash
 for f in /opt/riscv-foundation/riscv32-elf/bin/riscv32-unknown-elf-*; do
-  sudo ln -sf "$f" /usr/local/bin/
+  [ -f "$f" ] || continue
+  name=$(basename "$f")
+  sudo rm -f "/usr/local/bin/$name"
+  sudo tee "/usr/local/bin/$name" >/dev/null <<EOF
+#!/bin/sh
+exec "$f" "\$@"
+EOF
+  sudo chmod 755 "/usr/local/bin/$name"
 done
 ```
 

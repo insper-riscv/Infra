@@ -209,6 +209,7 @@ documentado em
 - [ ] `sudo systemctl status gh-actions-runner` → `active (running)`
 - [ ] Runner aparece **Idle** em Settings → Actions → Runners, com as labels certas
 - [ ] Runner group restrito a **Selected repositories** (não "All repositories")
+- [ ] Quartus no `PATH` global: `which quartus_pgm` e `quartus_pgm --version`
 - [ ] GCC RISC-V e Spike compilados e no `PATH`: `which riscv32-unknown-elf-gcc` e `which spike`
 - [ ] `jtagconfig` lê o device ID da placa sem erro
 - [ ] Secret de confirmação manual configurado, se aplicável
