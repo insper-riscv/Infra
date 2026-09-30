@@ -1,8 +1,18 @@
-# Toolchain Docker image
+# Toolchain Docker images
 
-A Docker image with everything the RISC-V test flow needs except Quartus: GHDL, the RISC-V GCC with picolibc, Spike and `uv`. The `Dockerfile` at the root of this repository builds it, and the `toolchain image` workflow publishes it to the GitHub Container Registry.
+Three Docker images with what the RISC-V test flow needs except Quartus: one with just the GCC, one with just Spike, and a complete one (GHDL, the RISC-V GCC with picolibc, Spike and `uv`) that copies the artifacts of the first two. The `Dockerfile`s are at the root of this repository, and three workflows publish the images to the GitHub Container Registry.
 
-## 1. What the image contains
+## 1. The three images
+
+| Image | `Dockerfile` | Workflow | Contents | Tags |
+| :--- | :--- | :--- | :--- | :--- |
+| `ghcr.io/<organization>/infra-gcc` | `Dockerfile.gcc` | `gcc image` | Just `/opt/riscv-foundation/riscv32-elf` | `<commit>` and `latest` |
+| `ghcr.io/<organization>/infra-spike` | `Dockerfile.spike` | `spike image` | Just `/opt/riscv-foundation/spike` | `<commit>` and `latest` |
+| `ghcr.io/<organization>/infra-toolchain` | `Dockerfile` | `toolchain image` | The complete image | `latest`, `sha-<Infra commit>` and `gcc-<first 7>-spike-<first 7>` |
+
+The `<commit>` of the first two is the commit of `riscv-collab/riscv-gnu-toolchain` and of `riscv-software-src/riscv-isa-sim` they were built from, and it is also in the image's `riscv-gnu-toolchain.commit` or `riscv-isa-sim.commit` label. The component images have no file system besides those directories, so they cannot be run: they exist to be copied from.
+
+## 2. What the complete image contains
 
 | Component | Detail | Path |
 | :--- | :--- | :--- |
@@ -11,11 +21,11 @@ A Docker image with everything the RISC-V test flow needs except Quartus: GHDL, 
 | Spike | With its debug module moved from address `0x0` to `0x70000000` (what [SPIKE_SETUP.md](SPIKE_SETUP.md) builds) | `/opt/riscv-foundation/spike` |
 | `uv` | Python project manager | `/usr/local/bin` |
 
-The GCC and Spike binaries are already on the image's `PATH`. Each install keeps in `.tag` the commit it was built from.
+The GCC and Spike binaries are already on the image's `PATH`. Each install keeps in `.tag` the commit it was built from, and the complete image carries both commit labels.
 
-Quartus is not in the image, and a container cannot see the USB-Blaster without extra host configuration. The real-hardware tests keep running on the self-hosted runner described in [RUNNER_SETUP.md](RUNNER_SETUP.md).
+Quartus is in none of the images, and a container cannot see the USB-Blaster without extra host configuration. The real-hardware tests keep running on the self-hosted runner described in [RUNNER_SETUP.md](RUNNER_SETUP.md).
 
-## 2. Using the image
+## 3. Using the complete image
 
 Interactively, with the current directory mounted:
 
@@ -38,53 +48,67 @@ jobs:
 
 For a reproducible result, use the `sha-<commit>` tag of the wanted publication instead of `latest`.
 
-## 3. Building locally
+## 4. Updating the GCC or Spike
+
+Each component has a manually run workflow. In Actions, pick `gcc image` or `spike image` and click **Run workflow**, filling in:
+
+| Field | Meaning |
+| :--- | :--- |
+| `confirm` | The value of the `IMAGE_PUBLISH_SECRET` secret (see section 6) |
+| `commit` | The commit to build. Empty: the latest of the project's default branch |
+| `force` | Rebuild and republish even if the image for that commit already exists |
+
+The workflow resolves the commit, checks whether `infra-gcc:<commit>` (or `infra-spike:<commit>`) already exists and, if it does and `force` is off, builds nothing. Otherwise it builds, checks the install and publishes it with the tags `<commit>` and `latest`.
+
+Both component workflows also run by themselves on a push to `main` that changes their own `Dockerfile.gcc` or `Dockerfile.spike`, or the workflow itself. There is no `commit` field then: they rebuild the commit the `latest` image already has (the recipe changed, not the version) with `force` on, and only use the latest upstream commit when nothing is published yet. So the merge that adds the three `Dockerfile`s already publishes the two components for the first time.
+
+When one of these workflows finishes successfully, `toolchain image` runs by itself: it reads the commits from the labels of the two `latest` images and assembles and publishes a new complete image. Updating just Spike takes a few minutes, and updating the GCC takes from tens of minutes to over an hour.
+
+`toolchain image` does not wait for a component to finish: if, when it runs for a push or for the end of another component, a `gcc image` or `spike image` run is queued or going, it skips with a notice, and the end of that run triggers it again. The last component to finish does the single assembly. A manual run of `toolchain image` never defers.
+
+`toolchain image` needs both `latest` images. If a push lands before they exist, it ends with a notice, without failing, and runs when the components finish. A manual run of it without the images fails, with a message that points at the two workflows.
+
+## 5. Building locally
+
+The components have no default commit, so the commit is passed to the build:
 
 ```bash
-docker build -t infra-toolchain .
+docker build -f Dockerfile.gcc -t infra-gcc \
+  --build-arg RISCV_GNU_TOOLCHAIN_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .
+
+docker build -f Dockerfile.spike -t infra-spike \
+  --build-arg RISCV_ISA_SIM_COMMIT="$(git ls-remote https://github.com/riscv-software-src/riscv-isa-sim HEAD | cut -f1)" .
+
+docker build -t infra-toolchain \
+  --build-arg GCC_IMAGE=infra-gcc --build-arg SPIKE_IMAGE=infra-spike .
 ```
 
-The build compiles the GCC, which takes from tens of minutes to over an hour, depending on the machine. The build arguments pin what is compiled:
+The GCC build takes from tens of minutes to over an hour, depending on the machine. Without `GCC_IMAGE` and `SPIKE_IMAGE`, the complete image build uses the `latest` images published on GHCR. The other arguments:
 
 | Argument | Default | Meaning |
 | :--- | :--- | :--- |
-| `RISCV_GNU_TOOLCHAIN_COMMIT` | fixed commit | Commit of `riscv-collab/riscv-gnu-toolchain` to build |
-| `RISCV_ISA_SIM_COMMIT` | fixed commit | Commit of `riscv-software-src/riscv-isa-sim` to build |
 | `GHDL_IMAGE` | `ghdl/ghdl:6.0.0-mcode-ubuntu-24.04` | Base image, which brings GHDL |
-| `UV_VERSION` | fixed version | Version of `uv` |
+| `UV_VERSION` | fixed version | Version of `uv` (only in the complete `Dockerfile`) |
 
-For example, to build another Spike commit:
+## 6. Publishing and security
 
-```bash
-docker build --build-arg RISCV_ISA_SIM_COMMIT=<commit> -t infra-toolchain .
-```
+The three workflows publish to `ghcr.io/<organization>/`, with the run's own `GITHUB_TOKEN`. The visibility of each package (public or private) is set in the package's settings on GitHub, not by the workflow. All three packages must be reachable by whoever will use them, and `toolchain image` reads the other two.
 
-## 4. Publishing
-
-The `.github/workflows/toolchain-image.yml` workflow runs on every push to `main` that changes the `Dockerfile` or the workflow itself, and on demand (`workflow_dispatch`). It:
-
-1. Builds the image with the GitHub Actions layer cache.
-2. Checks the image before publishing: GHDL, GCC with picolibc, a single library variant, Spike without the debug module overlap, and `uv`.
-3. Publishes to `ghcr.io/<organization>/infra-toolchain` with the tags `latest` and `sha-<commit>`.
-
-The package's visibility (public or private) is set in the package's settings on GitHub, not by the workflow.
-
-### 4.1. Manual run
-
-The manual run (Actions → `toolchain image` → **Run workflow**) asks for the `confirm` field, which must equal the value of the `IMAGE_PUBLISH_SECRET` secret. It is the same second gate described in phase 5 of [RUNNER_SETUP.md](RUNNER_SETUP.md): write access to the repository already controls who can trigger the workflow, and the secret makes sure only someone who knows it publishes the image. A push to `main` skips this check, because branch protection is the gate for that path.
+The manual run of any of the three asks for the `confirm` field, which must equal the value of the `IMAGE_PUBLISH_SECRET` secret. It is the same second gate described in phase 5 of [RUNNER_SETUP.md](RUNNER_SETUP.md): write access to the repository already controls who can trigger the workflow, and the secret makes sure only someone who knows it publishes the image. The three workflows also run on a push to `main` that changes the matching `Dockerfile` or the workflow itself, and `toolchain image` also runs after one of the two component workflows finishes. Those paths do not ask for `confirm`: the gate for a push is branch protection, and a component's run already went through its own `confirm` or its push.
 
 To set it up, in the repository: **Settings → Secrets and variables → Actions → New repository secret**, named `IMAGE_PUBLISH_SECRET`, with any phrase as the value (for example `openssl rand -hex 32`).
 
-## 5. Verify
+## 7. Verify
 
 ```bash
 docker run --rm infra-toolchain riscv32-unknown-elf-gcc --version
 docker run --rm infra-toolchain riscv32-unknown-elf-gcc -print-multi-lib
 docker run --rm infra-toolchain spike --help
 docker run --rm infra-toolchain ghdl --version
+docker buildx imagetools inspect ghcr.io/insper-riscv/infra-gcc:latest --format '{{json .Image.Config.Labels}}'
 ```
 
-The second command should print just `.;` (one variant, the root).
+The second command should print just `.;` (one variant, the root). The last one shows the GCC commit in the `riscv-gnu-toolchain.commit` label.
 
 ---
 

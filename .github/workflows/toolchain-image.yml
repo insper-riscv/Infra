@@ -1,5 +1,9 @@
 name: toolchain image
 
+# Assembles the complete image (GHDL, the RISC-V GCC with picolibc, Spike and
+# uv) from the latest infra-gcc and infra-spike images, which the gcc image and
+# spike image workflows publish. It runs when one of them finishes, when the
+# Dockerfile changes on main, and on demand.
 on:
   push:
     branches: [main]
@@ -11,6 +15,10 @@ on:
       confirm:
         description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
         required: true
+  workflow_run:
+    workflows: ["gcc image", "spike image"]
+    types: [completed]
+    branches: [main]
 
 concurrency:
   group: toolchain-image
@@ -18,14 +26,18 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/infra-toolchain
+  GCC_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gcc
+  SPIKE_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-spike
 
 jobs:
   image:
-    # The first build compiles the GCC, which takes over an hour on a hosted
-    # runner; the layer cache makes the next ones quick.
+    # Only copies the two component images into the GHDL image, so it takes a
+    # few minutes.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 240
+    timeout-minutes: 60
     permissions:
+      actions: read
       contents: read
       packages: write
 
@@ -36,10 +48,14 @@ jobs:
         # shouldn't publish the image, this adds a second check: only
         # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
         # push to main skips this: branch protection on main is the gate for
-        # that path instead.
+        # that path instead, and a workflow_run follows a run that was
+        # already authorized.
         if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          SECRET: ${{ secrets.IMAGE_PUBLISH_SECRET }}
         run: |
-          if [ "${{ inputs.confirm }}" != "${{ secrets.IMAGE_PUBLISH_SECRET }}" ]; then
+          if [ "$CONFIRM" != "$SECRET" ]; then
             echo "::error::confirmation does not match IMAGE_PUBLISH_SECRET, refusing to publish the image"
             exit 1
           fi
@@ -48,7 +64,81 @@ jobs:
 
       - uses: docker/setup-buildx-action@v4.4.1
 
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read the component commits from the latest images
+        id: pins
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          label() {
+            docker buildx imagetools inspect "$1" --format '{{json .Image.Config.Labels}}' \
+              | jq -r --arg key "$2" '.[$key] // empty'
+          }
+          gcc=$(label "$GCC_IMAGE:latest" riscv-gnu-toolchain.commit)
+          spike=$(label "$SPIKE_IMAGE:latest" riscv-isa-sim.commit)
+          if [ -z "$gcc" ] || [ -z "$spike" ]; then
+            if [ "$EVENT" = "workflow_dispatch" ]; then
+              echo "::error::could not read the commits from $GCC_IMAGE:latest and $SPIKE_IMAGE:latest; run the gcc image and spike image workflows first"
+              exit 1
+            fi
+            # A push can land before the components exist (the merge that
+            # adds them also changes this workflow); their runs trigger this
+            # one when they finish.
+            echo "::notice::the gcc and spike images are not both published yet; their runs trigger this workflow when they finish."
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "gcc=$gcc" >> "$GITHUB_OUTPUT"
+          echo "spike=$spike" >> "$GITHUB_OUTPUT"
+          echo "short=gcc-${gcc:0:7}-spike-${spike:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether there is anything to assemble now
+        # Nothing to do when a component is not published yet, when a
+        # component run is still queued or going (a push that changes a
+        # component and this Dockerfile lands here first; the component's
+        # run triggers this workflow again when it finishes, so the last one
+        # to finish does the single assembly), or when a component workflow
+        # that found its image already published (it still ends
+        # successfully) triggered this run for a combination that exists. A
+        # manual run never defers, and otherwise a push always builds: the
+        # Dockerfile may have changed.
+        id: skip
+        env:
+          EVENT: ${{ github.event_name }}
+          MISSING: ${{ steps.pins.outputs.missing }}
+          COMBINATION: ${{ steps.pins.outputs.short }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          pending=0
+          if [ "$EVENT" != "workflow_dispatch" ]; then
+            for workflow in gcc-image.yml spike-image.yml; do
+              for status in queued in_progress; do
+                # A workflow GitHub does not know yet (the merge that adds
+                # the three together) makes this fail; count it as none.
+                count=$(gh run list -R "$REPO" --workflow "$workflow" --status "$status" --json databaseId --jq length 2>/dev/null || echo 0)
+                pending=$((pending + count))
+              done
+            done
+          fi
+
+          if [ "$MISSING" = "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$pending" -gt 0 ]; then
+            echo "::notice::a gcc image or spike image run is still going; it triggers this workflow when it finishes."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "workflow_run" ] && docker buildx imagetools inspect "$IMAGE:$COMBINATION" > /dev/null 2>&1; then
+            echo "::notice::$IMAGE:$COMBINATION already exists; nothing to assemble."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Image tags
+        if: steps.skip.outputs.skip != 'true'
         id: meta
         uses: docker/metadata-action@v6.2.0
         with:
@@ -56,18 +146,22 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha
+            type=raw,value=${{ steps.pins.outputs.short }}
 
       - name: Build the image
+        if: steps.skip.outputs.skip != 'true'
         uses: docker/build-push-action@v7.4.0
         with:
           context: .
           load: true
           tags: infra-toolchain:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: |
+            GCC_IMAGE=${{ env.GCC_IMAGE }}:${{ steps.pins.outputs.gcc }}
+            SPIKE_IMAGE=${{ env.SPIKE_IMAGE }}:${{ steps.pins.outputs.spike }}
 
       # Fail before publishing anything if the image lacks a piece.
       - name: Check the image
+        if: steps.skip.outputs.skip != 'true'
         run: |
           docker run --rm infra-toolchain:ci bash -euo pipefail -c '
             ghdl --version | head -n 1 || true
@@ -79,17 +173,17 @@ jobs:
             uv --version
           '
 
-      - uses: docker/login-action@v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Publish the image
+        if: steps.skip.outputs.skip != 'true'
         uses: docker/build-push-action@v7.4.0
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            riscv-gnu-toolchain.commit=${{ steps.pins.outputs.gcc }}
+            riscv-isa-sim.commit=${{ steps.pins.outputs.spike }}
+          build-args: |
+            GCC_IMAGE=${{ env.GCC_IMAGE }}:${{ steps.pins.outputs.gcc }}
+            SPIKE_IMAGE=${{ env.SPIKE_IMAGE }}:${{ steps.pins.outputs.spike }}
