@@ -1,4 +1,4 @@
-name: gcc image
+name: GCC image
 
 # Builds the RISC-V GCC (rv32im/ilp32, picolibc) alone and publishes it as
 # infra-gcc, tagged with the riscv-gnu-toolchain commit and as latest.
@@ -9,7 +9,7 @@ name: gcc image
 #   rebuilds the commit latest already has (the recipe changed, not the
 #   version), or the upstream latest when nothing is published yet.
 #
-# The toolchain image workflow then assembles a new complete image.
+# The Toolchain image workflow then assembles a new complete image.
 on:
   push:
     branches: [main]

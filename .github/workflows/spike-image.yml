@@ -1,4 +1,4 @@
-name: spike image
+name: Spike image
 
 # Builds Spike, with its debug module moved out of address 0, alone and
 # publishes it as infra-spike, tagged with the riscv-isa-sim commit and as
@@ -10,7 +10,7 @@ name: spike image
 #   rebuilds the commit latest already has (the recipe changed, not the
 #   version), or the upstream latest when nothing is published yet.
 #
-# The toolchain image workflow then assembles a new complete image.
+# The Toolchain image workflow then assembles a new complete image.
 on:
   push:
     branches: [main]

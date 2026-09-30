@@ -6,9 +6,9 @@ Três imagens Docker com o que o fluxo de testes RISC-V precisa, exceto o Quartu
 
 | Imagem | `Dockerfile` | Workflow | Conteúdo | Tags |
 | :--- | :--- | :--- | :--- | :--- |
-| `ghcr.io/<organização>/infra-gcc` | `Dockerfile.gcc` | `gcc image` | Só `/opt/riscv-foundation/riscv32-elf` | `<commit>` e `latest` |
-| `ghcr.io/<organização>/infra-spike` | `Dockerfile.spike` | `spike image` | Só `/opt/riscv-foundation/spike` | `<commit>` e `latest` |
-| `ghcr.io/<organização>/infra-toolchain` | `Dockerfile` | `toolchain image` | A imagem completa | `latest`, `sha-<commit do Infra>` e `gcc-<7 primeiros>-spike-<7 primeiros>` |
+| `ghcr.io/<organização>/infra-gcc` | `Dockerfile.gcc` | `GCC image` | Só `/opt/riscv-foundation/riscv32-elf` | `<commit>` e `latest` |
+| `ghcr.io/<organização>/infra-spike` | `Dockerfile.spike` | `Spike image` | Só `/opt/riscv-foundation/spike` | `<commit>` e `latest` |
+| `ghcr.io/<organização>/infra-toolchain` | `Dockerfile` | `Toolchain image` | A imagem completa | `latest`, `sha-<commit do Infra>` e `gcc-<7 primeiros>-spike-<7 primeiros>` |
 
 O `<commit>` das duas primeiras é o commit do `riscv-collab/riscv-gnu-toolchain` e do `riscv-software-src/riscv-isa-sim` de que foram compiladas, e fica também no rótulo `riscv-gnu-toolchain.commit` ou `riscv-isa-sim.commit` da imagem. As imagens de componente não têm sistema de arquivos além desses diretórios, então não dá para executá-las: elas existem para serem copiadas.
 
@@ -50,7 +50,7 @@ Para um resultado reproduzível, use a tag `sha-<commit>` da publicação deseja
 
 ## 4. Atualizando o GCC ou o Spike
 
-Cada componente tem um workflow de execução manual. Em Actions, escolha `gcc image` ou `spike image` e clique em **Run workflow**, preenchendo:
+Cada componente tem um workflow de execução manual. Em Actions, escolha `GCC image` ou `Spike image` e clique em **Run workflow**, preenchendo:
 
 | Campo | Significado |
 | :--- | :--- |
@@ -62,11 +62,11 @@ O workflow resolve o commit, confere se `infra-gcc:<commit>` (ou `infra-spike:<c
 
 Os dois workflows de componente também rodam sozinhos num push na `main` que altere o próprio `Dockerfile.gcc` ou `Dockerfile.spike`, ou o próprio workflow. Nesse caso não há campo `commit`: eles recompilam o commit que a imagem `latest` já tem (a receita mudou, a versão não) com `force` ligado, e só usam o commit mais recente do upstream quando ainda não há imagem publicada. Por isso o merge que adiciona os três `Dockerfile` já publica os dois componentes pela primeira vez.
 
-Quando um desses workflows termina com sucesso, o `toolchain image` roda sozinho: lê os commits dos rótulos das duas imagens `latest` e monta e publica uma imagem completa nova. Atualizar só o Spike leva alguns minutos, e atualizar o GCC leva de dezenas de minutos a mais de uma hora.
+Quando um desses workflows termina com sucesso, o `Toolchain image` roda sozinho: lê os commits dos rótulos das duas imagens `latest` e monta e publica uma imagem completa nova. Atualizar só o Spike leva alguns minutos, e atualizar o GCC leva de dezenas de minutos a mais de uma hora.
 
-O `toolchain image` não espera um componente terminar: se, ao rodar por um push ou pelo fim de outro componente, houver um run de `gcc image` ou `spike image` na fila ou em andamento, ele pula com um aviso, e o fim desse run o dispara de novo. O último componente a terminar faz a montagem única. Um run manual do `toolchain image` nunca adia.
+O `Toolchain image` não espera um componente terminar: se, ao rodar por um push ou pelo fim de outro componente, houver um run de `GCC image` ou `Spike image` na fila ou em andamento, ele pula com um aviso, e o fim desse run o dispara de novo. O último componente a terminar faz a montagem única. Um run manual do `Toolchain image` nunca adia.
 
-O `toolchain image` precisa das duas imagens `latest`. Se um push chegar antes de elas existirem, ele termina com um aviso, sem falhar, e roda quando os componentes terminarem. Um run manual dele sem as imagens falha, com uma mensagem que aponta os dois workflows.
+O `Toolchain image` precisa das duas imagens `latest`. Se um push chegar antes de elas existirem, ele termina com um aviso, sem falhar, e roda quando os componentes terminarem. Um run manual dele sem as imagens falha, com uma mensagem que aponta os dois workflows.
 
 ## 5. Construindo localmente
 
@@ -92,9 +92,9 @@ O build do GCC leva de dezenas de minutos a mais de uma hora, conforme a máquin
 
 ## 6. Publicação e segurança
 
-Os três workflows publicam em `ghcr.io/<organização>/`, com o `GITHUB_TOKEN` do próprio run. A visibilidade de cada pacote (público ou privado) é definida nas configurações do pacote no GitHub, e não pelo workflow. Os três pacotes precisam ficar acessíveis a quem vai usá-los, e o `toolchain image` lê os outros dois.
+Os três workflows publicam em `ghcr.io/<organização>/`, com o `GITHUB_TOKEN` do próprio run. A visibilidade de cada pacote (público ou privado) é definida nas configurações do pacote no GitHub, e não pelo workflow. Os três pacotes precisam ficar acessíveis a quem vai usá-los, e o `Toolchain image` lê os outros dois.
 
-A execução manual de qualquer um dos três pede o campo `confirm`, que precisa ser igual ao valor do secret `IMAGE_PUBLISH_SECRET`. É o mesmo segundo portão descrito na Fase 5 do [RUNNER_SETUP.md](RUNNER_SETUP.md): o acesso de escrita ao repositório já controla quem pode disparar o workflow, e o secret garante que só quem o conhece publique a imagem. Os três workflows também rodam num push na `main` que altere o `Dockerfile` correspondente ou o próprio workflow, e o `toolchain image` roda ainda depois que um dos dois workflows de componente termina. Esses caminhos não pedem `confirm`: o portão do push é a proteção de branch, e o de componente já passou pelo `confirm` ou pelo push do seu run.
+A execução manual de qualquer um dos três pede o campo `confirm`, que precisa ser igual ao valor do secret `IMAGE_PUBLISH_SECRET`. É o mesmo segundo portão descrito na Fase 5 do [RUNNER_SETUP.md](RUNNER_SETUP.md): o acesso de escrita ao repositório já controla quem pode disparar o workflow, e o secret garante que só quem o conhece publique a imagem. Os três workflows também rodam num push na `main` que altere o `Dockerfile` correspondente ou o próprio workflow, e o `Toolchain image` roda ainda depois que um dos dois workflows de componente termina. Esses caminhos não pedem `confirm`: o portão do push é a proteção de branch, e o de componente já passou pelo `confirm` ou pelo push do seu run.
 
 Para configurar, no repositório: **Settings → Secrets and variables → Actions → New repository secret**, com o nome `IMAGE_PUBLISH_SECRET` e como valor qualquer frase (por exemplo `openssl rand -hex 32`).
 
