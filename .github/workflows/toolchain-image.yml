@@ -1,0 +1,95 @@
+name: toolchain image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .github/workflows/toolchain-image.yml
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
+        required: true
+
+concurrency:
+  group: toolchain-image
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-toolchain
+
+jobs:
+  image:
+    # The first build compiles the GCC, which takes over an hour on a hosted
+    # runner; the layer cache makes the next ones quick.
+    runs-on: ubuntu-26.04
+    timeout-minutes: 240
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Authorize manual run
+        # Only applies to workflow_dispatch: repo write access already gates
+        # who can trigger this, but on a repo shared with people who
+        # shouldn't publish the image, this adds a second check: only
+        # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
+        # push to main skips this: branch protection on main is the gate for
+        # that path instead.
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ inputs.confirm }}" != "${{ secrets.IMAGE_PUBLISH_SECRET }}" ]; then
+            echo "::error::confirmation does not match IMAGE_PUBLISH_SECRET, refusing to publish the image"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Build the image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          load: true
+          tags: infra-toolchain:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Fail before publishing anything if the image lacks a piece.
+      - name: Check the image
+        run: |
+          docker run --rm infra-toolchain:ci bash -euo pipefail -c '
+            ghdl --version | head -n 1 || true
+            riscv32-unknown-elf-gcc --version | head -n 1 || true
+            riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null
+            test "$(riscv32-unknown-elf-gcc -print-multi-lib)" = ".;"
+            out=$(spike --isa=rv32i -m0x0:0x10000 --pc=0 --disable-dtb /dev/null 2>&1 || true)
+            if echo "$out" | grep -q overlap; then echo "Spike still places its debug module at address 0"; exit 1; fi
+            uv --version
+          '
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
