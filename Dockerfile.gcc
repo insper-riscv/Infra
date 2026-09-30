@@ -1,0 +1,51 @@
+# syntax=docker/dockerfile:1
+#
+# The RISC-V GCC for rv32im/ilp32 with picolibc (docs/en/GCC_SETUP.md, sections
+# 1 to 3), alone. The published image holds just the install directory, and
+# the complete image (Dockerfile) copies it from there.
+#
+# The commit of riscv-collab/riscv-gnu-toolchain to build has no default:
+#
+#   docker build -f Dockerfile.gcc -t infra-gcc \
+#     --build-arg RISCV_GNU_TOOLCHAIN_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .
+
+ARG GHDL_IMAGE=ghdl/ghdl:6.0.0-mcode-ubuntu-24.04
+
+FROM ${GHDL_IMAGE} AS build
+ARG RISCV_GNU_TOOLCHAIN_COMMIT
+
+RUN test -n "${RISCV_GNU_TOOLCHAIN_COMMIT}" \
+ || { echo "pass --build-arg RISCV_GNU_TOOLCHAIN_COMMIT=<commit>"; exit 1; }
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      autoconf automake autotools-dev curl python3 \
+      libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo \
+      gperf libtool patchutils bc zlib1g-dev libexpat1-dev meson ninja-build git \
+      cmake libglib2.0-dev expect device-tree-compiler libslirp-dev libzstd-dev \
+      libncurses-dev ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN git init /src \
+ && git -C /src fetch --depth 1 https://github.com/riscv-collab/riscv-gnu-toolchain "${RISCV_GNU_TOOLCHAIN_COMMIT}" \
+ && git -C /src checkout FETCH_HEAD \
+ && git -C /src submodule update --init --depth 1 binutils gcc gdb picolibc
+
+RUN mkdir /build \
+ && cd /build \
+ && /src/configure --prefix=/opt/riscv-foundation/riscv32-elf --with-arch=rv32im --enable-picolibc \
+ && make -j"$(nproc)" \
+ && echo "${RISCV_GNU_TOOLCHAIN_COMMIT}" > /opt/riscv-foundation/riscv32-elf/.tag \
+ && rm -rf /build /src
+
+# Fail the build, before anything is published, if the install lacks picolibc
+# or has more than one library variant.
+RUN export PATH="/opt/riscv-foundation/riscv32-elf/bin:${PATH}" \
+ && riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null \
+ && test "$(riscv32-unknown-elf-gcc -print-multi-lib)" = ".;"
+
+
+FROM scratch
+ARG RISCV_GNU_TOOLCHAIN_COMMIT
+LABEL riscv-gnu-toolchain.commit="${RISCV_GNU_TOOLCHAIN_COMMIT}"
+COPY --from=build /opt/riscv-foundation/riscv32-elf /opt/riscv-foundation/riscv32-elf

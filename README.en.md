@@ -18,9 +18,10 @@ RHEL-like (`dnf`/`yum`) distros.
   `dnf`/`yum` distros.
 - [GCC_SETUP.md](docs/en/GCC_SETUP.md): build the RISC-V GCC from source
   into the same shared cache, on `apt` and `dnf`/`yum` distros.
-- [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md): Docker image with GHDL,
-  the RISC-V GCC (picolibc), Spike and `uv`, built and published by CI, for
-  anyone who does not want to install them on a machine.
+- [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md): Docker images of the
+  RISC-V GCC (picolibc), of Spike and a complete one with GHDL, the GCC, Spike
+  and `uv`, built and published by CI, for anyone who does not want to install
+  them on a machine.
 
 ## Suggested order
 

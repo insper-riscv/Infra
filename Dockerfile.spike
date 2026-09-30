@@ -1,0 +1,48 @@
+# syntax=docker/dockerfile:1
+#
+# Spike with its debug module moved out of address 0 (docs/en/SPIKE_SETUP.md,
+# sections 1 to 3), alone. The published image holds just the install
+# directory, and the complete image (Dockerfile) copies it from there.
+#
+# The commit of riscv-software-src/riscv-isa-sim to build has no default:
+#
+#   docker build -f Dockerfile.spike -t infra-spike \
+#     --build-arg RISCV_ISA_SIM_COMMIT="$(git ls-remote https://github.com/riscv-software-src/riscv-isa-sim HEAD | cut -f1)" .
+
+ARG GHDL_IMAGE=ghdl/ghdl:6.0.0-mcode-ubuntu-24.04
+
+FROM ${GHDL_IMAGE} AS build
+ARG RISCV_ISA_SIM_COMMIT
+
+RUN test -n "${RISCV_ISA_SIM_COMMIT}" \
+ || { echo "pass --build-arg RISCV_ISA_SIM_COMMIT=<commit>"; exit 1; }
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      build-essential git ca-certificates device-tree-compiler \
+      libboost-regex-dev libboost-system-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN git init /src \
+ && git -C /src fetch --depth 1 https://github.com/riscv-software-src/riscv-isa-sim "${RISCV_ISA_SIM_COMMIT}" \
+ && git -C /src checkout FETCH_HEAD \
+ && sed -i "s/^#define DEBUG_START .*/#define DEBUG_START        0x70000000/" /src/riscv/platform.h
+
+RUN mkdir /build \
+ && cd /build \
+ && /src/configure --prefix=/opt/riscv-foundation/spike \
+ && make -j"$(nproc)" \
+ && make install \
+ && echo "${RISCV_ISA_SIM_COMMIT}-debug-start" > /opt/riscv-foundation/spike/.tag \
+ && rm -rf /build /src
+
+# Fail the build, before anything is published, if the debug module still
+# overlaps a ROM at address 0.
+RUN out=$(/opt/riscv-foundation/spike/bin/spike --isa=rv32i -m0x0:0x10000 --pc=0 --disable-dtb /dev/null 2>&1 || true) \
+ && if echo "$out" | grep -q overlap; then echo "Spike still places its debug module at address 0"; exit 1; fi
+
+
+FROM scratch
+ARG RISCV_ISA_SIM_COMMIT
+LABEL riscv-isa-sim.commit="${RISCV_ISA_SIM_COMMIT}"
+COPY --from=build /opt/riscv-foundation/spike /opt/riscv-foundation/spike
