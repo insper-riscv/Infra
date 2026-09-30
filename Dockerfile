@@ -20,12 +20,13 @@ FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
 FROM ${GHDL_IMAGE}
 
-# libmpc3 and libmpfr6 are what cc1 of the GCC links against, and the boost
-# libraries are Spike's runtime.
+# libmpc3 and libmpfr6 are what cc1 of the GCC links against; Spike needs
+# nothing beyond the base image. git, curl and make are for whoever uses the
+# image: the checkout of a workflow, installers and ACT4's own make.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates curl git make \
-      libmpc3 libmpfr6 libboost-regex1.83.0 libboost-system1.83.0 \
+      libmpc3 libmpfr6 \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=gcc /opt/riscv-foundation/riscv32-elf /opt/riscv-foundation/riscv32-elf
