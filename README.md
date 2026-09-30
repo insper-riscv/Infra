@@ -18,6 +18,9 @@ GitHub Actions, ferramentas compartilhadas), feita para distros Debian-like
   e `dnf`/`yum`.
 - [GCC_SETUP.md](docs/pt-br/GCC_SETUP.md): compilar o GCC RISC-V a partir do
   código-fonte no mesmo cache compartilhado, em distros `apt` e `dnf`/`yum`.
+- [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md): imagem Docker com GHDL,
+  GCC RISC-V (picolibc), Spike e `uv`, construída e publicada pelo CI, para
+  quem não quer instalar isso numa máquina.
 
 ## Ordem sugerida
 
