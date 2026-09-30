@@ -8,7 +8,7 @@
 #   docker run --rm -it -v "$PWD:/workspace" infra-toolchain
 
 ARG GHDL_IMAGE=ghdl/ghdl:6.0.0-mcode-ubuntu-24.04
-ARG UV_VERSION=0.12.20
+ARG UV_VERSION=0.12.21
 
 
 # GCC for rv32im/ilp32 with picolibc (GCC_SETUP.md, sections 1 to 3).
