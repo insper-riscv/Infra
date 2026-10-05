@@ -23,7 +23,7 @@ The `<commit>` of the first two is the commit of `riscv-collab/riscv-gnu-toolcha
 
 The GCC and Spike binaries are already on the image's `PATH`. Each install keeps in `.tag` the commit it was built from, and the complete image carries both commit labels.
 
-Quartus is in none of the images, and a container cannot see the USB-Blaster without extra host configuration. The real-hardware tests keep running on the self-hosted runner described in [RUNNER_SETUP.md](RUNNER_SETUP.md).
+Quartus is in none of the images, and a container cannot see the USB-Blaster without extra host configuration. The real-hardware tests therefore split the work: the test ROMs and their goldens are built inside the complete image, and Quartus and the JTAG cable are used from the self-hosted runner described in [RUNNER_SETUP.md](RUNNER_SETUP.md), which needs Docker and access to it.
 
 ## 3. Using the complete image
 

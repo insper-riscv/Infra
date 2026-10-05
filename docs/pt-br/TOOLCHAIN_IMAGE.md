@@ -23,7 +23,7 @@ O `<commit>` das duas primeiras é o commit do `riscv-collab/riscv-gnu-toolchain
 
 Os binários do GCC e do Spike já estão no `PATH` da imagem. Cada instalação guarda em `.tag` o commit de que foi compilada, e a imagem completa traz os dois rótulos de commit.
 
-O Quartus não está em nenhuma das imagens, e um container não enxerga o USB-Blaster sem configuração extra do host. Os testes de hardware real continuam rodando no runner self-hosted descrito no [RUNNER_SETUP.md](RUNNER_SETUP.md).
+O Quartus não está em nenhuma das imagens, e um container não enxerga o USB-Blaster sem configuração extra do host. Por isso os testes de hardware real dividem o trabalho: as ROMs de teste e seus goldens são construídos dentro da imagem completa, e o Quartus e o cabo JTAG são usados a partir do runner self-hosted descrito no [RUNNER_SETUP.md](RUNNER_SETUP.md), que precisa de Docker e de acesso a ele.
 
 ## 3. Usando a imagem completa
 

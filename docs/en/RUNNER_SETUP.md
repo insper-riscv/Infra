@@ -30,7 +30,15 @@ sudo, not in the admin user's group**: deliberate isolation.
 sudo useradd -r -m -d /opt/actions-runner -s /usr/sbin/nologin runner
 sudo passwd -l runner              # no password login; only via sudo/systemd
 sudo usermod -aG plugdev runner    # access to the USB-Blaster (defense in depth)
+sudo usermod -aG docker runner     # runs the toolchain image (see the note below)
 ```
+
+The real-board workflow builds the test ROMs and their goldens inside the
+[toolchain image](TOOLCHAIN_IMAGE.md), so Docker has to be installed and the
+`runner` user has to be able to use it. Membership in the `docker` group is
+equivalent to root on the machine, which is at odds with the isolation above;
+where that is not acceptable, give `runner` its own rootless Docker instead of
+the group.
 
 - `-r` → UID/GID in the system range (usually below `1000`), chosen
   automatically among whatever is already free on the machine the command
@@ -152,14 +160,16 @@ sudo systemctl enable --now gh-actions-runner
 sudo systemctl status gh-actions-runner --no-pager   # should show "active (running)"
 ```
 
-## Phase 4: Shared cache for GCC and Spike (`/opt/riscv-foundation`)
+## Phase 4 (optional): Shared cache for GCC and Spike (`/opt/riscv-foundation`)
 
-Without this cache, every batch of tests the runner ran would have to
-recompile the RISC-V GCC and Spike from scratch before even starting; with
-the cache, the job only checks whether the already-built commit is the
-same one, and only recompiles when it is not. Creating the directory,
-cloning the source, compiling, and putting it on the global `PATH` are
-steps specific to each toolchain:
+The real-board workflow does not use this cache: its GCC and Spike come from
+the toolchain image, and only Quartus and the JTAG cable are used from the
+machine. The cache is for whoever calls the GCC or Spike directly on the
+workstation, outside the image. Without it, each of those runs would have to
+recompile them from scratch; with it, the build only checks whether the
+already-built commit is the same one, and only recompiles when it is not.
+Creating the directory, cloning the source, compiling, and putting it on the
+global `PATH` are steps specific to each toolchain:
 
 - RISC-V GCC: [GCC_SETUP.md](GCC_SETUP.md).
 - Spike: [SPIKE_SETUP.md](SPIKE_SETUP.md).
@@ -225,7 +235,9 @@ a documented example is in
   repositories")
 - [ ] Quartus on the global `PATH`: `which quartus_pgm` and
   `quartus_pgm --version`
-- [ ] RISC-V GCC and Spike compiled and on the `PATH`: `which
+- [ ] The toolchain image runs as `runner`: `sudo -u runner docker run --rm
+  ghcr.io/insper-riscv/infra-toolchain:latest riscv32-unknown-elf-gcc --version`
+- [ ] Only if the shared cache of phase 4 is in use: `which
   riscv32-unknown-elf-gcc` and `which spike`
 - [ ] `jtagconfig` reads the board's device ID with no error
 - [ ] Manual confirmation secret configured, if applicable
