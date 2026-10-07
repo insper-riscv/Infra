@@ -149,7 +149,9 @@ Tudo é fixado por nós, exceto os pacotes do próprio Ubuntu. O workflow que at
 | :--- | :--- | :--- |
 | LLVM | 21.1.8 | a biblioteca em que o backend LLVM do GHDL liga; é a que o `llvm-dev` instala no 26.04, e a com que o GHDL 6.0.0 foi testado aqui (o LLVM 22 existe e não foi testado) |
 | `gcc` e `g++` (do host) | 15.2.0 | ligam o executável que o GHDL elabora e compilam o cocotb no `arm64`; o GCC RISC-V mantém os próprios nomes `riscv32-unknown-elf-`, então não conflitam |
-| `git`, `make`, `curl` | 2.53.0, 4.4.1, 8.18.0 | o checkout de um workflow, os instaladores e o `make` dos projetos |
+| `git` | 2.53.0 | o checkout de um workflow |
+| `make` | 4.4.1 | os Makefiles dos projetos e o `make` do próprio ACT4 |
+| `curl` | 8.18.0 | instaladores e downloads |
 | GTK 3 (`dev_tools`) | 3.24.52 | o que o GTKWave usa, com os backends Wayland e X11 |
 | `gnat` (`dev_tools`) | 14 | o runtime e o compilador de Ada para compilar o GHDL ou código Ada no ambiente de desenvolvimento |
 
