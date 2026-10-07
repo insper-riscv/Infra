@@ -54,7 +54,9 @@ On X11 (or Wayland through XWayland), mount the X socket and pass `DISPLAY` inst
 
 GTKWave is built by its own image, `infra-gtkwave` (Dockerfile.gtkwave, workflow `GTKWave image`), the same way as the GCC and Spike: a build stage compiles the commit, and the published image holds only the install directory. To update GTKWave, run the `GTKWave image` workflow by hand with the commit wanted (empty: the latest of the upstream default branch); the `Dev tools` image is then rebuilt.
 
-The workflow runs when the `Toolchain image` or the `GTKWave image` workflow finishes, when `Dockerfile.devtools` changes on `main`, and on demand with the same confirmation secret as the other image workflows. It builds the image, checks that the user, GHDL, the GCC, GTKWave's libraries, `uv`, Python and a native compile all work, and only then publishes.
+The workflow runs when the `Toolchain image` or the `GTKWave image` workflow finishes, when `Dockerfile.devtools` changes on `main`, and on demand with the same confirmation secret as the other image workflows. Like `Toolchain image`, it does not fail when an input is missing and does not assemble twice. If the `infra-gtkwave` or `infra-toolchain` image is not published yet, it ends with a notice and runs when they finish. If a `GTKWave image` or `Toolchain image` run is queued or going, it skips with a notice, and the end of that run triggers it again, so the last one to finish does the single assembly. When a run is triggered for a combination of commits that already has an image (tag `ghdl-<7>-gcc-<7>-spike-<7>-gtkwave-<7>`), it builds nothing. A manual run never defers, and fails with a message when the inputs do not exist.
+
+It builds the image, checks that the user, GHDL, the GCC, GTKWave's libraries, `uv`, Python and a native compile all work, and only then publishes.
 
 ## 4. Architectures
 

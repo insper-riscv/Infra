@@ -54,7 +54,9 @@ Em X11 (ou Wayland pelo XWayland), monte o socket do X e passe o `DISPLAY`: `-v 
 
 O GTKWave é construído pela imagem própria `infra-gtkwave` (Dockerfile.gtkwave, workflow `GTKWave image`), do mesmo jeito que o GCC e o Spike: um estágio de build compila o commit, e a imagem publicada guarda só o diretório de instalação. Para atualizar o GTKWave, rode o workflow `GTKWave image` à mão com o commit desejado (vazio: o último da branch padrão do upstream); a imagem `dev_tools` é então reconstruída.
 
-O workflow roda quando o `Toolchain image` ou o `GTKWave image` termina, quando o `Dockerfile.devtools` muda no `main` e sob demanda, com o mesmo segredo de confirmação dos outros workflows de imagem. Ele constrói a imagem, confere que o usuário, o GHDL, o GCC, as bibliotecas do GTKWave, o `uv`, o Python e uma compilação nativa funcionam, e só então publica.
+O workflow roda quando o `Toolchain image` ou o `GTKWave image` termina, quando o `Dockerfile.devtools` muda no `main` e sob demanda, com o mesmo segredo de confirmação dos outros workflows de imagem. Como o `Toolchain image`, ele não falha quando falta uma entrada e não monta duas vezes. Se a imagem `infra-gtkwave` ou `infra-toolchain` ainda não foi publicada, termina com um aviso e roda quando elas terminarem. Se um run de `GTKWave image` ou `Toolchain image` estiver na fila ou em andamento, ele pula com um aviso, e o fim desse run o dispara de novo, de modo que o último a terminar faz a montagem única. Quando um run é disparado para uma combinação de commits que já tem imagem (tag `ghdl-<7>-gcc-<7>-spike-<7>-gtkwave-<7>`), nada é construído. Um run manual nunca adia, e falha com uma mensagem quando as entradas não existem.
+
+Ele constrói a imagem, confere que o usuário, o GHDL, o GCC, as bibliotecas do GTKWave, o `uv`, o Python e uma compilação nativa funcionam, e só então publica.
 
 ## 4. Arquiteturas
 
