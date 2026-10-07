@@ -60,7 +60,8 @@ Together, these docs are the foundation that `RV32`, `Tests` and
 
 Both are published for `linux/amd64` and `linux/arm64`, with the same versions on each, and
 `dev_tools` is the toolchain image plus what is listed under it. How each item is updated is in
-[TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md) and [DEVTOOLS_IMAGE.md](docs/en/DEVTOOLS_IMAGE.md).
+[TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md) and [DEVTOOLS_IMAGE.md](docs/en/DEVTOOLS_IMAGE.md), and why each version was chosen is in
+[section 8 of TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md#8-why-each-version).
 
 ### Toolchain image (`ghcr.io/insper-riscv/infra-toolchain`)
 

@@ -61,7 +61,8 @@ para funcionar como pretendido.
 As duas são publicadas para `linux/amd64` e `linux/arm64`, com as mesmas versões em cada uma, e a
 `dev_tools` é a imagem do toolchain mais o que está listado abaixo dela. Como cada item é atualizado
 está no [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md) e no
-[DEVTOOLS_IMAGE.md](docs/pt-br/DEVTOOLS_IMAGE.md).
+[DEVTOOLS_IMAGE.md](docs/pt-br/DEVTOOLS_IMAGE.md), e por que cada versão foi escolhida está na
+[seção 8 do TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md#8-por-que-cada-versão).
 
 ### Imagem do toolchain (`ghcr.io/insper-riscv/infra-toolchain`)
 

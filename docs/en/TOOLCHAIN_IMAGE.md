@@ -124,6 +124,35 @@ docker buildx imagetools inspect ghcr.io/insper-riscv/infra-gcc:latest --format 
 
 The second command should print just `.;` (one variant, the root). The last one shows, for each architecture, the GCC commit in the `riscv-gnu-toolchain.commit` label, and lists `linux/amd64` and `linux/arm64`.
 
+## 8. Why each version
+
+Everything is fixed by us except the packages of Ubuntu itself. The workflow that updates each fixed item is in section 4.
+
+### 8.1 What we choose
+
+| Item | Version | Why |
+| :--- | :--- | :--- |
+| Ubuntu | 26.04 LTS | the latest long-term release, a multi-architecture base (`amd64` and `arm64`), and the one GHDL 6.0.0 was built and tested on with LLVM 21 |
+| GHDL | 6.0.0 | the latest stable release; the series is fixed at 6 (`SERIES` in the workflow), so 7.0.0, which is still in development, is not taken by itself |
+| GHDL backend | LLVM | the `mcode` backend runs only on x86, and the same simulator must behave the same on a PC and on an ARM machine such as a Mac |
+| RISC-V GCC | 16.1.0, commit `d118e53` | built from source because the configuration is ours: `rv32im`, `ilp32`, one library variant, no CSR and no floating point hardware; the configuration is fixed when the compiler is built, so a prebuilt binary could not be changed to it, and the prebuilt binaries of the upstream releases exist for Ubuntu 22.04 and 24.04 only. It follows the head of `riscv-gnu-toolchain`, since its releases are a nightly snapshot of the head (a workflow publishes one on every day with a commit), not a more stable point |
+| picolibc | 1.8.11 | the version the `riscv-gnu-toolchain` commit carries; compiled for the same `rv32im` as the GCC, so it has no CSR code and does floating point in software |
+| Spike | commit `fdc1ffa` | the head of `riscv-isa-sim`, because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
+| `uv` | 0.12.23 | the latest stable release of series 0 (`UV_SERIES`); it installs Python and the dependencies of each project, and replaces `pip` and virtual environments |
+| Python | 3.14.8 | the version the projects require (`>=3.14,<3.15`); the patch is the latest one the `uv` knows |
+| cocotb | 2.1.0 | the first release that supports Python 3.14 and the latest; every project simulates with it, so it is in the image, and it fixes the Python version: a newer Python waits for a cocotb that supports it. On `arm64` it has no wheel and is compiled, hence `g++` |
+| GTKWave (`dev_tools`) | 3.3.116 | the latest stable release of series 3 (`SERIES`); the 4.0.0 line is a pre-alpha with no release. Built from the GTK 3 tree, which has a Wayland backend |
+
+### 8.2 What comes from Ubuntu
+
+| Item | Version | Why it is in the image |
+| :--- | :--- | :--- |
+| LLVM | 21.1.8 | the library the GHDL LLVM backend links against; it is the one `llvm-dev` installs on 26.04, and the one GHDL 6.0.0 was tested with here (LLVM 22 is available and was not tested) |
+| `gcc` and `g++` (host) | 15.2.0 | link the executable GHDL elaborates, and compile cocotb on `arm64`; the RISC-V GCC keeps its own `riscv32-unknown-elf-` names, so they do not clash |
+| `git`, `make`, `curl` | 2.53.0, 4.4.1, 8.18.0 | the checkout of a workflow, the installers and the `make` of the projects |
+| GTK 3 (`dev_tools`) | 3.24.52 | what GTKWave runs on, with its Wayland and X11 backends |
+| `gnat` (`dev_tools`) | 14 | the Ada runtime and compiler for building GHDL or Ada code in the development environment |
+
 ---
 
 Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).
