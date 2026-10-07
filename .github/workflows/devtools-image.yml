@@ -26,18 +26,24 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/dev_tools
+  TOOLCHAIN_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-toolchain
   GTKWAVE_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
 
 jobs:
   pin:
+    # Only decides whether there is anything to assemble now, and which GTKWave goes in.
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
+      actions: read
       contents: read
       packages: read
     outputs:
+      skip: ${{ steps.skip.outputs.skip }}
       gtkwave: ${{ steps.pins.outputs.gtkwave }}
+      short: ${{ steps.pins.outputs.short }}
 
     steps:
       - name: Authorize manual run
@@ -64,21 +70,75 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read the GTKWave commit from the latest image
+      - name: Read the toolchain and GTKWave commits from the latest images
         id: pins
+        env:
+          EVENT: ${{ github.event_name }}
         run: |
-          gtkwave=$(docker buildx imagetools inspect "$GTKWAVE_IMAGE:latest" --format '{{json .Image}}' \
-            | jq -r '."linux/amd64".config.Labels["gtkwave.commit"] // empty')
-          if [ -z "$gtkwave" ]; then
-            echo "::error::could not read the commit from $GTKWAVE_IMAGE:latest; run the GTKWave image workflow first"
-            exit 1
+          # The images are manifests of two architectures that carry the same commits.
+          label() {
+            docker buildx imagetools inspect "$1" --format '{{json .Image}}' 2>/dev/null \
+              | jq -r --arg key "$2" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
+          }
+          gtkwave=$(label "$GTKWAVE_IMAGE:latest" gtkwave.commit)
+          ghdl=$(label "$TOOLCHAIN_IMAGE:latest" ghdl.commit)
+          gcc=$(label "$TOOLCHAIN_IMAGE:latest" riscv-gnu-toolchain.commit)
+          spike=$(label "$TOOLCHAIN_IMAGE:latest" riscv-isa-sim.commit)
+          if [ -z "$gtkwave" ] || [ -z "$ghdl" ] || [ -z "$gcc" ] || [ -z "$spike" ]; then
+            if [ "$EVENT" = "workflow_dispatch" ]; then
+              echo "::error::could not read the commits from the latest GTKWave and toolchain images; run the GTKWave image and Toolchain image workflows first"
+              exit 1
+            fi
+            # A push can land before the images exist (the merge that adds this workflow also adds
+            # the GTKWave one); their runs trigger this one when they finish.
+            echo "::notice::the GTKWave and toolchain images are not both published yet; their runs trigger this workflow when they finish."
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           echo "gtkwave=$gtkwave" >> "$GITHUB_OUTPUT"
+          echo "short=ghdl-${ghdl:0:7}-gcc-${gcc:0:7}-spike-${spike:0:7}-gtkwave-${gtkwave:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether there is anything to assemble now
+        # Nothing to do when an image is not published yet, when a GTKWave or toolchain run is
+        # still queued or going (its end triggers this workflow again, so the last one to finish
+        # does the single assembly), or when a component workflow that found its image already
+        # published (it still ends successfully) triggered this run for a combination that exists.
+        # A manual run never defers, and otherwise a push always builds: the Dockerfile may have
+        # changed.
+        id: skip
+        env:
+          EVENT: ${{ github.event_name }}
+          MISSING: ${{ steps.pins.outputs.missing }}
+          COMBINATION: ${{ steps.pins.outputs.short }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          pending=0
+          if [ "$EVENT" != "workflow_dispatch" ]; then
+            for workflow in gtkwave-image.yml toolchain-image.yml; do
+              for status in queued in_progress; do
+                # A workflow GitHub does not know yet makes this fail; count it as none.
+                count=$(gh run list -R "$REPO" --workflow "$workflow" --status "$status" --json databaseId --jq length 2>/dev/null || echo 0)
+                pending=$((pending + count))
+              done
+            done
+          fi
+
+          if [ "$MISSING" = "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$pending" -gt 0 ]; then
+            echo "::notice::a GTKWave image or Toolchain image run is still going; it triggers this workflow when it finishes."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "workflow_run" ] && docker buildx imagetools inspect "$IMAGE:$COMBINATION" > /dev/null 2>&1; then
+            echo "::notice::$IMAGE:$COMBINATION already exists; nothing to assemble."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
 
   image:
     # linux/amd64 and linux/arm64, each built on a runner of its own architecture, then one
     # manifest (build-image.yml).
     needs: pin
+    if: needs.pin.outputs.skip != 'true'
     permissions:
       contents: read
       packages: write
@@ -95,6 +155,7 @@ jobs:
       tags: |
         latest
         sha-${{ github.sha }}
+        ${{ needs.pin.outputs.short }}
       check: |
         test "$(id -un)" = dev
         test "$(pwd)" = /work
