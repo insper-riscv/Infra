@@ -142,6 +142,8 @@ jobs:
     with:
       image: ghcr.io/${{ github.repository_owner }}/infra-ghdl
       dockerfile: Dockerfile.ghdl
+      title: GHDL (LLVM backend)
+      description: GHDL, the VHDL simulator, with the LLVM backend, built from source. Only the install directory, /opt/ghdl.
       timeout-minutes: 240
       build-args: GHDL_COMMIT=${{ needs.pin.outputs.commit }}
       labels: ghdl.commit=${{ needs.pin.outputs.commit }}

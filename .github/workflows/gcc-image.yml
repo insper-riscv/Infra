@@ -136,6 +136,8 @@ jobs:
     with:
       image: ghcr.io/${{ github.repository_owner }}/infra-gcc
       dockerfile: Dockerfile.gcc
+      title: RISC-V GCC (rv32im, picolibc)
+      description: The RISC-V GCC for rv32im and ilp32 with picolibc, built from source. Only the install directory, /opt/riscv-foundation/riscv32-elf.
       timeout-minutes: 360
       build-args: RISCV_GNU_TOOLCHAIN_COMMIT=${{ needs.pin.outputs.commit }}
       labels: riscv-gnu-toolchain.commit=${{ needs.pin.outputs.commit }}

@@ -197,6 +197,8 @@ jobs:
     with:
       image: ghcr.io/${{ github.repository_owner }}/infra-toolchain
       dockerfile: Dockerfile
+      title: Insper RISC-V toolchain
+      description: GHDL, the RISC-V GCC with picolibc, Spike, uv, Python and cocotb, for linux/amd64 and linux/arm64.
       timeout-minutes: 60
       build-args: |
         GHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-ghdl:${{ needs.pin.outputs.ghdl }}
