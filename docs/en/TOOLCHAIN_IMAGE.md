@@ -24,11 +24,11 @@ The `<commit>` of the first three is the commit of `ghdl/ghdl` (the release tag'
 | Python | 3.14, installed by `uv` for every user, with `python3` and `python` on the `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, installed in that Python | `/opt/uv/python` |
 
-GHDL, the GCC and Spike are already on the image's `PATH`. The host `gcc` is in the image too, because the LLVM backend links the design it elaborates with it; the RISC-V one keeps its own `riscv32-unknown-elf-` names. With the LLVM backend `ghdl -r` needs a prior `ghdl -e` (or use `ghdl --elab-run`); the Makefiles and the simulation runner already do. Each install keeps in `.tag` the commit it was built from, and the complete image carries both commit labels.
+GHDL, the GCC and Spike are already on the image's `PATH`. The host `gcc` is in the image too, because the LLVM backend links the design it elaborates with it; the RISC-V one keeps its own `riscv32-unknown-elf-` names. With the LLVM backend `ghdl -r` needs a prior `ghdl -e` (or use `ghdl --elab-run`); the Makefiles and the simulation runner already do. Each install keeps in `.tag` the commit it was built from, and the complete image carries the three commit labels.
 
 Python is pinned to 3.14 because that is the version the projects require (`>=3.14,<3.15`), and cocotb 2.1.0 is the first release that supports it: cocotb is what fixes the Python version, so a newer Python waits for a cocotb that supports it (the build arguments `PYTHON_VERSION` and `COCOTB_VERSION` change both together). Every project simulates with cocotb, so it is in the image; the other Python libraries are each project's own and come from its `uv sync`, which finds this Python instead of downloading one.
 
-Quartus is in none of the images, and a container cannot see the USB-Blaster without extra host configuration. The real-hardware tests keep running on the self-hosted runner described in [RUNNER_SETUP.md](RUNNER_SETUP.md).
+Quartus is in none of the images, and a container cannot see the USB-Blaster without extra host configuration. The real-hardware tests therefore split the work: the test ROMs and their goldens are built inside the complete image, and Quartus and the JTAG cable are used from the self-hosted runner described in [RUNNER_SETUP.md](RUNNER_SETUP.md), which needs Docker and access to it.
 
 ## 3. Using the complete image
 

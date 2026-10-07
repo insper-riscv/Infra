@@ -30,7 +30,15 @@ no grupo do usuário admin**: isolamento deliberado.
 sudo useradd -r -m -d /opt/actions-runner -s /usr/sbin/nologin runner
 sudo passwd -l runner              # sem login por senha; só via sudo/systemd
 sudo usermod -aG plugdev runner    # acesso ao USB-Blaster (defesa em profundidade)
+sudo usermod -aG docker runner     # roda a imagem de toolchain (veja a nota abaixo)
 ```
+
+O workflow da placa real compila as ROMs de teste e seus goldens dentro da
+[imagem de toolchain](TOOLCHAIN_IMAGE.md), então o Docker precisa estar
+instalado e o usuário `runner` precisa poder usá-lo. Fazer parte do grupo
+`docker` equivale a ser root na máquina, o que contraria o isolamento acima;
+onde isso não for aceitável, dê ao `runner` um Docker rootless próprio em vez
+do grupo.
 
 - `-r` → UID/GID na faixa de sistema (normalmente abaixo de `1000`), escolhidos
   automaticamente entre os que já estão livres na máquina onde o comando roda.
@@ -144,13 +152,15 @@ sudo systemctl enable --now gh-actions-runner
 sudo systemctl status gh-actions-runner --no-pager   # deve mostrar "active (running)"
 ```
 
-## Fase 4: Cache compartilhado para GCC e Spike (`/opt/riscv-foundation`)
+## Fase 4 (opcional): Cache compartilhado para GCC e Spike (`/opt/riscv-foundation`)
 
-Sem esse cache, cada bateria de testes que o runner rodasse teria que
-recompilar o GCC RISC-V e o Spike do zero antes mesmo de começar; com o
-cache, o job só confere se o commit já compilado é o mesmo e recompila só
-quando não é. Criar o diretório, clonar o código-fonte, compilar e colocar
-no `PATH` global são passos específicos de cada toolchain:
+O workflow da placa real não usa esse cache: o GCC e o Spike dele vêm da
+imagem de toolchain, e da máquina só se usam o Quartus e o cabo JTAG. O cache
+é para quem chama o GCC ou o Spike direto na workstation, fora da imagem. Sem
+ele, cada uma dessas execuções teria que recompilá-los do zero; com ele, o
+build só confere se o commit já compilado é o mesmo e recompila só quando não
+é. Criar o diretório, clonar o código-fonte, compilar e colocar no `PATH`
+global são passos específicos de cada toolchain:
 
 - GCC RISC-V: [GCC_SETUP.md](GCC_SETUP.md).
 - Spike: [SPIKE_SETUP.md](SPIKE_SETUP.md).
@@ -210,7 +220,10 @@ documentado em
 - [ ] Runner aparece **Idle** em Settings → Actions → Runners, com as labels certas
 - [ ] Runner group restrito a **Selected repositories** (não "All repositories")
 - [ ] Quartus no `PATH` global: `which quartus_pgm` e `quartus_pgm --version`
-- [ ] GCC RISC-V e Spike compilados e no `PATH`: `which riscv32-unknown-elf-gcc` e `which spike`
+- [ ] A imagem de toolchain roda como `runner`: `sudo -u runner docker run --rm
+  ghcr.io/insper-riscv/infra-toolchain:latest riscv32-unknown-elf-gcc --version`
+- [ ] Só se o cache compartilhado da fase 4 estiver em uso: `which
+  riscv32-unknown-elf-gcc` e `which spike`
 - [ ] `jtagconfig` lê o device ID da placa sem erro
 - [ ] Secret de confirmação manual configurado, se aplicável
 

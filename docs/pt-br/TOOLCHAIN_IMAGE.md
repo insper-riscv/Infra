@@ -24,11 +24,11 @@ O `<commit>` das três primeiras é o commit do `ghdl/ghdl` (o da tag de release
 | Python | 3.14, instalado pelo `uv` para todos os usuários, com `python3` e `python` no `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, instalado nesse Python | `/opt/uv/python` |
 
-O GHDL, o GCC e o Spike já estão no `PATH` da imagem. O `gcc` do host também está na imagem, porque o backend LLVM liga com ele o projeto que elabora; o do RISC-V mantém os próprios nomes `riscv32-unknown-elf-`. Com o backend LLVM o `ghdl -r` precisa de um `ghdl -e` antes (ou use `ghdl --elab-run`); os Makefiles e o runner de simulação já fazem isso. Cada instalação guarda em `.tag` o commit de que foi compilada, e a imagem completa traz os dois rótulos de commit.
+O GHDL, o GCC e o Spike já estão no `PATH` da imagem. O `gcc` do host também está na imagem, porque o backend LLVM liga com ele o projeto que elabora; o do RISC-V mantém os próprios nomes `riscv32-unknown-elf-`. Com o backend LLVM o `ghdl -r` precisa de um `ghdl -e` antes (ou use `ghdl --elab-run`); os Makefiles e o runner de simulação já fazem isso. Cada instalação guarda em `.tag` o commit de que foi compilada, e a imagem completa traz os três rótulos de commit.
 
 O Python é fixado em 3.14 porque é a versão que os projetos exigem (`>=3.14,<3.15`), e o cocotb 2.1.0 é a primeira versão que a suporta: o cocotb é quem fixa a versão do Python, então um Python mais novo espera um cocotb que o suporte (os argumentos de build `PYTHON_VERSION` e `COCOTB_VERSION` mudam os dois juntos). Todo projeto simula com o cocotb, então ele está na imagem; as outras bibliotecas Python são de cada projeto e vêm do `uv sync` dele, que encontra este Python em vez de baixar outro.
 
-O Quartus não está em nenhuma das imagens, e um container não enxerga o USB-Blaster sem configuração extra do host. Os testes de hardware real continuam rodando no runner self-hosted descrito no [RUNNER_SETUP.md](RUNNER_SETUP.md).
+O Quartus não está em nenhuma das imagens, e um container não enxerga o USB-Blaster sem configuração extra do host. Por isso os testes de hardware real dividem o trabalho: as ROMs de teste e seus goldens são construídos dentro da imagem completa, e o Quartus e o cabo JTAG são usados a partir do runner self-hosted descrito no [RUNNER_SETUP.md](RUNNER_SETUP.md), que precisa de Docker e de acesso a ele.
 
 ## 3. Usando a imagem completa
 

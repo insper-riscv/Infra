@@ -44,16 +44,16 @@ workstation nova é:
 - **[RUNNER_SETUP.md](docs/pt-br/RUNNER_SETUP.md)**: configura um runner
   self-hosted do GitHub Actions com acesso a hardware FPGA (Quartus +
   JTAG). Sem ele, não tem como rodar os testes de hardware real do
-  `Testes`.
+  `Tests`. O runner também precisa de Docker, para a imagem de toolchain.
 - **[GCC_SETUP.md](docs/pt-br/GCC_SETUP.md)**: compila o GCC RISC-V
-  (binutils, compilador, picolibc, gdb) para o alvo `rv32im`. Sem ele, não
-  tem como compilar os programas de teste em C que o `Testes` e o `Tools`
-  usam.
+  (binutils, compilador, picolibc, gdb) para o alvo `rv32im`. É com ele que a
+  [imagem de toolchain](docs/pt-br/TOOLCHAIN_IMAGE.md) é construída; instale-o
+  numa workstation só para compilar fora da imagem.
 - **[SPIKE_SETUP.md](docs/pt-br/SPIKE_SETUP.md)**: compila o Spike, o
-  simulador de referência RISC-V. Sem ele, os testes de memória do
-  `Testes` não têm golden de referência para comparar.
+  simulador de referência RISC-V. Como o GCC, ele está na imagem de
+  toolchain; o setup serve para rodá-lo fora da imagem.
 
-Esses docs juntos são a base da qual `RV32IM`, `Testes` e `Tools` dependem
+Esses docs juntos são a base da qual `RV32`, `Tests` e `Tools` dependem
 para funcionar como pretendido.
 
 ---
