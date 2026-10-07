@@ -70,7 +70,8 @@ está no [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md) e no
 | Ubuntu | 26.04 LTS |
 | GHDL (backend LLVM) | 6.0.0 |
 | LLVM (biblioteca em que o backend do GHDL roda) | 21.1.8 |
-| GCC RISC-V (`rv32im`, picolibc) | 16.1.0 (commit `d118e53` do `riscv-gnu-toolchain`) |
+| GCC RISC-V (`rv32im`) | 16.1.0 (commit `d118e53` do `riscv-gnu-toolchain`) |
+| picolibc (biblioteca C do GCC RISC-V) | 1.8.11 |
 | Spike | 1.1.1-dev (commit `fdc1ffa` do `riscv-isa-sim`, módulo de debug em `0x70000000`) |
 | `uv` | 0.12.23 |
 | Python | 3.14.8 |

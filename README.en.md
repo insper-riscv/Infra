@@ -69,7 +69,8 @@ Both are published for `linux/amd64` and `linux/arm64`, with the same versions o
 | Ubuntu | 26.04 LTS |
 | GHDL (LLVM backend) | 6.0.0 |
 | LLVM (library the GHDL backend runs on) | 21.1.8 |
-| RISC-V GCC (`rv32im`, picolibc) | 16.1.0 (`riscv-gnu-toolchain` commit `d118e53`) |
+| RISC-V GCC (`rv32im`) | 16.1.0 (`riscv-gnu-toolchain` commit `d118e53`) |
+| picolibc (C library of the RISC-V GCC) | 1.8.11 |
 | Spike | 1.1.1-dev (`riscv-isa-sim` commit `fdc1ffa`, debug module at `0x70000000`) |
 | `uv` | 0.12.23 |
 | Python | 3.14.8 |
