@@ -14,6 +14,14 @@ on:
       dockerfile:
         required: true
         type: string
+      title:
+        description: "Title of the image (label org.opencontainers.image.title)"
+        required: true
+        type: string
+      description:
+        description: "One sentence about the image (label org.opencontainers.image.description)"
+        required: true
+        type: string
       build-args:
         description: "One NAME=value per line"
         required: false
@@ -91,6 +99,10 @@ jobs:
           docker run --rm --platform linux/${{ matrix.arch }} ci-image:${{ matrix.arch }} \
             bash -euo pipefail -c "$CHECK"
 
+      - name: When the image is built
+        id: created
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Push the image by digest
         id: push
         uses: docker/build-push-action@v7.4.0
@@ -99,7 +111,15 @@ jobs:
           file: ${{ inputs.dockerfile }}
           platforms: linux/${{ matrix.arch }}
           build-args: ${{ inputs.build-args }}
-          labels: ${{ inputs.labels }}
+          # The title, description and date are set here because an image built on the Ubuntu
+          # base would otherwise carry the ones of the Ubuntu image.
+          labels: |
+            ${{ inputs.labels }}
+            org.opencontainers.image.title=${{ inputs.title }}
+            org.opencontainers.image.description=${{ inputs.description }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.created.outputs.value }}
           outputs: type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=true
 
       - name: Keep the digest

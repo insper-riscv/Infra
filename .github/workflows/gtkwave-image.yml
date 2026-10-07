@@ -141,6 +141,8 @@ jobs:
     with:
       image: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
       dockerfile: Dockerfile.gtkwave
+      title: GTKWave (GTK 3)
+      description: GTKWave, the waveform viewer, GTK 3 tree of the stable 3.3 line. Only the install directory, /opt/gtkwave.
       timeout-minutes: 150
       build-args: GTKWAVE_COMMIT=${{ needs.pin.outputs.commit }}
       labels: gtkwave.commit=${{ needs.pin.outputs.commit }}

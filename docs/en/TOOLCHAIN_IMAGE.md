@@ -13,6 +13,8 @@ Four Docker images with what the RISC-V test flow needs except Quartus: one with
 
 The `<commit>` of the first three is the commit of `ghdl/ghdl` (the release tag's), `riscv-collab/riscv-gnu-toolchain` and `riscv-software-src/riscv-isa-sim` they were built from, and it is also in the image's `ghdl.commit`, `riscv-gnu-toolchain.commit` or `riscv-isa-sim.commit` label. The component images have no file system besides those directories, so they cannot be run: they exist to be copied from.
 
+Every image carries the labels `org.opencontainers.image.title`, `description`, `source`, `revision` (the commit of this repository that built it) and `created` (when it was built), set by the workflow, and the commit labels of its components (`ghdl.commit`, `riscv-gnu-toolchain.commit`, `riscv-isa-sim.commit`, `gtkwave.commit`, `uv.version`). They are set explicitly because an image built on the Ubuntu base would otherwise inherit the title, the description and the date of the Ubuntu image.
+
 ## 2. What the complete image contains
 
 | Component | Detail | Path |

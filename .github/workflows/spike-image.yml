@@ -131,6 +131,8 @@ jobs:
     with:
       image: ghcr.io/${{ github.repository_owner }}/infra-spike
       dockerfile: Dockerfile.spike
+      title: Spike (RISC-V ISA simulator)
+      description: Spike, the RISC-V reference simulator, with its debug module at 0x70000000. Only the install directory, /opt/riscv-foundation/spike.
       timeout-minutes: 150
       build-args: RISCV_ISA_SIM_COMMIT=${{ needs.pin.outputs.commit }}
       labels: riscv-isa-sim.commit=${{ needs.pin.outputs.commit }}

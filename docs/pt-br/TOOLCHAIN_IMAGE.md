@@ -13,6 +13,8 @@ Quatro imagens Docker com o que o fluxo de testes RISC-V precisa, exceto o Quart
 
 O `<commit>` das três primeiras é o commit do `ghdl/ghdl` (o da tag de release), do `riscv-collab/riscv-gnu-toolchain` e do `riscv-software-src/riscv-isa-sim` de que foram compiladas, e fica também no rótulo `ghdl.commit`, `riscv-gnu-toolchain.commit` ou `riscv-isa-sim.commit` da imagem. As imagens de componente não têm sistema de arquivos além desses diretórios, então não dá para executá-las: elas existem para serem copiadas.
 
+Toda imagem leva os rótulos `org.opencontainers.image.title`, `description`, `source`, `revision` (o commit deste repositório que a construiu) e `created` (quando foi construída), definidos pelo workflow, e os rótulos de commit dos seus componentes (`ghdl.commit`, `riscv-gnu-toolchain.commit`, `riscv-isa-sim.commit`, `gtkwave.commit`, `uv.version`). Eles são definidos explicitamente porque uma imagem construída sobre a base Ubuntu herdaria o título, a descrição e a data da imagem do Ubuntu.
+
 ## 2. O que a imagem completa contém
 
 | Componente | Detalhe | Caminho |

@@ -146,6 +146,8 @@ jobs:
     with:
       image: ghcr.io/${{ github.repository_owner }}/dev_tools
       dockerfile: Dockerfile.devtools
+      title: Insper RISC-V dev tools
+      description: The toolchain image plus GTKWave, the build tools and the user dev, for a Dev Container.
       timeout-minutes: 60
       build-args: |
         TOOLCHAIN_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-toolchain:latest
