@@ -96,7 +96,11 @@ jobs:
             exit 0
           fi
           echo "gtkwave=$gtkwave" >> "$GITHUB_OUTPUT"
-          echo "short=ghdl-${ghdl:0:7}-gcc-${gcc:0:7}-spike-${spike:0:7}-gtkwave-${gtkwave:0:7}" >> "$GITHUB_OUTPUT"
+          # The combination also names the toolchain image itself (the start of its digest): the
+          # commits of the components can stay the same while the toolchain changes (the Ubuntu
+          # base, uv, Python), and that is a new combination.
+          toolchain=$(docker buildx imagetools inspect "$TOOLCHAIN_IMAGE:latest" --format '{{.Manifest.Digest}}' | sed 's/^sha256://' | cut -c1-12)
+          echo "short=ghdl-${ghdl:0:7}-gcc-${gcc:0:7}-spike-${spike:0:7}-gtkwave-${gtkwave:0:7}-toolchain-${toolchain}" >> "$GITHUB_OUTPUT"
 
       - name: Decide whether there is anything to assemble now
         # Nothing to do when an image is not published yet, when a GTKWave or toolchain run is
