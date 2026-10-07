@@ -22,6 +22,9 @@ RHEL-like (`dnf`/`yum`) distros.
   RISC-V GCC (picolibc), of Spike and a complete one with GHDL, the GCC, Spike
   and `uv`, built and published by CI, for anyone who does not want to install
   them on a machine.
+- [DEVTOOLS_IMAGE.md](docs/en/DEVTOOLS_IMAGE.md): `dev_tools`, the toolchain
+  image plus the user `dev`, `yosys`, `gtkwave` and the build tools, for a Dev
+  Container.
 
 ## Suggested order
 

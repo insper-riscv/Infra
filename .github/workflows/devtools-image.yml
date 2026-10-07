@@ -1,0 +1,113 @@
+name: Dev tools image
+
+# Builds the development environment image (Dockerfile.devtools: the complete toolchain image plus
+# the user dev, yosys, gtkwave and the build tools) and publishes it as dev_tools, tagged latest and
+# with the Infra commit. It runs when the Toolchain image workflow finishes, when Dockerfile.devtools
+# changes on main, and on demand. linux/amd64 only.
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile.devtools
+      - .github/workflows/devtools-image.yml
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
+        required: true
+  workflow_run:
+    workflows: ["Toolchain image"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: devtools-image
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/dev_tools
+  TOOLCHAIN_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-toolchain:latest
+
+jobs:
+  image:
+    # Adds a few apt packages and a user to the toolchain image, so it takes a few minutes.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Authorize manual run
+        # Only applies to workflow_dispatch: repo write access already gates who can trigger this,
+        # but on a repo shared with people who shouldn't publish the image, this adds a second
+        # check: only someone who separately knows IMAGE_PUBLISH_SECRET can run it. A push to main
+        # skips this: branch protection on main is the gate for that path instead, and a
+        # workflow_run follows a run that was already authorized.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          SECRET: ${{ secrets.IMAGE_PUBLISH_SECRET }}
+        run: |
+          if [ "$CONFIRM" != "$SECRET" ]; then
+            echo "::error::confirmation does not match IMAGE_PUBLISH_SECRET, refusing to publish the image"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha
+
+      - name: Build the image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: Dockerfile.devtools
+          platforms: linux/amd64
+          load: true
+          tags: dev_tools:ci
+          build-args: |
+            TOOLCHAIN_IMAGE=${{ env.TOOLCHAIN_IMAGE }}
+
+      # Fail before publishing anything if the image lacks a piece.
+      - name: Check the image
+        run: |
+          docker run --rm dev_tools:ci bash -euo pipefail -c '
+            test "$(id -un)" = dev
+            test "$(pwd)" = /work
+            ghdl --version | head -n 1
+            riscv32-unknown-elf-gcc --version | head -n 1
+            spike --help 2>&1 | head -n 1 || true
+            yosys -V
+            command -v gtkwave
+            uv --version
+            echo "int main(void){return 0;}" > /tmp/t.c && gcc /tmp/t.c -o /tmp/t && /tmp/t
+          '
+
+      - name: Publish the image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: Dockerfile.devtools
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            TOOLCHAIN_IMAGE=${{ env.TOOLCHAIN_IMAGE }}

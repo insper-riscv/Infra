@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+#
+# The development environment of the Insper RISC-V project, for a Dev Container: the complete
+# toolchain image (GHDL, the RISC-V GCC with picolibc, Spike and uv) plus what one needs to work
+# inside it, and the user `dev`. Python projects install their dependencies with `uv sync`; the
+# image has no virtual environment and no pip.
+#
+#   docker build -f Dockerfile.devtools -t dev_tools .
+#   docker run --rm -it -v "$PWD:/work" dev_tools
+
+ARG TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:latest
+
+FROM ${TOOLCHAIN_IMAGE}
+
+# build-essential and pkg-config for the projects that compile C; gnat is the Ada runtime GHDL's
+# own builds and some libraries need; yosys synthesizes, gtkwave shows the waveforms.
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential pkg-config gnat gtkwave yosys \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN useradd --create-home --shell /bin/bash dev \
+ && mkdir -p /work \
+ && chown dev:dev /work
+
+USER dev
+WORKDIR /work
+CMD ["/bin/bash"]

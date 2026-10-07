@@ -22,6 +22,9 @@ GitHub Actions, ferramentas compartilhadas), feita para distros Debian-like
   RISC-V (picolibc), do Spike e uma completa com GHDL, GCC, Spike e `uv`,
   construídas e publicadas pelo CI, para quem não quer instalar isso numa
   máquina.
+- [DEVTOOLS_IMAGE.md](docs/pt-br/DEVTOOLS_IMAGE.md): `dev_tools`, a imagem do
+  toolchain mais o usuário `dev`, `yosys`, `gtkwave` e as ferramentas de
+  compilação, para um Dev Container.
 
 ## Ordem sugerida
 
