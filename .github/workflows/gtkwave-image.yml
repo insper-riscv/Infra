@@ -37,6 +37,8 @@ env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
   UPSTREAM: https://github.com/gtkwave/gtkwave
   LABEL: gtkwave.commit
+  # the major version of GTKWave the image follows (3.x.y); a new series is chosen by editing this line
+  SERIES: "3"
 
 jobs:
   pin:
@@ -91,10 +93,16 @@ jobs:
               | jq -r --arg key "$LABEL" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
           }
           upstream_commit() {
-            # the commit of the latest stable release tag (v3.3.116), not of the development line
-            tag=$(git ls-remote --tags --refs "$UPSTREAM" 'v3.*' | sed 's|.*refs/tags/||' \
-                  | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
-            git ls-remote "$UPSTREAM" "refs/tags/${tag}^{}" | cut -f1
+            # the commit of the latest stable release tag of the series SERIES (v3.x.y), not of the
+            # development line: moving to the next series is an edit of SERIES
+            tag=$(git ls-remote --tags --refs "$UPSTREAM" "v${SERIES}.*" | sed 's|.*refs/tags/||' \
+                  | grep -E "^v${SERIES}\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
+            if [ -z "$tag" ]; then
+              echo "::error::no release tag of the series ${SERIES} in $UPSTREAM" >&2
+              return 1
+            fi
+            # an annotated tag has a second line, peeled to the commit (^{}); a lightweight one is the commit
+            git ls-remote "$UPSTREAM" "refs/tags/${tag}" "refs/tags/${tag}^{}" | tail -n 1 | cut -f1
           }
 
           force="$INPUT_FORCE"

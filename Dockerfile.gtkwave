@@ -8,7 +8,7 @@
 # The commit of gtkwave/gtkwave to build has no default (the commit of a release tag):
 #
 #   docker build -f Dockerfile.gtkwave -t infra-gtkwave \
-#     --build-arg GTKWAVE_COMMIT="$(git ls-remote https://github.com/gtkwave/gtkwave 'refs/tags/v3.3.116^{}' | cut -f1)" .
+#     --build-arg GTKWAVE_COMMIT="$(git ls-remote https://github.com/gtkwave/gtkwave 'refs/tags/v3.3.116' 'refs/tags/v3.3.116^{}' | tail -n 1 | cut -f1)" .
 
 ARG BASE_IMAGE=ubuntu:26.04
 
