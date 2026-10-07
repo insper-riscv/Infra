@@ -10,7 +10,7 @@
 #   docker build -f Dockerfile.ghdl -t infra-ghdl \
 #     --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl refs/tags/v6.0.0^{} | cut -f1)" .
 
-ARG BASE_IMAGE=ubuntu:24.04
+ARG BASE_IMAGE=ubuntu:26.04
 
 FROM ${BASE_IMAGE} AS build
 ARG GHDL_COMMIT

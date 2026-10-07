@@ -6,7 +6,7 @@
 
 | Addition | Detail |
 | :--- | :--- |
-| GTKWave | the 4.0.0 development line (GTK 3 and 4), copied from the `infra-gtkwave` image into `/opt/gtkwave`; runs on Wayland natively and on X11 |
+| GTKWave | the stable 3.3 line (3.3.116, GTK 3 tree), copied from the `infra-gtkwave` image into `/opt/gtkwave`; runs on Wayland natively and on X11 |
 | User | `dev`, with `/work` as the working directory |
 | Build tools | `build-essential`, `pkg-config`, `gnat` |
 
@@ -32,6 +32,8 @@ In a `.devcontainer/devcontainer.json`:
 ```
 
 ### 2.1 Opening GTKWave
+
+GTKWave is the GTK 3 tree of the stable 3.3 line, which has a Wayland backend. `twinwave` and the `-X` option embed windows with XEmbed, which exists only on X11, and do not work on Wayland; opening a waveform file does not use either.
 
 GTKWave needs a display. On Wayland, pass the compositor socket and its name:
 

@@ -71,6 +71,8 @@ Quando um desses workflows termina com sucesso, o `Toolchain image` roda sozinho
 
 Cada arquitetura é compilada num runner dela (`ubuntu-26.04` para `linux/amd64` e `ubuntu-24.04-arm` para `linux/arm64`): os builds do GCC e do GHDL levam horas sob emulação. Um job final junta as duas imagens num só manifesto com as tags, e o `docker pull` entrega a cada máquina a sua.
 
+O `uv` é o único componente sem imagem nossa: a imagem completa o copia da imagem oficial `ghcr.io/astral-sh/uv`. Ele segue a mesma regra dos outros, no `Toolchain image`: um run disparado por um push ou pelo fim de um componente mantém o `uv` que a imagem `latest` já tem (o rótulo `uv.version`), e um run manual usa o campo `uv_version`, que vazio significa a última release estável do `astral-sh/uv`. A versão entra também na tag de combinação (`ghdl-<7>-gcc-<7>-spike-<7>-uv-<versão>`). Para atualizar o `uv`, rode o `Toolchain image` à mão com `confirm` e o `uv_version` vazio.
+
 O `Toolchain image` não espera um componente terminar: se, ao rodar por um push ou pelo fim de outro componente, houver um run de `GHDL image`, `GCC image` ou `Spike image` na fila ou em andamento, ele pula com um aviso, e o fim desse run o dispara de novo. O último componente a terminar faz a montagem única. Um run manual do `Toolchain image` nunca adia.
 
 O `Toolchain image` precisa das três imagens `latest`. Se um push chegar antes de elas existirem, ele termina com um aviso, sem falhar, e roda quando os componentes terminarem. Um run manual dele sem as imagens falha, com uma mensagem que aponta os três workflows.
@@ -97,7 +99,7 @@ O build do GCC leva de dezenas de minutos a mais de uma hora, conforme a máquin
 
 | Argumento | Padrão | Significado |
 | :--- | :--- | :--- |
-| `BASE_IMAGE` | `ubuntu:24.04` | Imagem base de todos os builds (uma imagem multi-arquitetura) |
+| `BASE_IMAGE` | `ubuntu:26.04` | Imagem base de todos os builds (uma imagem multi-arquitetura) |
 | `UV_VERSION` | versão fixa | Versão do `uv` (só no `Dockerfile` completo) |
 | `PYTHON_VERSION` | `3.14` | Python instalado pelo `uv` (só no `Dockerfile` completo) |
 | `COCOTB_VERSION` | `2.1.0` | cocotb instalado nele (só no `Dockerfile` completo) |

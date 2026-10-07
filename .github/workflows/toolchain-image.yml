@@ -15,6 +15,9 @@ on:
       confirm:
         description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
         required: true
+      uv_version:
+        description: "uv version to put in the image (empty: the latest stable release of astral-sh/uv)"
+        required: false
   workflow_run:
     workflows: ["GHDL image", "GCC image", "Spike image"]
     types: [completed]
@@ -45,6 +48,7 @@ jobs:
       ghdl: ${{ steps.pins.outputs.ghdl }}
       gcc: ${{ steps.pins.outputs.gcc }}
       spike: ${{ steps.pins.outputs.spike }}
+      uv: ${{ steps.uv.outputs.version }}
       short: ${{ steps.pins.outputs.short }}
 
     steps:
@@ -74,10 +78,40 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve the uv version
+        # A manual run takes the version given, or the latest stable release of uv. The other runs
+        # (a push, or a component that finished) keep the uv the latest image already has: the
+        # version only moves when someone asks, the same way the commit of the GCC or Spike does.
+        id: uv
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_UV: ${{ inputs.uv_version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${INPUT_UV:-}"
+          if [ -z "$version" ] && [ "$EVENT" != "workflow_dispatch" ]; then
+            version=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Image}}' 2>/dev/null \
+              | jq -r '."linux/amd64".config.Labels["uv.version"] // empty' 2>/dev/null || true)
+          fi
+          if [ -z "$version" ]; then
+            version=$(gh api repos/astral-sh/uv/releases/latest --jq .tag_name)
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::not a uv version: $version"
+            exit 1
+          fi
+          if ! docker buildx imagetools inspect "ghcr.io/astral-sh/uv:$version" > /dev/null 2>&1; then
+            echo "::error::ghcr.io/astral-sh/uv:$version does not exist"
+            exit 1
+          fi
+          echo "uv $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Read the component commits from the latest images
         id: pins
         env:
           EVENT: ${{ github.event_name }}
+          UV: ${{ steps.uv.outputs.version }}
         run: |
           # The component images are manifests of two architectures that carry the same commit.
           label() {
@@ -102,7 +136,7 @@ jobs:
           echo "ghdl=$ghdl" >> "$GITHUB_OUTPUT"
           echo "gcc=$gcc" >> "$GITHUB_OUTPUT"
           echo "spike=$spike" >> "$GITHUB_OUTPUT"
-          echo "short=ghdl-${ghdl:0:7}-gcc-${gcc:0:7}-spike-${spike:0:7}" >> "$GITHUB_OUTPUT"
+          echo "short=ghdl-${ghdl:0:7}-gcc-${gcc:0:7}-spike-${spike:0:7}-uv-${UV}" >> "$GITHUB_OUTPUT"
 
       - name: Decide whether there is anything to assemble now
         # Nothing to do when a component is not published yet, when a
@@ -159,9 +193,11 @@ jobs:
       timeout-minutes: 60
       build-args: |
         GHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-ghdl:${{ needs.pin.outputs.ghdl }}
+        UV_VERSION=${{ needs.pin.outputs.uv }}
         GCC_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-gcc:${{ needs.pin.outputs.gcc }}
         SPIKE_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-spike:${{ needs.pin.outputs.spike }}
       labels: |
+        uv.version=${{ needs.pin.outputs.uv }}
         ghdl.commit=${{ needs.pin.outputs.ghdl }}
         riscv-gnu-toolchain.commit=${{ needs.pin.outputs.gcc }}
         riscv-isa-sim.commit=${{ needs.pin.outputs.spike }}
