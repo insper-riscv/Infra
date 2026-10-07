@@ -1,9 +1,10 @@
 name: Dev tools image
 
 # Builds the development environment image (Dockerfile.devtools: the complete toolchain image plus
-# the user dev, yosys, gtkwave and the build tools) and publishes it as dev_tools, tagged latest and
-# with the Infra commit. It runs when the Toolchain image workflow finishes, when Dockerfile.devtools
-# changes on main, and on demand. linux/amd64 only.
+# the user dev, Python from uv and the build tools) and publishes it as dev_tools, tagged latest and
+# with the Infra commit. It runs when the Toolchain image or the GTKWave image workflow finishes (a
+# new toolchain or a new GTKWave means a new image), when Dockerfile.devtools changes on main, and
+# on demand. linux/amd64 only.
 on:
   push:
     branches: [main]
@@ -16,7 +17,7 @@ on:
         description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
         required: true
   workflow_run:
-    workflows: ["Toolchain image"]
+    workflows: ["Toolchain image", "GTKWave image"]
     types: [completed]
     branches: [main]
 
@@ -27,6 +28,7 @@ concurrency:
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/dev_tools
   TOOLCHAIN_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-toolchain:latest
+  GTKWAVE_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave:latest
 
 jobs:
   image:
@@ -84,6 +86,7 @@ jobs:
           tags: dev_tools:ci
           build-args: |
             TOOLCHAIN_IMAGE=${{ env.TOOLCHAIN_IMAGE }}
+            GTKWAVE_IMAGE=${{ env.GTKWAVE_IMAGE }}
 
       # Fail before publishing anything if the image lacks a piece.
       - name: Check the image
@@ -94,9 +97,10 @@ jobs:
             ghdl --version | head -n 1
             riscv32-unknown-elf-gcc --version | head -n 1
             spike --help 2>&1 | head -n 1 || true
-            yosys -V
-            command -v gtkwave
+            uv python find 3.14
             uv --version
+            ! ldd /opt/gtkwave/bin/gtkwave | grep "not found"
+            test -x /opt/gtkwave/bin/gtkwave
             echo "int main(void){return 0;}" > /tmp/t.c && gcc /tmp/t.c -o /tmp/t && /tmp/t
           '
 
@@ -111,3 +115,4 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             TOOLCHAIN_IMAGE=${{ env.TOOLCHAIN_IMAGE }}
+            GTKWAVE_IMAGE=${{ env.GTKWAVE_IMAGE }}

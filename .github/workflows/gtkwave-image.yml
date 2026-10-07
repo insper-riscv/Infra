@@ -1,0 +1,133 @@
+name: GTKWave image
+
+# Builds GTKWave (the 4.0.0 development line, GTK 3 and GTK 4) alone and publishes it as
+# infra-gtkwave, tagged with the gtkwave/gtkwave commit and as latest.
+#
+# - Run by hand to update GTKWave: it builds the commit given, or the latest of the upstream
+#   default branch, unless that image already exists.
+# - Runs on a push to main that changes Dockerfile.gtkwave or this workflow: it rebuilds the
+#   commit latest already has (the recipe changed, not the version), or the upstream latest when
+#   nothing is published yet.
+#
+# The Dev tools image workflow then assembles a new image.
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile.gtkwave
+      - .github/workflows/gtkwave-image.yml
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
+        required: true
+      commit:
+        description: "gtkwave commit to build (empty: the latest of its default branch)"
+        required: false
+      force:
+        description: "Rebuild and republish even if the image for that commit already exists"
+        type: boolean
+        default: false
+
+concurrency:
+  group: gtkwave-image
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
+  UPSTREAM: https://github.com/gtkwave/gtkwave
+  LABEL: gtkwave.commit
+
+jobs:
+  image:
+    # No layer cache: the published image, tagged by commit, is what a later
+    # run checks to skip the build.
+    runs-on: ubuntu-26.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Authorize manual run
+        # Only applies to workflow_dispatch: repo write access already gates
+        # who can trigger this, but on a repo shared with people who
+        # shouldn't publish the image, this adds a second check: only
+        # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
+        # push to main skips this: branch protection on main is the gate for
+        # that path instead.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          SECRET: ${{ secrets.IMAGE_PUBLISH_SECRET }}
+        run: |
+          if [ "$CONFIRM" != "$SECRET" ]; then
+            echo "::error::confirmation does not match IMAGE_PUBLISH_SECRET, refusing to publish the image"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+        with:
+          # BuildKit clips each step's log at 2 MiB; -1 lifts the limit so a
+          # long build shows its log to the end.
+          driver-opts: |
+            env.BUILDKIT_STEP_LOG_MAX_SIZE=-1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve the commit
+        id: pin
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          INPUT_FORCE: ${{ inputs.force }}
+        run: |
+          latest_commit() {
+            docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Image.Config.Labels}}' 2>/dev/null \
+              | jq -r --arg key "$LABEL" '.[$key] // empty' 2>/dev/null || true
+          }
+          upstream_commit() {
+            git ls-remote "$UPSTREAM" HEAD | cut -f1
+          }
+
+          force="$INPUT_FORCE"
+          commit="${INPUT_COMMIT:-}"
+          if [ -z "$commit" ] && [ "$EVENT" = "push" ]; then
+            # The recipe changed: rebuild what latest already holds.
+            commit=$(latest_commit)
+            force=true
+          fi
+          if [ -z "$commit" ]; then
+            commit=$(upstream_commit)
+          fi
+          if ! printf '%s' "$commit" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::not a full commit hash: $commit"
+            exit 1
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
+          if [ "$force" != "true" ] && docker buildx imagetools inspect "$IMAGE:$commit" > /dev/null 2>&1; then
+            echo "::notice::$IMAGE:$commit already exists; nothing to build (run again with force to rebuild)."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Building $commit."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and publish the image
+        if: steps.pin.outputs.build == 'true'
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: Dockerfile.gtkwave
+          push: true
+          build-args: GTKWAVE_COMMIT=${{ steps.pin.outputs.commit }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.pin.outputs.commit }}
+            ${{ env.IMAGE }}:latest

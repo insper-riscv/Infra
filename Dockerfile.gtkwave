@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1
+#
+# GTKWave, the waveform viewer, from the 4.0.0 development line of gtkwave/gtkwave (GTK 3 and
+# GTK 4, so it runs on Wayland natively), alone. The published image holds just the install
+# directory, and the dev tools image (Dockerfile.devtools) copies it from there.
+#
+# The commit of gtkwave/gtkwave to build has no default:
+#
+#   docker build -f Dockerfile.gtkwave -t infra-gtkwave \
+#     --build-arg GTKWAVE_COMMIT="$(git ls-remote https://github.com/gtkwave/gtkwave HEAD | cut -f1)" .
+
+ARG GHDL_IMAGE=ghdl/ghdl:6.0.0-mcode-ubuntu-24.04
+
+FROM ${GHDL_IMAGE} AS build
+ARG GTKWAVE_COMMIT
+
+RUN test -n "${GTKWAVE_COMMIT}" \
+ || { echo "pass --build-arg GTKWAVE_COMMIT=<commit>"; exit 1; }
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      build-essential git ca-certificates meson ninja-build pkg-config gperf flex \
+      desktop-file-utils libgtk-3-dev libgtk-4-dev libbz2-dev libjudy-dev libjson-glib-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN git init /src \
+ && git -C /src fetch --depth 1 https://github.com/gtkwave/gtkwave "${GTKWAVE_COMMIT}" \
+ && git -C /src checkout FETCH_HEAD
+
+# introspection and the tests are not needed to view a waveform; the MIME database is updated by
+# the image that installs it.
+RUN meson setup /build /src --prefix=/opt/gtkwave --buildtype=release \
+      -Dintrospection=false -Dtests=false -Dupdate_mime_database=false \
+ && meson install -C /build \
+ && echo "${GTKWAVE_COMMIT}" > /opt/gtkwave/.tag \
+ && rm -rf /build /src
+
+# Fail the build, before anything is published, if the binary lacks a library it needs at run
+# time that this image does not install.
+RUN ls /opt/gtkwave/bin && ! ldd /opt/gtkwave/bin/gtkwave | grep "not found"
+
+
+FROM scratch
+ARG GTKWAVE_COMMIT
+LABEL gtkwave.commit="${GTKWAVE_COMMIT}"
+COPY --from=build /opt/gtkwave /opt/gtkwave

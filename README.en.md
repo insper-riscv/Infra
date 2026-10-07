@@ -23,7 +23,7 @@ RHEL-like (`dnf`/`yum`) distros.
   and `uv`, built and published by CI, for anyone who does not want to install
   them on a machine.
 - [DEVTOOLS_IMAGE.md](docs/en/DEVTOOLS_IMAGE.md): `dev_tools`, the toolchain
-  image plus the user `dev`, `yosys`, `gtkwave` and the build tools, for a Dev
+  image plus the user `dev`, Python, GTKWave (native Wayland) and the build tools, for a Dev
   Container.
 
 ## Suggested order
