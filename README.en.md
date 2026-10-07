@@ -22,6 +22,9 @@ RHEL-like (`dnf`/`yum`) distros.
   RISC-V GCC (picolibc), of Spike and a complete one with GHDL, the GCC, Spike
   and `uv`, built and published by CI, for anyone who does not want to install
   them on a machine.
+- [DEVTOOLS_IMAGE.md](docs/en/DEVTOOLS_IMAGE.md): `dev_tools`, the toolchain
+  image plus the user `dev`, Python, GTKWave (native Wayland) and the build tools, for a Dev
+  Container.
 
 ## Suggested order
 
@@ -40,17 +43,17 @@ new workstation is:
   way to synthesize or program the hardware that `RV32IM` implements.
 - **[RUNNER_SETUP.md](docs/en/RUNNER_SETUP.md)**: configures a
   self-hosted GitHub Actions runner with access to FPGA hardware (Quartus
-  + JTAG). Without it, there is no way to run `Testes`' real-hardware
-  tests.
+  + JTAG), with Docker for the toolchain image. Without it, there is no way
+  to run `Tests`' real-hardware tests.
 - **[GCC_SETUP.md](docs/en/GCC_SETUP.md)**: builds the RISC-V GCC
-  (binutils, compiler, picolibc, gdb) for the `rv32im` target. Without it,
-  there is no way to compile the C test programs that `Testes` and `Tools`
-  use.
+  (binutils, compiler, picolibc, gdb) for the `rv32im` target. It is what the
+  [toolchain image](docs/en/TOOLCHAIN_IMAGE.md) is built from; install it on a
+  workstation only to compile outside the image.
 - **[SPIKE_SETUP.md](docs/en/SPIKE_SETUP.md)**: builds Spike, the
-  RISC-V reference simulator. Without it, `Testes`' memory tests have no
-  reference golden to compare against.
+  RISC-V reference simulator. Like the GCC, it is in the toolchain image; the
+  setup is for running it outside the image.
 
-Together, these docs are the foundation that `RV32IM`, `Testes` and
+Together, these docs are the foundation that `RV32`, `Tests` and
 `Tools` depend on to work as intended.
 
 ---

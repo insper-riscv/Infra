@@ -1,0 +1,107 @@
+name: Dev tools image
+
+# Builds the development environment image (Dockerfile.devtools: the complete toolchain image plus
+# GTKWave, Python from uv, the user dev and the build tools) for linux/amd64 and linux/arm64 and
+# publishes it as dev_tools, tagged latest and with the Infra commit. It runs when the Toolchain
+# image or the GTKWave image workflow finishes (a new toolchain or a new GTKWave means a new
+# image), when Dockerfile.devtools changes on main, and on demand.
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile.devtools
+      - .github/workflows/devtools-image.yml
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
+        required: true
+  workflow_run:
+    workflows: ["Toolchain image", "GTKWave image"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: devtools-image
+  cancel-in-progress: false
+
+env:
+  GTKWAVE_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
+
+jobs:
+  pin:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      gtkwave: ${{ steps.pins.outputs.gtkwave }}
+
+    steps:
+      - name: Authorize manual run
+        # Only applies to workflow_dispatch: repo write access already gates who can trigger this,
+        # but on a repo shared with people who shouldn't publish the image, this adds a second
+        # check: only someone who separately knows IMAGE_PUBLISH_SECRET can run it. A push to main
+        # skips this: branch protection on main is the gate for that path instead, and a
+        # workflow_run follows a run that was already authorized.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          SECRET: ${{ secrets.IMAGE_PUBLISH_SECRET }}
+        run: |
+          if [ "$CONFIRM" != "$SECRET" ]; then
+            echo "::error::confirmation does not match IMAGE_PUBLISH_SECRET, refusing to publish the image"
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read the GTKWave commit from the latest image
+        id: pins
+        run: |
+          gtkwave=$(docker buildx imagetools inspect "$GTKWAVE_IMAGE:latest" --format '{{json .Image}}' \
+            | jq -r '."linux/amd64".config.Labels["gtkwave.commit"] // empty')
+          if [ -z "$gtkwave" ]; then
+            echo "::error::could not read the commit from $GTKWAVE_IMAGE:latest; run the GTKWave image workflow first"
+            exit 1
+          fi
+          echo "gtkwave=$gtkwave" >> "$GITHUB_OUTPUT"
+
+  image:
+    # linux/amd64 and linux/arm64, each built on a runner of its own architecture, then one
+    # manifest (build-image.yml).
+    needs: pin
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/dev_tools
+      dockerfile: Dockerfile.devtools
+      timeout-minutes: 60
+      build-args: |
+        TOOLCHAIN_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-toolchain:latest
+        GTKWAVE_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-gtkwave:${{ needs.pin.outputs.gtkwave }}
+      labels: |
+        gtkwave.commit=${{ needs.pin.outputs.gtkwave }}
+      tags: |
+        latest
+        sha-${{ github.sha }}
+      check: |
+        test "$(id -un)" = dev
+        test "$(pwd)" = /work
+        ghdl --version | head -n 1
+        riscv32-unknown-elf-gcc --version | head -n 1
+        uv --version
+        python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"
+        ! ldd /opt/gtkwave/bin/gtkwave | grep "not found"
+        test -x /opt/gtkwave/bin/gtkwave
+        echo "int main(void){return 0;}" > /tmp/t.c && gcc /tmp/t.c -o /tmp/t && /tmp/t

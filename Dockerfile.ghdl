@@ -1,0 +1,57 @@
+# syntax=docker/dockerfile:1
+#
+# GHDL with the LLVM backend, built from source, alone. The same recipe builds linux/amd64 and
+# linux/arm64 (the mcode backend of the ghdl/ghdl images is x86 only), so the complete image runs
+# the same GHDL on every machine. The published image holds just the install directory, and the
+# complete image (Dockerfile) copies it from there.
+#
+# The commit of ghdl/ghdl to build has no default:
+#
+#   docker build -f Dockerfile.ghdl -t infra-ghdl \
+#     --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl refs/tags/v6.0.0^{} | cut -f1)" .
+
+ARG BASE_IMAGE=ubuntu:24.04
+
+FROM ${BASE_IMAGE} AS build
+ARG GHDL_COMMIT
+
+RUN test -n "${GHDL_COMMIT}" \
+ || { echo "pass --build-arg GHDL_COMMIT=<commit>"; exit 1; }
+
+# clang is the C++ compiler the LLVM backend of GHDL is built with.
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ca-certificates git make gcc g++ clang gnat llvm-dev zlib1g-dev libedit-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN git init /src \
+ && git -C /src fetch --depth 1 https://github.com/ghdl/ghdl "${GHDL_COMMIT}" \
+ && git -C /src checkout FETCH_HEAD
+
+RUN mkdir /build \
+ && cd /build \
+ && /src/configure --with-llvm-config --prefix=/opt/ghdl \
+ && make -j"$(nproc)" \
+ && make install \
+ && echo "${GHDL_COMMIT}" > /opt/ghdl/.tag \
+ && rm -rf /build /src
+
+# Fail the build, before anything is published, if GHDL cannot analyze, elaborate and run a
+# VHDL-2008 design (the projects use it) with the packages it was installed with.
+RUN set -e; d="$(mktemp -d)"; cd "$d"; \
+    printf '%s\n' \
+      'library ieee; use ieee.std_logic_1164.all;' \
+      'entity t is end;' \
+      'architecture a of t is signal s : std_logic_vector(3 downto 0) := (others => '"'"'1'"'"'); begin' \
+      '  process begin assert s = "1111" report "bad" severity failure; report "ghdl ok"; wait; end process;' \
+      'end;' > t.vhd; \
+    /opt/ghdl/bin/ghdl --version; \
+    /opt/ghdl/bin/ghdl -a --std=08 t.vhd; \
+    /opt/ghdl/bin/ghdl --elab-run --std=08 t; \
+    cd /; rm -rf "$d"
+
+
+FROM scratch
+ARG GHDL_COMMIT
+LABEL ghdl.commit="${GHDL_COMMIT}"
+COPY --from=build /opt/ghdl /opt/ghdl

@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1
+#
+# The development environment of the Insper RISC-V project, for a Dev Container: the complete
+# toolchain image (GHDL, the RISC-V GCC with picolibc, Spike and uv) plus GTKWave (copied from its
+# own image, built from the 4.0.0 development line with GTK 3 and 4, so it runs on Wayland) and
+# what one needs to work inside it, and the user `dev`. Python 3.14 and cocotb 2.1.0 come from the
+# toolchain image; a project installs its other dependencies with `uv sync`, and the image has no
+# pip.
+#
+#   docker build -f Dockerfile.devtools -t dev_tools .
+#   docker run --rm -it -v "$PWD:/work" dev_tools
+#
+# GTKWave needs a display: for Wayland pass the compositor socket and WAYLAND_DISPLAY (docs/en/
+# DEVTOOLS_IMAGE.md).
+
+ARG TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:latest
+ARG GTKWAVE_IMAGE=ghcr.io/insper-riscv/infra-gtkwave:latest
+
+FROM ${GTKWAVE_IMAGE} AS gtkwave
+
+FROM ${TOOLCHAIN_IMAGE}
+
+# build-essential and pkg-config for the projects that compile C; gnat is the Ada runtime GHDL's
+# own builds and some libraries need. The rest are what GTKWave links against and uses at run time
+# (GTK 3 and 4, with Wayland and X11 backends, an icon theme and the MIME database); GTKWave itself
+# is built in its own image and copied.
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      build-essential pkg-config gnat \
+      libgtk-3-0t64 libgtk-4-1 libjudydebian1 libjson-glib-1.0-0 libbz2-1.0 \
+      adwaita-icon-theme shared-mime-info \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=gtkwave /opt/gtkwave /opt/gtkwave
+ENV PATH=/opt/gtkwave/bin:$PATH
+
+# Fail the build if GTKWave lacks a library.
+RUN ! ldd /opt/gtkwave/bin/gtkwave | grep "not found"
+
+RUN useradd --create-home --shell /bin/bash dev \
+ && mkdir -p /work \
+ && chown dev:dev /work
+
+USER dev
+WORKDIR /work
+CMD ["/bin/bash"]

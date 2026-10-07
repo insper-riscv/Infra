@@ -1,29 +1,28 @@
-name: Spike image
+name: GTKWave image
 
-# Builds Spike, with its debug module moved out of address 0, alone and
-# publishes it as infra-spike, tagged with the riscv-isa-sim commit and as
-# latest.
+# Builds GTKWave (the 4.0.0 development line, GTK 3 and GTK 4) alone and publishes it as
+# infra-gtkwave, tagged with the gtkwave/gtkwave commit and as latest.
 #
-# - Run by hand to update Spike: it builds the commit given, or the latest of
-#   the upstream default branch, unless that image already exists.
-# - Runs on a push to main that changes Dockerfile.spike or this workflow: it
-#   rebuilds the commit latest already has (the recipe changed, not the
-#   version), or the upstream latest when nothing is published yet.
+# - Run by hand to update GTKWave: it builds the commit given, or the latest of the upstream
+#   default branch, unless that image already exists.
+# - Runs on a push to main that changes Dockerfile.gtkwave or this workflow: it rebuilds the
+#   commit latest already has (the recipe changed, not the version), or the upstream latest when
+#   nothing is published yet.
 #
-# The Toolchain image workflow then assembles a new complete image.
+# The Dev tools image workflow then assembles a new image.
 on:
   push:
     branches: [main]
     paths:
-      - Dockerfile.spike
-      - .github/workflows/spike-image.yml
+      - Dockerfile.gtkwave
+      - .github/workflows/gtkwave-image.yml
   workflow_dispatch:
     inputs:
       confirm:
         description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
         required: true
       commit:
-        description: "riscv-isa-sim commit to build (empty: the latest of its default branch)"
+        description: "gtkwave commit to build (empty: the latest of its default branch)"
         required: false
       force:
         description: "Rebuild and republish even if the image for that commit already exists"
@@ -31,13 +30,13 @@ on:
         default: false
 
 concurrency:
-  group: spike-image
+  group: gtkwave-image
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-spike
-  UPSTREAM: https://github.com/riscv-software-src/riscv-isa-sim
-  LABEL: riscv-isa-sim.commit
+  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
+  UPSTREAM: https://github.com/gtkwave/gtkwave
+  LABEL: gtkwave.commit
 
 jobs:
   pin:
@@ -129,11 +128,11 @@ jobs:
       packages: write
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/infra-spike
-      dockerfile: Dockerfile.spike
+      image: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
+      dockerfile: Dockerfile.gtkwave
       timeout-minutes: 150
-      build-args: RISCV_ISA_SIM_COMMIT=${{ needs.pin.outputs.commit }}
-      labels: riscv-isa-sim.commit=${{ needs.pin.outputs.commit }}
+      build-args: GTKWAVE_COMMIT=${{ needs.pin.outputs.commit }}
+      labels: gtkwave.commit=${{ needs.pin.outputs.commit }}
       tags: |
         ${{ needs.pin.outputs.commit }}
         latest
