@@ -3,8 +3,9 @@
 # The development environment of the Insper RISC-V project, for a Dev Container: the complete
 # toolchain image (GHDL, the RISC-V GCC with picolibc, Spike and uv) plus GTKWave (copied from its
 # own image, built from the 4.0.0 development line with GTK 3 and 4, so it runs on Wayland) and
-# what one needs to work inside it, and the user `dev`. Python projects install their dependencies with `uv sync`; the
-# image has no virtual environment and no pip.
+# what one needs to work inside it, and the user `dev`. Python 3.14 and cocotb 2.1.0 come from the
+# toolchain image; a project installs its other dependencies with `uv sync`, and the image has no
+# pip.
 #
 #   docker build -f Dockerfile.devtools -t dev_tools .
 #   docker run --rm -it -v "$PWD:/work" dev_tools
@@ -13,8 +14,6 @@
 # DEVTOOLS_IMAGE.md).
 
 ARG TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:latest
-# The projects require Python >=3.14,<3.15 (limited by cotococotb 2.1).
-ARG PYTHON_VERSION=3.14
 ARG GTKWAVE_IMAGE=ghcr.io/insper-riscv/infra-gtkwave:latest
 
 FROM ${GTKWAVE_IMAGE} AS gtkwave
@@ -44,9 +43,4 @@ RUN useradd --create-home --shell /bin/bash dev \
 
 USER dev
 WORKDIR /work
-
-# Python comes from uv, installed for dev once here so a container does not download it on first
-# use (and works without a network). `uv sync` in a project then finds it.
-ARG PYTHON_VERSION
-RUN uv python install "${PYTHON_VERSION}"
 CMD ["/bin/bash"]

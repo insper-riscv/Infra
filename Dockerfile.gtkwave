@@ -9,9 +9,9 @@
 #   docker build -f Dockerfile.gtkwave -t infra-gtkwave \
 #     --build-arg GTKWAVE_COMMIT="$(git ls-remote https://github.com/gtkwave/gtkwave HEAD | cut -f1)" .
 
-ARG GHDL_IMAGE=ghdl/ghdl:6.0.0-mcode-ubuntu-24.04
+ARG BASE_IMAGE=ubuntu:24.04
 
-FROM ${GHDL_IMAGE} AS build
+FROM ${BASE_IMAGE} AS build
 ARG GTKWAVE_COMMIT
 
 RUN test -n "${GTKWAVE_COMMIT}" \

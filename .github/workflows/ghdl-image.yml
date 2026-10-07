@@ -1,28 +1,29 @@
-name: GTKWave image
+name: GHDL image
 
-# Builds GTKWave (the 4.0.0 development line, GTK 3 and GTK 4) alone and publishes it as
-# infra-gtkwave, tagged with the gtkwave/gtkwave commit and as latest.
+# Builds GHDL with the LLVM backend (the mcode backend is x86 only, so the same recipe builds both
+# architectures) alone and publishes it as infra-ghdl for linux/amd64 and linux/arm64, tagged with
+# the ghdl/ghdl commit and as latest.
 #
-# - Run by hand to update GTKWave: it builds the commit given, or the latest of the upstream
-#   default branch, unless that image already exists.
-# - Runs on a push to main that changes Dockerfile.gtkwave or this workflow: it rebuilds the
-#   commit latest already has (the recipe changed, not the version), or the upstream latest when
+# - Run by hand to update GHDL: it builds the commit given, or the commit of the latest release tag
+#   of the upstream, unless that image already exists.
+# - Runs on a push to main that changes Dockerfile.ghdl or this workflow: it rebuilds the commit
+#   latest already has (the recipe changed, not the version), or the upstream latest release when
 #   nothing is published yet.
 #
-# The Dev tools image workflow then assembles a new image.
+# The Toolchain image workflow then assembles a new complete image.
 on:
   push:
     branches: [main]
     paths:
-      - Dockerfile.gtkwave
-      - .github/workflows/gtkwave-image.yml
+      - Dockerfile.ghdl
+      - .github/workflows/ghdl-image.yml
   workflow_dispatch:
     inputs:
       confirm:
         description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
         required: true
       commit:
-        description: "gtkwave commit to build (empty: the latest of its default branch)"
+        description: "ghdl commit to build (empty: the latest release tag of the upstream)"
         required: false
       force:
         description: "Rebuild and republish even if the image for that commit already exists"
@@ -30,13 +31,13 @@ on:
         default: false
 
 concurrency:
-  group: gtkwave-image
+  group: ghdl-image
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
-  UPSTREAM: https://github.com/gtkwave/gtkwave
-  LABEL: gtkwave.commit
+  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-ghdl
+  UPSTREAM: https://github.com/ghdl/ghdl
+  LABEL: ghdl.commit
 
 jobs:
   pin:
@@ -91,7 +92,10 @@ jobs:
               | jq -r --arg key "$LABEL" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
           }
           upstream_commit() {
-            git ls-remote "$UPSTREAM" HEAD | cut -f1
+            # the commit of the latest stable release tag (v1.2.3), not of a moving branch
+            tag=$(git ls-remote --tags --refs "$UPSTREAM" 'v*' | sed 's|.*refs/tags/||' \
+                  | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+            git ls-remote "$UPSTREAM" "refs/tags/${tag}^{}" | cut -f1
           }
 
           force="$INPUT_FORCE"
@@ -128,11 +132,11 @@ jobs:
       packages: write
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
-      dockerfile: Dockerfile.gtkwave
-      timeout-minutes: 150
-      build-args: GTKWAVE_COMMIT=${{ needs.pin.outputs.commit }}
-      labels: gtkwave.commit=${{ needs.pin.outputs.commit }}
+      image: ghcr.io/${{ github.repository_owner }}/infra-ghdl
+      dockerfile: Dockerfile.ghdl
+      timeout-minutes: 240
+      build-args: GHDL_COMMIT=${{ needs.pin.outputs.commit }}
+      labels: ghdl.commit=${{ needs.pin.outputs.commit }}
       tags: |
         ${{ needs.pin.outputs.commit }}
         latest

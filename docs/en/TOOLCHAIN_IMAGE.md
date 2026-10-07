@@ -1,27 +1,32 @@
 # Toolchain Docker images
 
-Three Docker images with what the RISC-V test flow needs except Quartus: one with just the GCC, one with just Spike, and a complete one (GHDL, the RISC-V GCC with picolibc, Spike and `uv`) that copies the artifacts of the first two. The `Dockerfile`s are at the root of this repository, and three workflows publish the images to the GitHub Container Registry.
+Four Docker images with what the RISC-V test flow needs except Quartus: one with just GHDL, one with just the GCC, one with just Spike, and a complete one (GHDL, the RISC-V GCC with picolibc, Spike and `uv`) that copies the artifacts of the first three. The `Dockerfile`s are at the root of this repository, and four workflows publish the images to the GitHub Container Registry. Every image is published for `linux/amd64` and `linux/arm64`, and the two architectures hold the same versions of the same tools: GHDL has the LLVM backend on both, so a simulation behaves the same on a PC and on an ARM machine such as a Mac.
 
-## 1. The three images
+## 1. The four images
 
 | Image | `Dockerfile` | Workflow | Contents | Tags |
 | :--- | :--- | :--- | :--- | :--- |
+| `ghcr.io/<organization>/infra-ghdl` | `Dockerfile.ghdl` | `GHDL image` | Just `/opt/ghdl` | `<commit>` and `latest` |
 | `ghcr.io/<organization>/infra-gcc` | `Dockerfile.gcc` | `GCC image` | Just `/opt/riscv-foundation/riscv32-elf` | `<commit>` and `latest` |
 | `ghcr.io/<organization>/infra-spike` | `Dockerfile.spike` | `Spike image` | Just `/opt/riscv-foundation/spike` | `<commit>` and `latest` |
-| `ghcr.io/<organization>/infra-toolchain` | `Dockerfile` | `Toolchain image` | The complete image | `latest`, `sha-<Infra commit>` and `gcc-<first 7>-spike-<first 7>` |
+| `ghcr.io/<organization>/infra-toolchain` | `Dockerfile` | `Toolchain image` | The complete image | `latest`, `sha-<Infra commit>` and `ghdl-<first 7>-gcc-<first 7>-spike-<first 7>` |
 
-The `<commit>` of the first two is the commit of `riscv-collab/riscv-gnu-toolchain` and of `riscv-software-src/riscv-isa-sim` they were built from, and it is also in the image's `riscv-gnu-toolchain.commit` or `riscv-isa-sim.commit` label. The component images have no file system besides those directories, so they cannot be run: they exist to be copied from.
+The `<commit>` of the first three is the commit of `ghdl/ghdl` (the release tag's), `riscv-collab/riscv-gnu-toolchain` and `riscv-software-src/riscv-isa-sim` they were built from, and it is also in the image's `ghdl.commit`, `riscv-gnu-toolchain.commit` or `riscv-isa-sim.commit` label. The component images have no file system besides those directories, so they cannot be run: they exist to be copied from.
 
 ## 2. What the complete image contains
 
 | Component | Detail | Path |
 | :--- | :--- | :--- |
-| GHDL | mcode backend, inherited from the `ghdl/ghdl` base image | `/opt/ghdl` |
+| GHDL | LLVM backend, built from source (the mcode backend of the `ghdl/ghdl` images is x86 only, and the two architectures must run the same GHDL) | `/opt/ghdl` |
 | RISC-V GCC | `rv32im`/`ilp32` target with picolibc, a single library variant (what [GCC_SETUP.md](GCC_SETUP.md) builds) | `/opt/riscv-foundation/riscv32-elf` |
 | Spike | With its debug module moved from address `0x0` to `0x70000000` (what [SPIKE_SETUP.md](SPIKE_SETUP.md) builds) | `/opt/riscv-foundation/spike` |
 | `uv` | Python project manager | `/usr/local/bin` |
+| Python | 3.14, installed by `uv` for every user, with `python3` and `python` on the `PATH` | `/opt/uv/python` |
+| cocotb | 2.1.0, installed in that Python | `/opt/uv/python` |
 
-The GCC and Spike binaries are already on the image's `PATH`. Each install keeps in `.tag` the commit it was built from, and the complete image carries both commit labels.
+GHDL, the GCC and Spike are already on the image's `PATH`. The host `gcc` is in the image too, because the LLVM backend links the design it elaborates with it; the RISC-V one keeps its own `riscv32-unknown-elf-` names. With the LLVM backend `ghdl -r` needs a prior `ghdl -e` (or use `ghdl --elab-run`); the Makefiles and the simulation runner already do. Each install keeps in `.tag` the commit it was built from, and the complete image carries both commit labels.
+
+Python is pinned to 3.14 because that is the version the projects require (`>=3.14,<3.15`), and cocotb 2.1.0 is the first release that supports it: cocotb is what fixes the Python version, so a newer Python waits for a cocotb that supports it (the build arguments `PYTHON_VERSION` and `COCOTB_VERSION` change both together). Every project simulates with cocotb, so it is in the image; the other Python libraries are each project's own and come from its `uv sync`, which finds this Python instead of downloading one.
 
 Quartus is in none of the images, and a container cannot see the USB-Blaster without extra host configuration. The real-hardware tests keep running on the self-hosted runner described in [RUNNER_SETUP.md](RUNNER_SETUP.md).
 
@@ -48,31 +53,36 @@ jobs:
 
 For a reproducible result, use the `sha-<commit>` tag of the wanted publication instead of `latest`.
 
-## 4. Updating the GCC or Spike
+## 4. Updating GHDL, the GCC or Spike
 
-Each component has a manually run workflow. In Actions, pick `GCC image` or `Spike image` and click **Run workflow**, filling in:
+Each component has a manually run workflow. In Actions, pick `GHDL image`, `GCC image` or `Spike image` and click **Run workflow**, filling in:
 
 | Field | Meaning |
 | :--- | :--- |
 | `confirm` | The value of the `IMAGE_PUBLISH_SECRET` secret (see section 6) |
-| `commit` | The commit to build. Empty: the latest of the project's default branch |
+| `commit` | The commit to build. Empty: the latest of the project's default branch (for GHDL, the commit of its latest release tag) |
 | `force` | Rebuild and republish even if the image for that commit already exists |
 
 The workflow resolves the commit, checks whether `infra-gcc:<commit>` (or `infra-spike:<commit>`) already exists and, if it does and `force` is off, builds nothing. Otherwise it builds, checks the install and publishes it with the tags `<commit>` and `latest`.
 
-Both component workflows also run by themselves on a push to `main` that changes their own `Dockerfile.gcc` or `Dockerfile.spike`, or the workflow itself. There is no `commit` field then: they rebuild the commit the `latest` image already has (the recipe changed, not the version) with `force` on, and only use the latest upstream commit when nothing is published yet. So the merge that adds the three `Dockerfile`s already publishes the two components for the first time.
+The component workflows also run by themselves on a push to `main` that changes their own `Dockerfile.ghdl`, `Dockerfile.gcc` or `Dockerfile.spike`, or the workflow itself. There is no `commit` field then: they rebuild the commit the `latest` image already has (the recipe changed, not the version) with `force` on, and only use the latest upstream commit when nothing is published yet. So the merge that adds the `Dockerfile`s already publishes the components for the first time.
 
-When one of these workflows finishes successfully, `Toolchain image` runs by itself: it reads the commits from the labels of the two `latest` images and assembles and publishes a new complete image. Updating just Spike takes a few minutes, and updating the GCC takes from tens of minutes to over an hour.
+When one of these workflows finishes successfully, `Toolchain image` runs by itself: it reads the commits from the labels of the three `latest` images and assembles and publishes a new complete image. Updating just Spike takes a few minutes, and updating the GCC or GHDL takes from tens of minutes to over an hour.
 
-`Toolchain image` does not wait for a component to finish: if, when it runs for a push or for the end of another component, a `GCC image` or `Spike image` run is queued or going, it skips with a notice, and the end of that run triggers it again. The last component to finish does the single assembly. A manual run of `Toolchain image` never defers.
+Each architecture is built on a runner of its own (`ubuntu-26.04` for `linux/amd64` and `ubuntu-24.04-arm` for `linux/arm64`): the GCC and GHDL builds take hours under emulation. A final job joins the two images into one manifest with the tags, so `docker pull` gives each machine its own.
 
-`Toolchain image` needs both `latest` images. If a push lands before they exist, it ends with a notice, without failing, and runs when the components finish. A manual run of it without the images fails, with a message that points at the two workflows.
+`Toolchain image` does not wait for a component to finish: if, when it runs for a push or for the end of another component, a `GHDL image`, `GCC image` or `Spike image` run is queued or going, it skips with a notice, and the end of that run triggers it again. The last component to finish does the single assembly. A manual run of `Toolchain image` never defers.
+
+`Toolchain image` needs the three `latest` images. If a push lands before they exist, it ends with a notice, without failing, and runs when the components finish. A manual run of it without the images fails, with a message that points at the three workflows.
 
 ## 5. Building locally
 
 The components have no default commit, so the commit is passed to the build:
 
 ```bash
+docker build -f Dockerfile.ghdl -t infra-ghdl \
+  --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl 'refs/tags/v6.0.0^{}' | cut -f1)" .
+
 docker build -f Dockerfile.gcc -t infra-gcc \
   --build-arg RISCV_GNU_TOOLCHAIN_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .
 
@@ -80,21 +90,23 @@ docker build -f Dockerfile.spike -t infra-spike \
   --build-arg RISCV_ISA_SIM_COMMIT="$(git ls-remote https://github.com/riscv-software-src/riscv-isa-sim HEAD | cut -f1)" .
 
 docker build -t infra-toolchain \
-  --build-arg GCC_IMAGE=infra-gcc --build-arg SPIKE_IMAGE=infra-spike .
+  --build-arg GHDL_IMAGE=infra-ghdl --build-arg GCC_IMAGE=infra-gcc --build-arg SPIKE_IMAGE=infra-spike .
 ```
 
-The GCC build takes from tens of minutes to over an hour, depending on the machine. Without `GCC_IMAGE` and `SPIKE_IMAGE`, the complete image build uses the `latest` images published on GHCR. The other arguments:
+The GCC build takes from tens of minutes to over an hour, depending on the machine. Without `GHDL_IMAGE`, `GCC_IMAGE` and `SPIKE_IMAGE`, the complete image build uses the `latest` images published on GHCR. The other arguments:
 
 | Argument | Default | Meaning |
 | :--- | :--- | :--- |
-| `GHDL_IMAGE` | `ghdl/ghdl:6.0.0-mcode-ubuntu-24.04` | Base image, which brings GHDL |
+| `BASE_IMAGE` | `ubuntu:24.04` | Base image of every build (a multi-architecture image) |
 | `UV_VERSION` | fixed version | Version of `uv` (only in the complete `Dockerfile`) |
+| `PYTHON_VERSION` | `3.14` | Python installed by `uv` (only in the complete `Dockerfile`) |
+| `COCOTB_VERSION` | `2.1.0` | cocotb installed in it (only in the complete `Dockerfile`) |
 
 ## 6. Publishing and security
 
-The three workflows publish to `ghcr.io/<organization>/`, with the run's own `GITHUB_TOKEN`. The visibility of each package (public or private) is set in the package's settings on GitHub, not by the workflow. All three packages must be reachable by whoever will use them, and `Toolchain image` reads the other two.
+The four workflows publish to `ghcr.io/<organization>/`, with the run's own `GITHUB_TOKEN`. The visibility of each package (public or private) is set in the package's settings on GitHub, not by the workflow. All four packages must be reachable by whoever will use them, and `Toolchain image` reads the other three.
 
-The manual run of any of the three asks for the `confirm` field, which must equal the value of the `IMAGE_PUBLISH_SECRET` secret. It is the same second gate described in phase 5 of [RUNNER_SETUP.md](RUNNER_SETUP.md): write access to the repository already controls who can trigger the workflow, and the secret makes sure only someone who knows it publishes the image. The three workflows also run on a push to `main` that changes the matching `Dockerfile` or the workflow itself, and `Toolchain image` also runs after one of the two component workflows finishes. Those paths do not ask for `confirm`: the gate for a push is branch protection, and a component's run already went through its own `confirm` or its push.
+The manual run of any of the four asks for the `confirm` field, which must equal the value of the `IMAGE_PUBLISH_SECRET` secret. It is the same second gate described in phase 5 of [RUNNER_SETUP.md](RUNNER_SETUP.md): write access to the repository already controls who can trigger the workflow, and the secret makes sure only someone who knows it publishes the image. The four workflows also run on a push to `main` that changes the matching `Dockerfile` or the workflow itself, and `Toolchain image` also runs after one of the three component workflows finishes. Those paths do not ask for `confirm`: the gate for a push is branch protection, and a component's run already went through its own `confirm` or its push.
 
 To set it up, in the repository: **Settings → Secrets and variables → Actions → New repository secret**, named `IMAGE_PUBLISH_SECRET`, with any phrase as the value (for example `openssl rand -hex 32`).
 
@@ -105,10 +117,10 @@ docker run --rm infra-toolchain riscv32-unknown-elf-gcc --version
 docker run --rm infra-toolchain riscv32-unknown-elf-gcc -print-multi-lib
 docker run --rm infra-toolchain spike --help
 docker run --rm infra-toolchain ghdl --version
-docker buildx imagetools inspect ghcr.io/insper-riscv/infra-gcc:latest --format '{{json .Image.Config.Labels}}'
+docker buildx imagetools inspect ghcr.io/insper-riscv/infra-gcc:latest --format '{{json .Image}}'
 ```
 
-The second command should print just `.;` (one variant, the root). The last one shows the GCC commit in the `riscv-gnu-toolchain.commit` label.
+The second command should print just `.;` (one variant, the root). The last one shows, for each architecture, the GCC commit in the `riscv-gnu-toolchain.commit` label, and lists `linux/amd64` and `linux/arm64`.
 
 ---
 

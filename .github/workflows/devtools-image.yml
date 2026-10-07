@@ -1,10 +1,10 @@
 name: Dev tools image
 
 # Builds the development environment image (Dockerfile.devtools: the complete toolchain image plus
-# the user dev, Python from uv and the build tools) and publishes it as dev_tools, tagged latest and
-# with the Infra commit. It runs when the Toolchain image or the GTKWave image workflow finishes (a
-# new toolchain or a new GTKWave means a new image), when Dockerfile.devtools changes on main, and
-# on demand. linux/amd64 only.
+# GTKWave, Python from uv, the user dev and the build tools) for linux/amd64 and linux/arm64 and
+# publishes it as dev_tools, tagged latest and with the Infra commit. It runs when the Toolchain
+# image or the GTKWave image workflow finishes (a new toolchain or a new GTKWave means a new
+# image), when Dockerfile.devtools changes on main, and on demand.
 on:
   push:
     branches: [main]
@@ -26,19 +26,18 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/dev_tools
-  TOOLCHAIN_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-toolchain:latest
-  GTKWAVE_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave:latest
+  GTKWAVE_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
 
 jobs:
-  image:
-    # Adds a few apt packages and a user to the toolchain image, so it takes a few minutes.
+  pin:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    timeout-minutes: 10
     permissions:
       contents: read
-      packages: write
+      packages: read
+    outputs:
+      gtkwave: ${{ steps.pins.outputs.gtkwave }}
 
     steps:
       - name: Authorize manual run
@@ -57,8 +56,6 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v7.0.1
-
       - uses: docker/setup-buildx-action@v4.4.1
 
       - uses: docker/login-action@v4.6.0
@@ -67,52 +64,44 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Image tags
-        id: meta
-        uses: docker/metadata-action@v6.2.0
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=raw,value=latest
-            type=sha
-
-      - name: Build the image
-        uses: docker/build-push-action@v7.4.0
-        with:
-          context: .
-          file: Dockerfile.devtools
-          platforms: linux/amd64
-          load: true
-          tags: dev_tools:ci
-          build-args: |
-            TOOLCHAIN_IMAGE=${{ env.TOOLCHAIN_IMAGE }}
-            GTKWAVE_IMAGE=${{ env.GTKWAVE_IMAGE }}
-
-      # Fail before publishing anything if the image lacks a piece.
-      - name: Check the image
+      - name: Read the GTKWave commit from the latest image
+        id: pins
         run: |
-          docker run --rm dev_tools:ci bash -euo pipefail -c '
-            test "$(id -un)" = dev
-            test "$(pwd)" = /work
-            ghdl --version | head -n 1
-            riscv32-unknown-elf-gcc --version | head -n 1
-            spike --help 2>&1 | head -n 1 || true
-            uv python find 3.14
-            uv --version
-            ! ldd /opt/gtkwave/bin/gtkwave | grep "not found"
-            test -x /opt/gtkwave/bin/gtkwave
-            echo "int main(void){return 0;}" > /tmp/t.c && gcc /tmp/t.c -o /tmp/t && /tmp/t
-          '
+          gtkwave=$(docker buildx imagetools inspect "$GTKWAVE_IMAGE:latest" --format '{{json .Image}}' \
+            | jq -r '."linux/amd64".config.Labels["gtkwave.commit"] // empty')
+          if [ -z "$gtkwave" ]; then
+            echo "::error::could not read the commit from $GTKWAVE_IMAGE:latest; run the GTKWave image workflow first"
+            exit 1
+          fi
+          echo "gtkwave=$gtkwave" >> "$GITHUB_OUTPUT"
 
-      - name: Publish the image
-        uses: docker/build-push-action@v7.4.0
-        with:
-          context: .
-          file: Dockerfile.devtools
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            TOOLCHAIN_IMAGE=${{ env.TOOLCHAIN_IMAGE }}
-            GTKWAVE_IMAGE=${{ env.GTKWAVE_IMAGE }}
+  image:
+    # linux/amd64 and linux/arm64, each built on a runner of its own architecture, then one
+    # manifest (build-image.yml).
+    needs: pin
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/dev_tools
+      dockerfile: Dockerfile.devtools
+      timeout-minutes: 60
+      build-args: |
+        TOOLCHAIN_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-toolchain:latest
+        GTKWAVE_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-gtkwave:${{ needs.pin.outputs.gtkwave }}
+      labels: |
+        gtkwave.commit=${{ needs.pin.outputs.gtkwave }}
+      tags: |
+        latest
+        sha-${{ github.sha }}
+      check: |
+        test "$(id -un)" = dev
+        test "$(pwd)" = /work
+        ghdl --version | head -n 1
+        riscv32-unknown-elf-gcc --version | head -n 1
+        uv --version
+        python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"
+        ! ldd /opt/gtkwave/bin/gtkwave | grep "not found"
+        test -x /opt/gtkwave/bin/gtkwave
+        echo "int main(void){return 0;}" > /tmp/t.c && gcc /tmp/t.c -o /tmp/t && /tmp/t

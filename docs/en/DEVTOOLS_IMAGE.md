@@ -1,6 +1,6 @@
 # Dev tools image
 
-`ghcr.io/<organization>/dev_tools` is the development environment for a Dev Container: the [complete toolchain image](TOOLCHAIN_IMAGE.md) plus what one needs to work inside it, and the user `dev`. It is built from `Dockerfile.devtools` by the `Dev tools image` workflow and published for `linux/amd64`.
+`ghcr.io/<organization>/dev_tools` is the development environment for a Dev Container: the [complete toolchain image](TOOLCHAIN_IMAGE.md) plus what one needs to work inside it, and the user `dev`. It is built from `Dockerfile.devtools` by the `Dev tools image` workflow and published for `linux/amd64` and `linux/arm64`.
 
 ## 1. What it adds to the toolchain image
 
@@ -9,9 +9,8 @@
 | GTKWave | the 4.0.0 development line (GTK 3 and 4), copied from the `infra-gtkwave` image into `/opt/gtkwave`; runs on Wayland natively and on X11 |
 | User | `dev`, with `/work` as the working directory |
 | Build tools | `build-essential`, `pkg-config`, `gnat` |
-| Python | 3.14, installed for `dev` with `uv python install` |
 
-GHDL, the RISC-V GCC with picolibc, Spike and `uv` come from the toolchain image. The image has no virtual environment and no `pip`: a Python project installs its dependencies with `uv sync`, and `uv` fetches the Python it needs.
+GHDL, the RISC-V GCC with picolibc, Spike, `uv`, Python 3.14 and cocotb 2.1.0 come from the toolchain image, which explains why Python is pinned to 3.14 (cocotb fixes it). The image has no `pip`: a Python project installs its other dependencies with `uv sync`, which finds that Python.
 
 ## 2. Using it
 
@@ -57,9 +56,9 @@ GTKWave is built by its own image, `infra-gtkwave` (Dockerfile.gtkwave, workflow
 
 The workflow runs when the `Toolchain image` or the `GTKWave image` workflow finishes, when `Dockerfile.devtools` changes on `main`, and on demand with the same confirmation secret as the other image workflows. It builds the image, checks that the user, GHDL, the GCC, GTKWave's libraries, `uv`, Python and a native compile all work, and only then publishes.
 
-## 4. Limits
+## 4. Architectures
 
-The image is `linux/amd64` only: on an ARM machine Docker runs it by emulation. The toolchain image it is built on has the same limit.
+The image is published for `linux/amd64` and `linux/arm64` (an Intel or AMD PC, and an ARM machine such as a Mac), with the same versions of the same tools on both: GHDL has the LLVM backend, and the GCC, Spike and GTKWave are built from the same commits.
 
 ---
 

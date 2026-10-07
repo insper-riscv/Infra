@@ -39,15 +39,18 @@ env:
   LABEL: riscv-gnu-toolchain.commit
 
 jobs:
-  image:
+  pin:
     # Compiles the GCC, which takes over an hour on a hosted runner. No layer
     # cache: the published image, tagged by commit, is what a later run
     # checks to skip the build.
     runs-on: ubuntu-26.04
-    timeout-minutes: 240
+    timeout-minutes: 10
     permissions:
       contents: read
-      packages: write
+      packages: read
+    outputs:
+      commit: ${{ steps.pin.outputs.commit }}
+      build: ${{ steps.pin.outputs.build }}
 
     steps:
       - name: Authorize manual run
@@ -90,8 +93,8 @@ jobs:
           INPUT_FORCE: ${{ inputs.force }}
         run: |
           latest_commit() {
-            docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Image.Config.Labels}}' 2>/dev/null \
-              | jq -r --arg key "$LABEL" '.[$key] // empty' 2>/dev/null || true
+            docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Image}}' 2>/dev/null \
+              | jq -r --arg key "$LABEL" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
           }
           upstream_commit() {
             git ls-remote "$UPSTREAM" HEAD | cut -f1
@@ -121,14 +124,21 @@ jobs:
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and publish the image
-        if: steps.pin.outputs.build == 'true'
-        uses: docker/build-push-action@v7.4.0
-        with:
-          context: .
-          file: Dockerfile.gcc
-          push: true
-          build-args: RISCV_GNU_TOOLCHAIN_COMMIT=${{ steps.pin.outputs.commit }}
-          tags: |
-            ${{ env.IMAGE }}:${{ steps.pin.outputs.commit }}
-            ${{ env.IMAGE }}:latest
+  image:
+    # linux/amd64 and linux/arm64, each built on a runner of its own architecture, then one
+    # manifest (build-image.yml).
+    needs: pin
+    if: needs.pin.outputs.build == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/infra-gcc
+      dockerfile: Dockerfile.gcc
+      timeout-minutes: 360
+      build-args: RISCV_GNU_TOOLCHAIN_COMMIT=${{ needs.pin.outputs.commit }}
+      labels: riscv-gnu-toolchain.commit=${{ needs.pin.outputs.commit }}
+      tags: |
+        ${{ needs.pin.outputs.commit }}
+        latest

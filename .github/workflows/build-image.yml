@@ -1,0 +1,156 @@
+name: Build a multi-architecture image
+
+# Reusable: builds one Dockerfile for linux/amd64 and linux/arm64, each on a runner of its own
+# architecture (the GCC and GHDL builds take hours under emulation), checks each image, pushes each
+# by digest, and publishes one manifest that carries both under the given tags. The image workflows
+# call it after they have decided what to build.
+on:
+  workflow_call:
+    inputs:
+      image:
+        description: "Image name without a tag, e.g. ghcr.io/insper-riscv/infra-gcc"
+        required: true
+        type: string
+      dockerfile:
+        required: true
+        type: string
+      build-args:
+        description: "One NAME=value per line"
+        required: false
+        type: string
+        default: ""
+      tags:
+        description: "Tags to publish, one per line, without the image name"
+        required: true
+        type: string
+      labels:
+        description: "Labels to put on the image, one NAME=value per line"
+        required: false
+        type: string
+        default: ""
+      check:
+        description: "A shell script run inside each architecture's image before it is pushed (empty: none; an image built FROM scratch has no shell and checks itself while it builds)"
+        required: false
+        type: string
+        default: ""
+      timeout-minutes:
+        required: false
+        type: number
+        default: 120
+
+jobs:
+  build:
+    name: build (${{ matrix.arch }})
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-26.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+        with:
+          # BuildKit clips each step's log at 2 MiB; -1 lifts the limit so a long build shows its
+          # log to the end.
+          driver-opts: |
+            env.BUILDKIT_STEP_LOG_MAX_SIZE=-1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build the image for this architecture
+        if: inputs.check != ''
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: ${{ inputs.dockerfile }}
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          tags: ci-image:${{ matrix.arch }}
+          build-args: ${{ inputs.build-args }}
+
+      # Fail before publishing anything if the image lacks a piece.
+      - name: Check the image
+        if: inputs.check != ''
+        env:
+          CHECK: ${{ inputs.check }}
+        run: |
+          docker run --rm --platform linux/${{ matrix.arch }} ci-image:${{ matrix.arch }} \
+            bash -euo pipefail -c "$CHECK"
+
+      - name: Push the image by digest
+        id: push
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: ${{ inputs.dockerfile }}
+          platforms: linux/${{ matrix.arch }}
+          build-args: ${{ inputs.build-args }}
+          labels: ${{ inputs.labels }}
+          outputs: type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Keep the digest
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digest-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: publish the manifest
+    needs: build
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: One manifest for both architectures
+        env:
+          IMAGE: ${{ inputs.image }}
+          TAGS: ${{ inputs.tags }}
+        run: |
+          args=()
+          while read -r tag; do
+            [ -n "$tag" ] && args+=(-t "$IMAGE:$tag")
+          done <<< "$TAGS"
+          refs=()
+          for digest in /tmp/digests/*; do
+            refs+=("$IMAGE@sha256:$(basename "$digest")")
+          done
+          docker buildx imagetools create "${args[@]}" "${refs[@]}"
+          docker buildx imagetools inspect "$IMAGE:$(head -n 1 <<< "$TAGS")"
