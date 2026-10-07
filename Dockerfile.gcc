@@ -9,7 +9,7 @@
 #   docker build -f Dockerfile.gcc -t infra-gcc \
 #     --build-arg RISCV_GNU_TOOLCHAIN_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .
 
-ARG BASE_IMAGE=ubuntu:24.04
+ARG BASE_IMAGE=ubuntu:26.04
 
 FROM ${BASE_IMAGE} AS build
 ARG RISCV_GNU_TOOLCHAIN_COMMIT

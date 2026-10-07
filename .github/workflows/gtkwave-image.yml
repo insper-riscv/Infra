@@ -1,10 +1,10 @@
 name: GTKWave image
 
-# Builds GTKWave (the 4.0.0 development line, GTK 3 and GTK 4) alone and publishes it as
-# infra-gtkwave, tagged with the gtkwave/gtkwave commit and as latest.
+# Builds GTKWave (the stable 3.3 line, GTK 3 tree) alone and publishes it as
+# infra-gtkwave, tagged with the gtkwave/gtkwave commit and as latest, for linux/amd64 and linux/arm64.
 #
-# - Run by hand to update GTKWave: it builds the commit given, or the latest of the upstream
-#   default branch, unless that image already exists.
+# - Run by hand to update GTKWave: it builds the commit given, or the commit of the latest 3.x
+#   release tag of the upstream, unless that image already exists.
 # - Runs on a push to main that changes Dockerfile.gtkwave or this workflow: it rebuilds the
 #   commit latest already has (the recipe changed, not the version), or the upstream latest when
 #   nothing is published yet.
@@ -22,7 +22,7 @@ on:
         description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
         required: true
       commit:
-        description: "gtkwave commit to build (empty: the latest of its default branch)"
+        description: "gtkwave commit to build (empty: the commit of the latest 3.x release tag)"
         required: false
       force:
         description: "Rebuild and republish even if the image for that commit already exists"
@@ -37,6 +37,8 @@ env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
   UPSTREAM: https://github.com/gtkwave/gtkwave
   LABEL: gtkwave.commit
+  # the major version of GTKWave the image follows (3.x.y); a new series is chosen by editing this line
+  SERIES: "3"
 
 jobs:
   pin:
@@ -91,7 +93,16 @@ jobs:
               | jq -r --arg key "$LABEL" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
           }
           upstream_commit() {
-            git ls-remote "$UPSTREAM" HEAD | cut -f1
+            # the commit of the latest stable release tag of the series SERIES (v3.x.y), not of the
+            # development line: moving to the next series is an edit of SERIES
+            tag=$(git ls-remote --tags --refs "$UPSTREAM" "v${SERIES}.*" | sed 's|.*refs/tags/||' \
+                  | grep -E "^v${SERIES}\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
+            if [ -z "$tag" ]; then
+              echo "::error::no release tag of the series ${SERIES} in $UPSTREAM" >&2
+              return 1
+            fi
+            # an annotated tag has a second line, peeled to the commit (^{}); a lightweight one is the commit
+            git ls-remote "$UPSTREAM" "refs/tags/${tag}" "refs/tags/${tag}^{}" | tail -n 1 | cut -f1
           }
 
           force="$INPUT_FORCE"

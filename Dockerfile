@@ -13,8 +13,8 @@
 #   docker buildx build --platform linux/amd64,linux/arm64 -t infra-toolchain .
 #   docker run --rm -it -v "$PWD:/workspace" infra-toolchain
 
-ARG BASE_IMAGE=ubuntu:24.04
-ARG UV_VERSION=0.12.21
+ARG BASE_IMAGE=ubuntu:26.04
+ARG UV_VERSION=0.12.23
 # Python 3.14 is the version the projects require (>=3.14,<3.15), and cocotb 2.1.0 is the first
 # release that supports it: cocotb is what fixes the Python version, so a newer Python waits for a
 # cocotb that supports it. Every project simulates with cocotb, so both are in the image; the
@@ -42,7 +42,7 @@ FROM ${BASE_IMAGE}
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates curl git make gcc g++ libc6-dev \
-      libgnat-13 libllvm18 zlib1g-dev libedit2 \
+      libgnat-14 libllvm21 zlib1g-dev libedit2 \
       libmpc3 libmpfr6 \
  && rm -rf /var/lib/apt/lists/*
 

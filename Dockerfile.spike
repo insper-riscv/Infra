@@ -9,7 +9,7 @@
 #   docker build -f Dockerfile.spike -t infra-spike \
 #     --build-arg RISCV_ISA_SIM_COMMIT="$(git ls-remote https://github.com/riscv-software-src/riscv-isa-sim HEAD | cut -f1)" .
 
-ARG BASE_IMAGE=ubuntu:24.04
+ARG BASE_IMAGE=ubuntu:26.04
 
 FROM ${BASE_IMAGE} AS build
 ARG RISCV_ISA_SIM_COMMIT

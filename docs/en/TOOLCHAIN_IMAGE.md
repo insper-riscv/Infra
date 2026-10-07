@@ -71,6 +71,8 @@ When one of these workflows finishes successfully, `Toolchain image` runs by its
 
 Each architecture is built on a runner of its own (`ubuntu-26.04` for `linux/amd64` and `ubuntu-24.04-arm` for `linux/arm64`): the GCC and GHDL builds take hours under emulation. A final job joins the two images into one manifest with the tags, so `docker pull` gives each machine its own.
 
+`uv` is the one component that has no image of ours: the complete image copies it from the official `ghcr.io/astral-sh/uv`. It follows the same rule as the others, in `Toolchain image`: a run triggered by a push or by a component finishing keeps the `uv` that the `latest` image already has (its `uv.version` label), and a manual run takes the `uv_version` field, empty meaning the latest stable release of `astral-sh/uv`. The version also goes into the combination tag (`ghdl-<7>-gcc-<7>-spike-<7>-uv-<version>`). To update `uv`, run `Toolchain image` by hand with `confirm` and an empty `uv_version`.
+
 `Toolchain image` does not wait for a component to finish: if, when it runs for a push or for the end of another component, a `GHDL image`, `GCC image` or `Spike image` run is queued or going, it skips with a notice, and the end of that run triggers it again. The last component to finish does the single assembly. A manual run of `Toolchain image` never defers.
 
 `Toolchain image` needs the three `latest` images. If a push lands before they exist, it ends with a notice, without failing, and runs when the components finish. A manual run of it without the images fails, with a message that points at the three workflows.
@@ -97,7 +99,7 @@ The GCC build takes from tens of minutes to over an hour, depending on the machi
 
 | Argument | Default | Meaning |
 | :--- | :--- | :--- |
-| `BASE_IMAGE` | `ubuntu:24.04` | Base image of every build (a multi-architecture image) |
+| `BASE_IMAGE` | `ubuntu:26.04` | Base image of every build (a multi-architecture image) |
 | `UV_VERSION` | fixed version | Version of `uv` (only in the complete `Dockerfile`) |
 | `PYTHON_VERSION` | `3.14` | Python installed by `uv` (only in the complete `Dockerfile`) |
 | `COCOTB_VERSION` | `2.1.0` | cocotb installed in it (only in the complete `Dockerfile`) |
@@ -121,6 +123,37 @@ docker buildx imagetools inspect ghcr.io/insper-riscv/infra-gcc:latest --format 
 ```
 
 The second command should print just `.;` (one variant, the root). The last one shows, for each architecture, the GCC commit in the `riscv-gnu-toolchain.commit` label, and lists `linux/amd64` and `linux/arm64`.
+
+## 8. Why each version
+
+Everything is fixed by us except the packages of Ubuntu itself. The workflow that updates each fixed item is in section 4.
+
+### 8.1 What we choose
+
+| Item | Version | Why |
+| :--- | :--- | :--- |
+| Ubuntu | 26.04 LTS | the latest long-term release, a multi-architecture base (`amd64` and `arm64`), and the one GHDL 6.0.0 was built and tested on with LLVM 21 |
+| GHDL | 6.0.0 | the latest stable release; the series is fixed at 6 (`SERIES` in the workflow), so 7.0.0, which is still in development, is not taken by itself |
+| GHDL backend | LLVM | the `mcode` backend runs only on x86, and the same simulator must behave the same on a PC and on an ARM machine such as a Mac |
+| RISC-V GCC | 16.1.0, commit `d118e53` | built from source with our own picolibc configuration (`rv32im`, `ilp32`, one variant, no CSR, no floating point hardware); follows the head of `riscv-gnu-toolchain`, because its releases are a nightly snapshot of the head, not a stable point |
+| picolibc | 1.8.11 | the version the `riscv-gnu-toolchain` commit carries; compiled for the same `rv32im` as the GCC, so it has no CSR code and does floating point in software |
+| Spike | commit `fdc1ffa` | the head of `riscv-isa-sim`, because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
+| `uv` | 0.12.23 | the latest stable release of series 0 (`UV_SERIES`); it installs Python and the dependencies of each project, and replaces `pip` and virtual environments |
+| Python | 3.14.8 | the version the projects require (`>=3.14,<3.15`); the patch is the latest one the `uv` knows |
+| cocotb | 2.1.0 | the first release that supports Python 3.14 and the latest; every project simulates with it, so it is in the image, and it fixes the Python version: a newer Python waits for a cocotb that supports it. On `arm64` it has no wheel and is compiled, hence `g++` |
+| GTKWave (`dev_tools`) | 3.3.116 | the latest stable release of series 3 (`SERIES`); the 4.0.0 line is a pre-alpha with no release. Built from the GTK 3 tree, which has a Wayland backend |
+
+### 8.2 What comes from Ubuntu
+
+| Item | Version | Why it is in the image |
+| :--- | :--- | :--- |
+| LLVM | 21.1.8 | the library the GHDL LLVM backend links against; it is the one `llvm-dev` installs on 26.04, and the one GHDL 6.0.0 was tested with here (LLVM 22 is available and was not tested) |
+| `gcc` and `g++` (host) | 15.2.0 | link the executable GHDL elaborates, and compile cocotb on `arm64`; the RISC-V GCC keeps its own `riscv32-unknown-elf-` names, so they do not clash |
+| `git` | 2.53.0 | the checkout of a workflow |
+| `make` | 4.4.1 | the Makefiles of the projects and ACT4's own `make` |
+| `curl` | 8.18.0 | installers and downloads |
+| GTK 3 (`dev_tools`) | 3.24.52 | what GTKWave runs on, with its Wayland and X11 backends |
+| `gnat` (`dev_tools`) | 14 | the Ada runtime and compiler for building GHDL or Ada code in the development environment |
 
 ---
 

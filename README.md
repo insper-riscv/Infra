@@ -56,6 +56,42 @@ workstation nova é:
 Esses docs juntos são a base da qual `RV32`, `Tests` e `Tools` dependem
 para funcionar como pretendido.
 
+## O que as imagens contêm
+
+As duas são publicadas para `linux/amd64` e `linux/arm64`, com as mesmas versões em cada uma, e a
+`dev_tools` é a imagem do toolchain mais o que está listado abaixo dela. Como cada item é atualizado
+está no [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md) e no
+[DEVTOOLS_IMAGE.md](docs/pt-br/DEVTOOLS_IMAGE.md), e por que cada versão foi escolhida está na
+[seção 8 do TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md#8-por-que-cada-versão).
+
+### Imagem do toolchain (`ghcr.io/insper-riscv/infra-toolchain`)
+
+| Item | Versão |
+| :--- | :--- |
+| Ubuntu | 26.04 LTS |
+| GHDL (backend LLVM) | 6.0.0 |
+| LLVM (biblioteca em que o backend do GHDL roda) | 21.1.8 |
+| GCC RISC-V (`rv32im`, `ilp32`: sem CSR, sem F nem D) | 16.1.0 (commit `d118e53` do `riscv-gnu-toolchain`) |
+| picolibc (biblioteca C do GCC RISC-V, uma variante para o mesmo `rv32im`: sem CSR, ponto flutuante em software) | 1.8.11 |
+| Spike | 1.1.1-dev (commit `fdc1ffa` do `riscv-isa-sim`, módulo de debug em `0x70000000`) |
+| `uv` | 0.12.23 |
+| Python | 3.14.8 |
+| cocotb | 2.1.0 |
+| `gcc` e `g++` (do host) | 15.2.0 |
+| `git` | 2.53.0 |
+| `make` | 4.4.1 |
+| `curl` | 8.18.0 |
+
+### Imagem de ferramentas de desenvolvimento (`ghcr.io/insper-riscv/dev_tools`)
+
+Tudo o que está na imagem do toolchain, mais:
+
+| Item | Versão |
+| :--- | :--- |
+| GTKWave (árvore GTK 3, Wayland e X11) | 3.3.116 |
+| GTK 3 | 3.24.52 |
+| `gnat` | 14 |
+
 ---
 
 Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).

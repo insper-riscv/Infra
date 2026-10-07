@@ -6,7 +6,7 @@
 
 | Addition | Detail |
 | :--- | :--- |
-| GTKWave | the 4.0.0 development line (GTK 3 and 4), copied from the `infra-gtkwave` image into `/opt/gtkwave`; runs on Wayland natively and on X11 |
+| GTKWave | the stable 3.3 line (3.3.116, GTK 3 tree), copied from the `infra-gtkwave` image into `/opt/gtkwave`; runs on Wayland natively and on X11 |
 | User | `dev`, with `/work` as the working directory |
 | Build tools | `build-essential`, `pkg-config`, `gnat` |
 
@@ -33,6 +33,8 @@ In a `.devcontainer/devcontainer.json`:
 
 ### 2.1 Opening GTKWave
 
+GTKWave is the GTK 3 tree of the stable 3.3 line, which has a Wayland backend. `twinwave` and the `-X` option embed windows with XEmbed, which exists only on X11, and do not work on Wayland; opening a waveform file does not use either.
+
 GTKWave needs a display. On Wayland, pass the compositor socket and its name:
 
 ```bash
@@ -43,7 +45,7 @@ docker run --rm -it -v "$PWD:/work" \
   ghcr.io/insper-riscv/dev_tools:latest gtkwave sim.ghw
 ```
 
-On X11 (or Wayland through XWayland), mount the X socket and pass `DISPLAY` instead: `-v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY`.
+On an X11 session, where there is no Wayland socket, mount the X socket and pass `DISPLAY` instead: `-v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY`. To force one backend, set `GDK_BACKEND=wayland` or `GDK_BACKEND=x11`.
 
 ## 3. Publication
 

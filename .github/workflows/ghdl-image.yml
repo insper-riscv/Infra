@@ -5,7 +5,7 @@ name: GHDL image
 # the ghdl/ghdl commit and as latest.
 #
 # - Run by hand to update GHDL: it builds the commit given, or the commit of the latest release tag
-#   of the upstream, unless that image already exists.
+#   of the series set in SERIES (6.x.y), unless that image already exists.
 # - Runs on a push to main that changes Dockerfile.ghdl or this workflow: it rebuilds the commit
 #   latest already has (the recipe changed, not the version), or the upstream latest release when
 #   nothing is published yet.
@@ -38,6 +38,8 @@ env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/infra-ghdl
   UPSTREAM: https://github.com/ghdl/ghdl
   LABEL: ghdl.commit
+  # the major version of GHDL the image follows; a new series is chosen by editing this line
+  SERIES: "6"
 
 jobs:
   pin:
@@ -92,10 +94,16 @@ jobs:
               | jq -r --arg key "$LABEL" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
           }
           upstream_commit() {
-            # the commit of the latest stable release tag (v1.2.3), not of a moving branch
-            tag=$(git ls-remote --tags --refs "$UPSTREAM" 'v*' | sed 's|.*refs/tags/||' \
-                  | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
-            git ls-remote "$UPSTREAM" "refs/tags/${tag}^{}" | cut -f1
+            # the commit of the latest stable release tag of the series SERIES (v6.x.y), not of a
+            # moving branch, and not of a newer series: moving to the next one is an edit of SERIES
+            tag=$(git ls-remote --tags --refs "$UPSTREAM" "v${SERIES}.*" | sed 's|.*refs/tags/||' \
+                  | grep -E "^v${SERIES}\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
+            if [ -z "$tag" ]; then
+              echo "::error::no release tag of the series ${SERIES} in $UPSTREAM" >&2
+              return 1
+            fi
+            # an annotated tag has a second line, peeled to the commit (^{}); a lightweight one is the commit
+            git ls-remote "$UPSTREAM" "refs/tags/${tag}" "refs/tags/${tag}^{}" | tail -n 1 | cut -f1
           }
 
           force="$INPUT_FORCE"

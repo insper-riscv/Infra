@@ -2,7 +2,7 @@
 #
 # The development environment of the Insper RISC-V project, for a Dev Container: the complete
 # toolchain image (GHDL, the RISC-V GCC with picolibc, Spike and uv) plus GTKWave (copied from its
-# own image, built from the 4.0.0 development line with GTK 3 and 4, so it runs on Wayland) and
+# own image: the stable 3.3 line, GTK 3 tree, so it runs on Wayland and on X11) and
 # what one needs to work inside it, and the user `dev`. Python 3.14 and cocotb 2.1.0 come from the
 # toolchain image; a project installs its other dependencies with `uv sync`, and the image has no
 # pip.
@@ -22,12 +22,12 @@ FROM ${TOOLCHAIN_IMAGE}
 
 # build-essential and pkg-config for the projects that compile C; gnat is the Ada runtime GHDL's
 # own builds and some libraries need. The rest are what GTKWave links against and uses at run time
-# (GTK 3 and 4, with Wayland and X11 backends, an icon theme and the MIME database); GTKWave itself
-# is built in its own image and copied.
+# (GTK 3, with its Wayland and X11 backends, an icon theme and the MIME database); GTKWave itself is
+# built in its own image and copied.
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       build-essential pkg-config gnat \
-      libgtk-3-0t64 libgtk-4-1 libjudydebian1 libjson-glib-1.0-0 libbz2-1.0 \
+      libgtk-3-0t64 libjudydebian1 libbz2-1.0 liblzma5 \
       adwaita-icon-theme shared-mime-info \
  && rm -rf /var/lib/apt/lists/*
 
