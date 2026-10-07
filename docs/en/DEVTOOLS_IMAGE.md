@@ -45,7 +45,7 @@ docker run --rm -it -v "$PWD:/work" \
   ghcr.io/insper-riscv/dev_tools:latest gtkwave sim.ghw
 ```
 
-On X11 (or Wayland through XWayland), mount the X socket and pass `DISPLAY` instead: `-v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY`.
+On an X11 session, where there is no Wayland socket, mount the X socket and pass `DISPLAY` instead: `-v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY`. To force one backend, set `GDK_BACKEND=wayland` or `GDK_BACKEND=x11`.
 
 ## 3. Publication
 
