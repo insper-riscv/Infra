@@ -34,12 +34,14 @@ FROM ${BASE_IMAGE}
 
 # libgnat, libllvm, zlib and libedit are what GHDL links against (zlib1g-dev, not just the
 # library: the executable GHDL elaborates is linked with -lz); gcc and libc6-dev link that
-# executable (and build VHPIDIRECT code); libmpc3 and libmpfr6 are what cc1 of
-# the RISC-V GCC links against; Spike needs nothing beyond the base image. git, curl and make are
-# for whoever uses the image: the checkout of a workflow, installers and ACT4's own make.
+# executable (and build VHPIDIRECT code); g++ is for cocotb, which has no wheel for Linux on arm64
+# (only x86-64, macOS and Windows) and is compiled there, here and in every project's `uv sync`;
+# libmpc3 and libmpfr6 are what cc1 of the RISC-V GCC links against; Spike needs nothing beyond the
+# base image. git, curl and make are for whoever uses the image: the checkout of a workflow,
+# installers and ACT4's own make.
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates curl git make gcc libc6-dev \
+      ca-certificates curl git make gcc g++ libc6-dev \
       libgnat-13 libllvm18 zlib1g-dev libedit2 \
       libmpc3 libmpfr6 \
  && rm -rf /var/lib/apt/lists/*
