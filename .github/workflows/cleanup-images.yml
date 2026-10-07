@@ -1,0 +1,79 @@
+name: Clean up old image versions
+
+# Deletes the old versions of the container packages and keeps what the tag `latest` reaches (the
+# manifest tagged latest and every manifest below it). By hand only: it lists what it would delete
+# unless `delete` is on. The work is in scripts/cleanup-images.sh.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to delete image versions"
+        required: true
+      packages:
+        description: "Packages to clean, separated by spaces (empty: all of them)"
+        required: false
+      delete:
+        description: "Really delete (off: only list what would be deleted)"
+        type: boolean
+        default: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Authorize manual run
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          SECRET: ${{ secrets.IMAGE_PUBLISH_SECRET }}
+        run: |
+          if [ "$CONFIRM" != "$SECRET" ]; then
+            echo "::error::confirmation does not match IMAGE_PUBLISH_SECRET, refusing to delete image versions"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7.0.1
+
+      - name: Refuse to delete while an image is being published
+        # A publication pushes the image of each architecture without a tag and tags the manifest
+        # above them only at the end; deleting in the middle would take versions it is about to use.
+        if: inputs.delete
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          busy=0
+          for workflow in ghdl-image.yml gcc-image.yml spike-image.yml gtkwave-image.yml toolchain-image.yml devtools-image.yml; do
+            for status in queued in_progress; do
+              count=$(gh run list -R "$REPO" --workflow "$workflow" --status "$status" --json databaseId --jq length)
+              busy=$((busy + count))
+            done
+          done
+          if [ "$busy" -gt 0 ]; then
+            echo "::error::$busy image workflow run(s) are queued or running; run this again when they finish"
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Clean up
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGES: ${{ inputs.packages }}
+          DELETE: ${{ inputs.delete }}
+        run: |
+          flags=()
+          [ "$DELETE" = "true" ] && flags+=(--delete)
+          # PACKAGES is split on purpose: one argument per package name
+          # shellcheck disable=SC2086
+          scripts/cleanup-images.sh "${flags[@]}" $PACKAGES

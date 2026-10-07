@@ -155,6 +155,25 @@ Everything is fixed by us except the packages of Ubuntu itself. The workflow tha
 | GTK 3 (`dev_tools`) | 3.24.52 | what GTKWave runs on, with its Wayland and X11 backends |
 | `gnat` (`dev_tools`) | 14 | the Ada runtime and compiler for building GHDL or Ada code in the development environment |
 
+## 9. Cleaning old versions
+
+Every publication adds versions to the package and none is removed by a workflow of ours. `scripts/cleanup-images.sh` deletes the old ones and keeps what the tag `latest` reaches: the manifest tagged `latest` and every manifest below it (the image of each architecture and its attestation). Those manifests have no tag of their own and are what keeps `latest` pullable, so a plain "delete the untagged versions" would break it. Everything else is deleted, tagged or not, including the tags of earlier commits.
+
+```bash
+scripts/cleanup-images.sh                        # every package, only listing
+scripts/cleanup-images.sh infra-gcc dev_tools    # only these, only listing
+scripts/cleanup-images.sh --delete infra-gcc     # really deletes
+```
+
+| Safeguard | What it does |
+| :--- | :--- |
+| Listing first | it deletes only with `--delete` (the workflow: the `delete` field, off by default) |
+| Minimum age | a version younger than `MIN_AGE_MINUTES` (120 by default) is never deleted, because a publication pushes the image of each architecture without a tag and tags the manifest above them only at the end |
+| No `latest` | a package with no version tagged `latest`, or whose manifest cannot be read, is left untouched |
+| Missing manifest | a manifest that `latest` references and that is no longer in the registry is reported as a warning and does not stop the run |
+
+The workflow `Clean up old image versions` runs it by hand, with the same `confirm` field as the publications. With `delete` on it also refuses to run while any image workflow is queued or running.
+
 ---
 
 Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).
