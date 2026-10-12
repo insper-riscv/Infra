@@ -23,7 +23,7 @@ name: Picolibc image
 # assembles a new complete image.
 on:
   schedule:
-    - cron: "10 3 * * *"
+    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       confirm:

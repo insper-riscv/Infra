@@ -22,7 +22,7 @@ name: GCC image
 # The Toolchain image workflow then assembles a new complete image.
 on:
   schedule:
-    - cron: "0 4 * * 1"
+    - cron: "10 3 * * 1"
   workflow_dispatch:
     inputs:
       confirm:
@@ -59,6 +59,7 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
+      actions: read
       contents: read
       packages: read
     outputs:
@@ -101,8 +102,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Wait for a Picolibc image run that is going
+        # The GCC is built against the latest picolibc image. While one is being built a scheduled
+        # run would build against the old one, and the end of the picolibc run triggers this
+        # workflow again with the new one. A manual run never defers.
+        id: defer
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          pending=0
+          for status in queued in_progress; do
+            count=$(gh run list -R "$REPO" --workflow picolibc-image.yml --status "$status" --json databaseId --jq length 2>/dev/null || echo 0)
+            pending=$((pending + count))
+          done
+          if [ "$pending" -gt 0 ]; then
+            echo "::notice::a Picolibc image run is still going; its end triggers this workflow."
+            echo "defer=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Resolve the commits
         id: pin
+        if: steps.defer.outputs.defer != 'true'
         env:
           EVENT: ${{ github.event_name }}
           INPUT_COMMIT: ${{ inputs.commit }}

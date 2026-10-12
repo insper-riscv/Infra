@@ -14,7 +14,7 @@ name: GTKWave image
 # The Dev tools image workflow then assembles a new image.
 on:
   schedule:
-    - cron: "30 3 * * *"
+    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       confirm:

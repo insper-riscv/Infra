@@ -126,14 +126,14 @@ Os workflows de componente também rodam sozinhos, uma vez por dia (UTC), sem ne
 | Workflow | Quando | O que olha |
 | :--- | :--- | :--- |
 | `GHDL image` | todo dia, 03:00 | a release `6.x.y` mais recente |
-| `Picolibc image` | todo dia, 03:10 | a release `1.x.y` mais recente |
-| `Yosys image` | todo dia, 03:20 | a release `v0.N` mais recente do Yosys, com o `sby` da mesma versão |
-| `GTKWave image` | todo dia, 03:30 | a release `3.3.x` mais recente |
-| `Spike image` | todo dia, 03:40 | o commit mais recente do upstream com CI verde (pode esperar até 60 minutos por um que esteja rodando) |
-| `GCC image` | toda segunda-feira, 04:00 | o HEAD do `riscv-gnu-toolchain` |
+| `Picolibc image` | todo dia, 03:00 | a release `1.x.y` mais recente |
+| `Yosys image` | todo dia, 03:10 | a release `v0.N` mais recente do Yosys, com o `sby` da mesma versão |
+| `GTKWave image` | todo dia, 03:00 | a release `3.3.x` mais recente |
+| `Spike image` | todo dia, 03:10 | o commit mais recente do upstream com CI verde (pode esperar até 60 minutos por um que esteja rodando) |
+| `GCC image` | toda segunda-feira, 03:10 | o HEAD do `riscv-gnu-toolchain` |
 | `Toolchain image` | todo dia, 05:00 | o `uv` mais recente da série 0, e a combinação dos componentes |
 
-Um run agendado constrói **só se a imagem dessa versão ainda não existir**; quando nada mudou, termina em segundos com um aviso. O `GCC image` também roda quando o `Picolibc image` termina, e o `Toolchain image` e o `Dev tools image` rodam quando um componente termina, como descrito abaixo.
+Os runs ficam em dois horários: às 03:00 os que não dependem de nada que esteja sendo reconstruído (GHDL e GTKWave, e a picolibc, que é compilada pelo GCC já publicado), e dez minutos depois o GCC, que precisa da picolibc mais recente (um run agendado dele espera se o da picolibc ainda estiver rodando), e o Spike e o Yosys, que não dependem de nada mas começam depois dos rápidos. Um run agendado constrói **só se a imagem dessa versão ainda não existir**; quando nada mudou, termina em segundos com um aviso. O `GCC image` também roda quando o `Picolibc image` termina, e o `Toolchain image` e o `Dev tools image` rodam quando um componente termina, como descrito abaixo.
 
 **Uma mudança num `Dockerfile` ou num workflow não constrói nada.** Uma imagem é construída quando uma versão muda, não quando a receita muda, então uma mudança de receita que não é uma versão nova não reconstrói uma imagem à toa (o GCC e o GHDL levam quase uma hora). O workflow `Recipe changed` roda no merge dessa mudança, escreve um aviso no run e comenta no commit, listando as imagens que a mudança afeta. Para publicá-las com a receita nova, rode à mão o workflow de cada uma com `force` ligado.
 
