@@ -38,12 +38,16 @@ FROM ${BASE_IMAGE}
 # (only x86-64, macOS and Windows) and is compiled there, here and in every project's `uv sync`;
 # libmpc3 and libmpfr6 are what cc1 of the RISC-V GCC links against; Spike needs nothing beyond the
 # base image. git, curl and make are for whoever uses the image: the checkout of a workflow,
-# installers and ACT4's own make.
+# installers and ACT4's own make. libglib2.0-0t64 (libglib-2.0 and libgthread-2.0) is the one system
+# library the command-line tools of a Quartus installation mounted from the host (quartus_sh,
+# quartus_stp, quartus_cdb and the rest) link against and Ubuntu's base image does not have; Quartus
+# itself is not in the image.
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates curl git make gcc g++ libc6-dev \
       libgnat-14 libllvm21 zlib1g-dev libedit2 \
       libmpc3 libmpfr6 \
+      libglib2.0-0t64 \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghdl /opt/ghdl /opt/ghdl
