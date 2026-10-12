@@ -132,6 +132,7 @@ The component workflows also run by themselves, once a day (UTC), with no field 
 | `Spike image` | every day, 03:00 | the latest upstream commit with green CI (it can wait up to 60 minutes for a running one) |
 | `GCC image` | every day, 03:10 | the head of `riscv-gnu-toolchain` |
 | `Toolchain image` | every day, 03:20 | the latest `uv` of series 0, and the combination of the components |
+| `Dev tools image` | every day, 03:30 | the toolchain image and GTKWave: builds only if the combination of the two is new |
 
 The runs are in two slots: at 03:00 everything that depends on no component being rebuilt (GHDL, GTKWave, Spike and Yosys, and picolibc, which is compiled by the GCC already published), and ten minutes later the GCC alone, which needs the latest picolibc (a scheduled run of it waits if the picolibc one is still going). A scheduled run builds **only if the image for that version does not exist yet**; when nothing changed it ends in seconds with a notice. The `GCC image` also runs when the `Picolibc image` finishes, and the `Toolchain image` and the `Dev tools image` run when a component finishes, as described below.
 

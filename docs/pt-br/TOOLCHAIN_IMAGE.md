@@ -132,6 +132,7 @@ Os workflows de componente também rodam sozinhos, uma vez por dia (UTC), sem ne
 | `Spike image` | todo dia, 03:00 | o commit mais recente do upstream com CI verde (pode esperar até 60 minutos por um que esteja rodando) |
 | `GCC image` | todo dia, 03:10 | o HEAD do `riscv-gnu-toolchain` |
 | `Toolchain image` | todo dia, 03:20 | o `uv` mais recente da série 0, e a combinação dos componentes |
+| `Dev tools image` | todo dia, 03:30 | a imagem de toolchain e o GTKWave: constrói só se a combinação dos dois for nova |
 
 Os runs ficam em dois horários: às 03:00 tudo o que não depende de componente nenhum sendo reconstruído (GHDL, GTKWave, Spike e Yosys, e a picolibc, que é compilada pelo GCC já publicado), e dez minutos depois só o GCC, que precisa da picolibc mais recente (um run agendado dele espera se o da picolibc ainda estiver rodando). Um run agendado constrói **só se a imagem dessa versão ainda não existir**; quando nada mudou, termina em segundos com um aviso. O `GCC image` também roda quando o `Picolibc image` termina, e o `Toolchain image` e o `Dev tools image` rodam quando um componente termina, como descrito abaixo.
 
