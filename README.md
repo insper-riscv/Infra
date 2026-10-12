@@ -74,7 +74,7 @@ está no [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md) e no
 | GCC RISC-V (`rv32im`, `ilp32`: sem CSR, sem F nem D) | 16.1.0 (commit `d118e53` do `riscv-gnu-toolchain`) |
 | picolibc (biblioteca C do GCC RISC-V, uma variante para o mesmo `rv32im`: sem CSR, ponto flutuante em software) | 1.8.11 |
 | Spike | 1.1.1-dev (commit `fdc1ffa` do `riscv-isa-sim`, módulo de debug em `0x70000000`) |
-| `uv` | 0.12.23 |
+| `uv` | 0.13.0 |
 | Python | 3.14.8 |
 | cocotb | 2.1.0 |
 | `gcc` e `g++` (do host) | 15.2.0 |
