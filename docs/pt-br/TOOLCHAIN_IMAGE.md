@@ -22,7 +22,7 @@ Toda imagem leva os rótulos `org.opencontainers.image.title`, `description`, `s
 | Componente | Detalhe | Caminho |
 | :--- | :--- | :--- |
 | GHDL | Backend LLVM, compilado do código-fonte (o backend mcode das imagens `ghdl/ghdl` é só x86, e as duas arquiteturas precisam rodar o mesmo GHDL) | `/opt/ghdl` |
-| GCC RISC-V | Alvo `rv32im`/`ilp32` uma única variante de biblioteca (o que o [GCC_SETUP.md](GCC_SETUP.md) compila) | `/opt/riscv-foundation/riscv32-elf` |
+| GCC RISC-V | Alvo `rv32im`/`ilp32`, uma única variante de biblioteca (o que o [GCC_SETUP.md](GCC_SETUP.md) compila) | `/opt/riscv-foundation/riscv32-elf` |
 | picolibc | A biblioteca C desse GCC, compilada pela própria imagem e instalada no sysroot antes do segundo estágio do build do GCC, então o libgcc e o libstdc++ do GCC são compilados contra ela | `/opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf` |
 | Spike | Com o módulo de debug movido do endereço `0x0` para `0x70000000` (o que o [SPIKE_SETUP.md](SPIKE_SETUP.md) compila) | `/opt/riscv-foundation/spike` |
 | `uv` | Gerenciador de projetos Python | `/usr/local/bin` |
@@ -115,6 +115,8 @@ O `Picolibc image` recebe um `commit` da picolibc (vazio: a tag de release mais 
 
 O GCC com que a picolibc é compilada é o publicado antes dela, então a biblioteca vem do GCC do build anterior, e não daquele com que é instalada.
 
+O `Spike image` não tem release para seguir (a última, `v1.1.0`, é de 2021), então um `commit` vazio pega o commit mais recente da branch `master` do `riscv-isa-sim` em que os workflows dele, `Continuous Integration` e `Debug Quick Test`, passaram. Um commit mais novo cujos workflows ainda estão rodando é aguardado, por até 60 minutos; um que falhou é pulado, e também um sem execução deles; um re-run que passou conta. O campo extra `ignore_ci` pega o topo da branch, seja qual for o resultado dos workflows. A escolha, com o estado de cada commit que olhou, vai para o resumo do run.
+
 O `Yosys image` tem mais um campo, `sby_commit` (vazio: a tag do `sby` com a mesma versão da release do Yosys), porque a imagem guarda os dois e o campo `commit` é o commit do Yosys. O `commit` vazio pega a tag de release mais recente da série definida em `SERIES` (`0`, ou seja `v0.N`, nunca uma branch em movimento).
 
 O workflow resolve o commit, confere se `infra-gcc:<commit do GCC>-<commit da picolibc>` (ou `infra-spike:<commit>`, ou `infra-picolibc:<commit da picolibc>-<commit do GCC>`, ou `infra-yosys:<commit do Yosys>-<commit do sby>`) já existe e, se existir e `force` estiver desligado, não compila nada. Caso contrário, compila, confere a instalação e publica com as tags `<commit>` e `latest`.
@@ -203,7 +205,7 @@ Tudo é fixado por nós, exceto os pacotes do próprio Ubuntu. O workflow que at
 | Backend do GHDL | LLVM | o backend `mcode` só roda em x86, e o mesmo simulador precisa se comportar igual num PC e numa máquina ARM, como um Mac |
 | GCC RISC-V | 16.1.0, commit `d118e53` | compilado do fonte com a nossa configuração da picolibc (`rv32im`, `ilp32`, uma variante, sem CSR, sem ponto flutuante em hardware); segue o HEAD do `riscv-gnu-toolchain`, porque as releases dele são um instantâneo noturno do HEAD, e não um ponto estável; o build parte da picolibc compilada e executa só o segundo estágio, já que o primeiro compilador existia só para compilar a picolibc |
 | picolibc | 1.8.12 | a release mais recente da série 1 (`SERIES` no workflow); compilada pela própria imagem com o GCC publicado antes dela, e o GCC é então construído contra ela a partir do segundo estágio, então o libgcc e o libstdc++ dele combinam com ela. Ela é compilada com as opções do build que o `riscv-gnu-toolchain` roda para ela (meson, tamanho mínimo, instalada no sysroot) |
-| Spike | commit `fdc1ffa` | o HEAD do `riscv-isa-sim`, porque a última release (`v1.1.0`) é de 2021; o módulo de debug dele é movido do endereço `0x0` para `0x70000000`, para não se sobrepor à boot ROM |
+| Spike | commit `89c7471` | o commit mais recente do `riscv-isa-sim` cujo CI próprio passou (`Continuous Integration` e `Debug Quick Test`), porque a última release (`v1.1.0`) é de 2021; o módulo de debug dele é movido do endereço `0x0` para `0x70000000`, para não se sobrepor à boot ROM |
 | `uv` | 0.13.0 | a última release estável da série 0 (`UV_SERIES`); instala o Python e as dependências de cada projeto, e substitui o `pip` e os ambientes virtuais |
 | Python | 3.14.8 | a versão que os projetos exigem (`>=3.14,<3.15`); o patch é o mais recente que o `uv` conhece |
 | cocotb | 2.1.0 | a primeira release que suporta o Python 3.14 e a mais recente; todo projeto simula com ele, então está na imagem, e ele fixa a versão do Python: um Python mais novo espera um cocotb que o suporte. No `arm64` não há wheel e ele é compilado, por isso o `g++` |

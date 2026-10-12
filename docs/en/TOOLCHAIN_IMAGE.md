@@ -22,7 +22,7 @@ Every image carries the labels `org.opencontainers.image.title`, `description`, 
 | Component | Detail | Path |
 | :--- | :--- | :--- |
 | GHDL | LLVM backend, built from source (the mcode backend of the `ghdl/ghdl` images is x86 only, and the two architectures must run the same GHDL) | `/opt/ghdl` |
-| RISC-V GCC | `rv32im`/`ilp32` target a single library variant (what [GCC_SETUP.md](GCC_SETUP.md) builds) | `/opt/riscv-foundation/riscv32-elf` |
+| RISC-V GCC | `rv32im`/`ilp32` target, a single library variant (what [GCC_SETUP.md](GCC_SETUP.md) builds) | `/opt/riscv-foundation/riscv32-elf` |
 | picolibc | The C library of that GCC, compiled by its own image and installed into the sysroot before the second stage of the GCC build, so the libgcc and libstdc++ of the GCC are built against it | `/opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf` |
 | Spike | With its debug module moved from address `0x0` to `0x70000000` (what [SPIKE_SETUP.md](SPIKE_SETUP.md) builds) | `/opt/riscv-foundation/spike` |
 | `uv` | Python project manager | `/usr/local/bin` |
@@ -115,6 +115,8 @@ The `Picolibc image` takes a picolibc `commit` (empty: the latest release tag of
 
 The GCC the picolibc is compiled with is the one published before it, so the library comes from the GCC of the previous build, not from the one it is installed with.
 
+The `Spike image` has no release to follow (the last, `v1.1.0`, is from 2021), so an empty `commit` takes the latest commit of the `master` branch of `riscv-isa-sim` on which its own workflows `Continuous Integration` and `Debug Quick Test` succeeded. A newer commit whose workflows are still running is waited for, up to 60 minutes; one that failed is skipped, and so is one with no run of them; a re-run that succeeded counts. The extra field `ignore_ci` takes the head of the branch whatever its workflows say. The choice, with the state of each commit it looked at, is written to the summary of the run.
+
 The `Yosys image` has one more field, `sby_commit` (empty: the `sby` tag with the same version as the Yosys release), because the image holds both and the `commit` field is the Yosys commit. Its empty `commit` takes the latest release tag of the series set in `SERIES` (`0`, so `v0.N`, never a moving branch).
 
 The workflow resolves the commit, checks whether `infra-gcc:<GCC commit>-<picolibc commit>` (or `infra-spike:<commit>`, or `infra-picolibc:<picolibc commit>-<GCC commit>`, or `infra-yosys:<Yosys commit>-<sby commit>`) already exists and, if it does and `force` is off, builds nothing. Otherwise it builds, checks the install and publishes it with the tags `<commit>` and `latest`.
@@ -203,7 +205,7 @@ Everything is fixed by us except the packages of Ubuntu itself. The workflow tha
 | GHDL backend | LLVM | the `mcode` backend runs only on x86, and the same simulator must behave the same on a PC and on an ARM machine such as a Mac |
 | RISC-V GCC | 16.1.0, commit `d118e53` | built from source with our own picolibc configuration (`rv32im`, `ilp32`, one variant, no CSR, no floating point hardware); follows the head of `riscv-gnu-toolchain`, because its releases are a nightly snapshot of the head, not a stable point; the build starts from the compiled picolibc and runs only the second stage, since the first compiler existed only to compile picolibc |
 | picolibc | 1.8.12 | the latest release of series 1 (`SERIES` in the workflow); compiled by its own image with the GCC published before it, and the GCC is then built against it from the second stage, so its libgcc and libstdc++ match it. It is compiled with the options of the build `riscv-gnu-toolchain` runs for it (meson, minimum size, installed into the sysroot) |
-| Spike | commit `fdc1ffa` | the head of `riscv-isa-sim`, because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
+| Spike | commit `89c7471` | the latest commit of `riscv-isa-sim` whose own CI passed (`Continuous Integration` and `Debug Quick Test`), because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
 | `uv` | 0.13.0 | the latest stable release of series 0 (`UV_SERIES`); it installs Python and the dependencies of each project, and replaces `pip` and virtual environments |
 | Python | 3.14.8 | the version the projects require (`>=3.14,<3.15`); the patch is the latest one the `uv` knows |
 | cocotb | 2.1.0 | the first release that supports Python 3.14 and the latest; every project simulates with it, so it is in the image, and it fixes the Python version: a newer Python waits for a cocotb that supports it. On `arm64` it has no wheel and is compiled, hence `g++` |
