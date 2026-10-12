@@ -1,13 +1,14 @@
 # syntax=docker/dockerfile:1
 #
 # picolibc for the RISC-V GCC of Dockerfile.gcc (rv32im/ilp32, one library variant), alone. The
-# published image holds just the files picolibc installs into the sysroot of that GCC, and the
-# complete image (Dockerfile) copies them over the GCC's own: a newer picolibc does not need a new
-# GCC build, which is the long one.
+# published image holds just the files picolibc installs into the sysroot of that GCC, and
+# Dockerfile.gcc starts from them: it installs them before the second stage of the GCC build, so
+# the GCC is built against this picolibc without compiling a first compiler for it.
 #
-# picolibc is compiled by the cross compiler, so the image is built from a GCC image and carries
-# the commit of that GCC. The recipe is the one riscv-gnu-toolchain runs for picolibc (meson, a
-# cross file, minimum size, installed into the sysroot).
+# picolibc is compiled by the cross compiler, so the image is built from a GCC image (the one
+# published before the GCC that will be built from this picolibc) and carries the commit of that
+# GCC. The recipe is the one riscv-gnu-toolchain runs for picolibc (meson, a cross file, minimum
+# size, installed into the sysroot).
 #
 # The commit of picolibc to build has no default:
 #

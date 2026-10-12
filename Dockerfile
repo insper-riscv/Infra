@@ -4,8 +4,8 @@
 # picolibc, Spike, uv, and the formal tools (Yosys, SymbiYosys and the z3 and boolector solvers;
 # GHDL turns VHDL into the Verilog netlist Yosys reads). The same image for linux/amd64 and
 # linux/arm64: GHDL has the LLVM backend on both (the mcode backend is x86 only), so a simulation
-# behaves the same on a PC and on an ARM machine. The GHDL, the GCC, picolibc, Spike, and Yosys with
-# SymbiYosys come from the images Dockerfile.ghdl, Dockerfile.gcc, Dockerfile.picolibc,
+# behaves the same on a PC and on an ARM machine. The GHDL, the GCC (with the picolibc it was built
+# against), Spike, and Yosys with SymbiYosys come from the images Dockerfile.ghdl, Dockerfile.gcc,
 # Dockerfile.spike and Dockerfile.yosys publish, so this build only copies them; they must be multi-architecture images.
 #
 # GHDL with the LLVM backend elaborates to an executable: scripts use `ghdl -a`, `ghdl -e` and
@@ -27,12 +27,10 @@ ARG CLICK_VERSION=8.5.0
 ARG GHDL_IMAGE=ghcr.io/insper-riscv/infra-ghdl:latest
 ARG GCC_IMAGE=ghcr.io/insper-riscv/infra-gcc:latest
 ARG SPIKE_IMAGE=ghcr.io/insper-riscv/infra-spike:latest
-ARG PICOLIBC_IMAGE=ghcr.io/insper-riscv/infra-picolibc:latest
 ARG YOSYS_IMAGE=ghcr.io/insper-riscv/infra-yosys:latest
 
 FROM ${GHDL_IMAGE} AS ghdl
 FROM ${GCC_IMAGE} AS gcc
-FROM ${PICOLIBC_IMAGE} AS picolibc
 FROM ${SPIKE_IMAGE} AS spike
 FROM ${YOSYS_IMAGE} AS yosys
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
@@ -61,9 +59,6 @@ RUN apt-get update \
 
 COPY --from=ghdl /opt/ghdl /opt/ghdl
 COPY --from=gcc /opt/riscv-foundation/riscv32-elf /opt/riscv-foundation/riscv32-elf
-# picolibc comes from its own image, compiled with that GCC: its files go over the ones the GCC image
-# carries, so a newer picolibc needs no new GCC build.
-COPY --from=picolibc /opt/riscv-foundation/riscv32-elf /opt/riscv-foundation/riscv32-elf
 COPY --from=spike /opt/riscv-foundation/spike /opt/riscv-foundation/spike
 COPY --from=yosys /opt/yosys /opt/yosys
 COPY --from=uv /uv /uvx /usr/local/bin/
