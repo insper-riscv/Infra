@@ -5,14 +5,13 @@ name: Toolchain image
 # infra-yosys images, which the GHDL image, GCC image, Spike image and Yosys image workflows
 # publish. The picolibc is the one inside the GCC image: a new picolibc (Picolibc image) makes the
 # GCC image build again, and this workflow assembles when that GCC image is the one built against
-# the latest picolibc. It runs when one of them finishes, when the Dockerfile changes on main, and
-# on demand.
+# the latest picolibc. It runs when one of them finishes, every day (the `uv` is the one component
+# with no image of ours, so it is looked up here), and on demand. A change of Dockerfile or of this
+# workflow does not assemble by itself: the Recipe changed workflow warns about it, and a run by
+# hand rebuilds.
 on:
-  push:
-    branches: [main]
-    paths:
-      - Dockerfile
-      - .github/workflows/toolchain-image.yml
+  schedule:
+    - cron: "0 5 * * *"
   workflow_dispatch:
     inputs:
       confirm:
@@ -68,7 +67,7 @@ jobs:
         # who can trigger this, but on a repo shared with people who
         # shouldn't publish the image, this adds a second check: only
         # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
-        # push to main skips this: branch protection on main is the gate for
+        # scheduled run skips this: branch protection on main is the gate for
         # that path instead, and a workflow_run follows a run that was
         # already authorized.
         if: github.event_name == 'workflow_dispatch'
@@ -91,7 +90,7 @@ jobs:
 
       - name: Resolve the uv version
         # A manual run takes the version given, or the latest stable release of uv. The other runs
-        # (a push, or a component that finished) keep the uv the latest image already has: the
+        # (a component that finished) keep the uv the latest image already has: the
         # version only moves when someone asks, the same way the commit of the GCC or Spike does.
         id: uv
         env:
@@ -99,7 +98,7 @@ jobs:
           INPUT_UV: ${{ inputs.uv_version }}
         run: |
           version="${INPUT_UV:-}"
-          if [ -z "$version" ] && [ "$EVENT" != "workflow_dispatch" ]; then
+          if [ -z "$version" ] && [ "$EVENT" = "workflow_run" ]; then
             version=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Image}}' 2>/dev/null \
               | jq -r '."linux/amd64".config.Labels["uv.version"] // empty' 2>/dev/null || true)
           fi
@@ -147,7 +146,7 @@ jobs:
               echo "::error::could not read the commits from the latest GHDL, GCC, picolibc, Spike and Yosys images, or the GCC image was not built against the latest picolibc; run the Picolibc image, GCC image, GHDL image, Spike image and Yosys image workflows first"
               exit 1
             fi
-            # A push can land before the components exist (the merge that
+            # A run can start before the components exist (the merge that
             # adds them also changes this workflow); their runs trigger this
             # one when they finish.
             echo "::notice::the GHDL, GCC, picolibc, Spike and Yosys images are not all published yet (or the GCC image is not the one built against the latest picolibc); their runs trigger this workflow when they finish."
@@ -163,15 +162,11 @@ jobs:
           echo "short=ghdl-${ghdl:0:7}-gcc-${gcc:0:7}-picolibc-${picolibc:0:7}-spike-${spike:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-uv-${UV}" >> "$GITHUB_OUTPUT"
 
       - name: Decide whether there is anything to assemble now
-        # Nothing to do when a component is not published yet, when a
-        # component run is still queued or going (a push that changes a
-        # component and this Dockerfile lands here first; the component's
-        # run triggers this workflow again when it finishes, so the last one
-        # to finish does the single assembly), or when a component workflow
-        # that found its image already published (it still ends
-        # successfully) triggered this run for a combination that exists. A
-        # manual run never defers, and otherwise a push always builds: the
-        # Dockerfile may have changed.
+        # Nothing to do when a component is not published yet, when a component run is still queued
+        # or going (its end triggers this workflow again, so the last one to finish does the single
+        # assembly), or when this run (scheduled, or triggered by a component workflow that found
+        # its image already published and still ended successfully) is for a combination that
+        # exists. A manual run never defers and always builds.
         id: skip
         env:
           EVENT: ${{ github.event_name }}
@@ -197,7 +192,7 @@ jobs:
           elif [ "$pending" -gt 0 ]; then
             echo "::notice::a GHDL, GCC, picolibc, Spike or Yosys image run is still going; it triggers this workflow when it finishes."
             echo "skip=true" >> "$GITHUB_OUTPUT"
-          elif [ "$EVENT" = "workflow_run" ] && docker buildx imagetools inspect "$IMAGE:$COMBINATION" > /dev/null 2>&1; then
+          elif [ "$EVENT" != "workflow_dispatch" ] && docker buildx imagetools inspect "$IMAGE:$COMBINATION" > /dev/null 2>&1; then
             echo "::notice::$IMAGE:$COMBINATION already exists; nothing to assemble."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi

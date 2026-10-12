@@ -10,20 +10,19 @@ name: GCC image
 #
 # - Run by hand to update the GCC: it builds the commit given, or the latest of
 #   the upstream default branch, unless that image already exists.
-# - Runs on a push to main that changes Dockerfile.gcc or this workflow: it
-#   rebuilds the commit latest already has (the recipe changed, not the
-#   version), or the upstream latest when nothing is published yet.
+# - Runs every Monday (schedule): it takes the head of the upstream default branch and builds it
+#   against the latest picolibc only if that image does not exist yet.
+#   A change of Dockerfile or of this workflow does not build by itself, so a recipe
+#   change that is not a new version does not rebuild an image for nothing: the Recipe
+#   changed workflow warns about it, and a run by hand with `force` rebuilds.
 # - Runs when the Picolibc image workflow finishes: a new picolibc gets a new build of the GCC
 #   latest already holds, from the second stage. When the picolibc is the one the GCC image
 #   already has, it builds nothing.
 #
 # The Toolchain image workflow then assembles a new complete image.
 on:
-  push:
-    branches: [main]
-    paths:
-      - Dockerfile.gcc
-      - .github/workflows/gcc-image.yml
+  schedule:
+    - cron: "0 4 * * 1"
   workflow_dispatch:
     inputs:
       confirm:
@@ -74,7 +73,7 @@ jobs:
         # who can trigger this, but on a repo shared with people who
         # shouldn't publish the image, this adds a second check: only
         # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
-        # push to main skips this: branch protection on main is the gate for
+        # scheduled run skips this: branch protection on main is the gate for
         # that path instead, and a workflow_run follows a run that was already
         # authorized.
         if: github.event_name == 'workflow_dispatch'
@@ -135,11 +134,10 @@ jobs:
 
           force="$INPUT_FORCE"
           commit="${INPUT_COMMIT:-}"
-          if [ -z "$commit" ] && [ "$EVENT" != "workflow_dispatch" ]; then
-            # The recipe changed (a push) or there is a new picolibc: rebuild the GCC latest
-            # already holds, from the second stage.
+          if [ -z "$commit" ] && [ "$EVENT" = "workflow_run" ]; then
+            # There is a new picolibc: build the GCC latest already holds against it, from the
+            # second stage.
             commit=$(label "$IMAGE:latest" "$LABEL")
-            [ "$EVENT" = "push" ] && force=true
           fi
           if [ -z "$commit" ]; then
             commit=$(upstream_commit)

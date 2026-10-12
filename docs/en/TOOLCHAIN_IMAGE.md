@@ -121,7 +121,21 @@ The `Yosys image` has one more field, `sby_commit` (empty: the `sby` tag with th
 
 The workflow resolves the commit, checks whether `infra-gcc:<GCC commit>-<picolibc commit>` (or `infra-spike:<commit>`, or `infra-picolibc:<picolibc commit>-<GCC commit>`, or `infra-yosys:<Yosys commit>-<sby commit>`) already exists and, if it does and `force` is off, builds nothing. Otherwise it builds, checks the install and publishes it with the tags `<commit>` and `latest`.
 
-The component workflows also run by themselves on a push to `main` that changes their own `Dockerfile.ghdl`, `Dockerfile.gcc`, `Dockerfile.picolibc`, `Dockerfile.spike` or `Dockerfile.yosys`, or the workflow itself. There is no `commit` field then: they rebuild the commit the `latest` image already has (the recipe changed, not the version) with `force` on, and only use the latest upstream commit when nothing is published yet. So the merge that adds the `Dockerfile`s already publishes the components for the first time. The `GCC image` also runs when the `Picolibc image` finishes.
+The component workflows also run by themselves, once a day (UTC), with no field to fill in:
+
+| Workflow | When | What it looks at |
+| :--- | :--- | :--- |
+| `GHDL image` | every day, 03:00 | the latest `6.x.y` release |
+| `Picolibc image` | every day, 03:10 | the latest `1.x.y` release |
+| `Yosys image` | every day, 03:20 | the latest `v0.N` release of Yosys, with the `sby` of the same version |
+| `GTKWave image` | every day, 03:30 | the latest `3.3.x` release |
+| `Spike image` | every day, 03:40 | the latest upstream commit with green CI (it can wait up to 60 minutes for a running one) |
+| `GCC image` | every Monday, 04:00 | the head of `riscv-gnu-toolchain` |
+| `Toolchain image` | every day, 05:00 | the latest `uv` of series 0, and the combination of the components |
+
+A scheduled run builds **only if the image for that version does not exist yet**; when nothing changed it ends in seconds with a notice. The `GCC image` also runs when the `Picolibc image` finishes, and the `Toolchain image` and the `Dev tools image` run when a component finishes, as described below.
+
+**A change of a `Dockerfile` or of a workflow builds nothing.** An image is built when a version changes, not when its recipe changes, so a recipe change that is not a new version does not rebuild an image for nothing (the GCC and GHDL take most of an hour). The `Recipe changed` workflow runs on the merge of such a change, writes a warning on the run, and comments on the commit, listing the images the change affects. To publish them with the new recipe, run the workflow of each by hand with `force` on.
 
 When one of these workflows finishes successfully, `Toolchain image` runs by itself: it reads the commits from the labels of the three `latest` images and assembles and publishes a new complete image. Updating just Spike takes a few minutes, and updating the GCC or GHDL takes from tens of minutes to over an hour.
 
@@ -129,9 +143,9 @@ Each architecture is built on a runner of its own (`ubuntu-26.04` for `linux/amd
 
 `uv` is the one component that has no image of ours: the complete image copies it from the official `ghcr.io/astral-sh/uv`. It follows the same rule as the others, in `Toolchain image`: a run triggered by a push or by a component finishing keeps the `uv` that the `latest` image already has (its `uv.version` label), and a manual run takes the `uv_version` field, empty meaning the latest stable release of `astral-sh/uv`. The version also goes into the combination tag (`ghdl-<7>-gcc-<7>-spike-<7>-uv-<version>`). To update `uv`, run `Toolchain image` by hand with `confirm` and an empty `uv_version`.
 
-`Toolchain image` does not wait for a component to finish: if, when it runs for a push or for the end of another component, a `GHDL image`, `GCC image`, `Picolibc image`, `Spike image` or `Yosys image` run is queued or going, it skips with a notice, and the end of that run triggers it again. The last component to finish does the single assembly. A manual run of `Toolchain image` never defers.
+`Toolchain image` does not wait for a component to finish: if, when it runs for a schedule or for the end of another component, a `GHDL image`, `GCC image`, `Picolibc image`, `Spike image` or `Yosys image` run is queued or going, it skips with a notice, and the end of that run triggers it again. The last component to finish does the single assembly. A manual run of `Toolchain image` never defers.
 
-`Toolchain image` needs the `latest` image of every component. If a push lands before they exist, it ends with a notice, without failing, and runs when the components finish. A manual run of it without the images fails, with a message that points at the component workflows.
+`Toolchain image` needs the `latest` image of every component. If a run starts before they exist, it ends with a notice, without failing, and runs when the components finish. A manual run of it without the images fails, with a message that points at the component workflows.
 
 ## 5. Building locally
 

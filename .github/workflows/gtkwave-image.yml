@@ -5,17 +5,16 @@ name: GTKWave image
 #
 # - Run by hand to update GTKWave: it builds the commit given, or the commit of the latest 3.x
 #   release tag of the upstream, unless that image already exists.
-# - Runs on a push to main that changes Dockerfile.gtkwave or this workflow: it rebuilds the
-#   commit latest already has (the recipe changed, not the version), or the upstream latest when
-#   nothing is published yet.
+# - Runs every day (schedule): it takes the commit of the latest release tag of the series set in
+#   SERIES and builds it only if that image does not exist yet.
+#   A change of Dockerfile or of this workflow does not build by itself, so a recipe
+#   change that is not a new version does not rebuild an image for nothing: the Recipe
+#   changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
 # The Dev tools image workflow then assembles a new image.
 on:
-  push:
-    branches: [main]
-    paths:
-      - Dockerfile.gtkwave
-      - .github/workflows/gtkwave-image.yml
+  schedule:
+    - cron: "30 3 * * *"
   workflow_dispatch:
     inputs:
       confirm:
@@ -59,7 +58,7 @@ jobs:
         # who can trigger this, but on a repo shared with people who
         # shouldn't publish the image, this adds a second check: only
         # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
-        # push to main skips this: branch protection on main is the gate for
+        # scheduled run skips this: branch protection on main is the gate for
         # that path instead.
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -88,10 +87,6 @@ jobs:
           INPUT_COMMIT: ${{ inputs.commit }}
           INPUT_FORCE: ${{ inputs.force }}
         run: |
-          latest_commit() {
-            docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Image}}' 2>/dev/null \
-              | jq -r --arg key "$LABEL" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
-          }
           upstream_commit() {
             # the commit of the latest stable release tag of the series SERIES (v3.x.y), not of the
             # development line: moving to the next series is an edit of SERIES
@@ -107,11 +102,6 @@ jobs:
 
           force="$INPUT_FORCE"
           commit="${INPUT_COMMIT:-}"
-          if [ -z "$commit" ] && [ "$EVENT" = "push" ]; then
-            # The recipe changed: rebuild what latest already holds.
-            commit=$(latest_commit)
-            force=true
-          fi
           if [ -z "$commit" ]; then
             commit=$(upstream_commit)
           fi

@@ -9,17 +9,16 @@ name: Spike image
 #   already exists. Spike has no recent release, so the latest commit that passed upstream's
 #   Continuous Integration and Debug Quick Test is what the image takes
 #   (.github/scripts/spike-green-commit.sh).
-# - Runs on a push to main that changes Dockerfile.spike or this workflow: it
-#   rebuilds the commit latest already has (the recipe changed, not the
-#   version), or the upstream latest when nothing is published yet.
+# - Runs every day (schedule): it takes the latest commit of the upstream default branch whose CI
+#   is green and builds it only if that image does not exist yet.
+#   A change of Dockerfile or of this workflow does not build by itself, so a recipe
+#   change that is not a new version does not rebuild an image for nothing: the Recipe
+#   changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
 # The Toolchain image workflow then assembles a new complete image.
 on:
-  push:
-    branches: [main]
-    paths:
-      - Dockerfile.spike
-      - .github/workflows/spike-image.yml
+  schedule:
+    - cron: "40 3 * * *"
   workflow_dispatch:
     inputs:
       confirm:
@@ -51,7 +50,7 @@ jobs:
     # Only decides what to build: the published image, tagged by commit, is what a later run
     # checks to skip the build.
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 90
     permissions:
       contents: read
       packages: read
@@ -65,7 +64,7 @@ jobs:
         # who can trigger this, but on a repo shared with people who
         # shouldn't publish the image, this adds a second check: only
         # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
-        # push to main skips this: branch protection on main is the gate for
+        # scheduled run skips this: branch protection on main is the gate for
         # that path instead.
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -101,10 +100,6 @@ jobs:
           INPUT_FORCE: ${{ inputs.force }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          latest_commit() {
-            docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Image}}' 2>/dev/null \
-              | jq -r --arg key "$LABEL" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
-          }
           upstream_commit() {
             if [ "$INPUT_IGNORE_CI" = "true" ]; then
               git ls-remote "$UPSTREAM" HEAD | cut -f1
@@ -117,11 +112,6 @@ jobs:
 
           force="$INPUT_FORCE"
           commit="${INPUT_COMMIT:-}"
-          if [ -z "$commit" ] && [ "$EVENT" = "push" ]; then
-            # The recipe changed: rebuild what latest already holds.
-            commit=$(latest_commit)
-            force=true
-          fi
           if [ -z "$commit" ]; then
             commit=$(upstream_commit)
           fi
