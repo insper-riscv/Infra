@@ -64,8 +64,11 @@ Together, these docs are the foundation that `RV32`, `Tests` and
 
 Each component has an image of its own, with a workflow that follows the latest
 release of a fixed series (or, for Spike, the latest commit whose own CI is
-green), and the toolchain image assembles them when one changes. The details
-and the commands are in [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md).
+green), and the toolchain image assembles them when one changes. Each workflow
+runs once a day (the GCC on Mondays) and builds only when there is a new version;
+a change of a `Dockerfile` or of a workflow builds nothing, and the `Recipe changed`
+workflow comments on the commit saying which images need a run by hand. The
+details and the commands are in [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md).
 
 | Component | Follows | Updated by |
 | :--- | :--- | :--- |
