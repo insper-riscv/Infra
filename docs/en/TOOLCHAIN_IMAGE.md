@@ -93,6 +93,8 @@ Each component has a manually run workflow. In Actions, pick `GHDL image`, `GCC 
 | `commit` | The commit to build. Empty: the latest of the project's default branch (for GHDL, the commit of its latest release tag) |
 | `force` | Rebuild and republish even if the image for that commit already exists |
 
+The `Spike image` has no release to follow (the last, `v1.1.0`, is from 2021), so an empty `commit` takes the latest commit of the `master` branch of `riscv-isa-sim` on which its own workflows `Continuous Integration` and `Debug Quick Test` succeeded. A newer commit whose workflows are still running is waited for, up to 60 minutes; one that failed is skipped, and so is one with no run of them; a re-run that succeeded counts. The extra field `ignore_ci` takes the head of the branch whatever its workflows say. The choice, with the state of each commit it looked at, is written to the summary of the run.
+
 The workflow resolves the commit, checks whether `infra-gcc:<commit>` (or `infra-spike:<commit>`) already exists and, if it does and `force` is off, builds nothing. Otherwise it builds, checks the install and publishes it with the tags `<commit>` and `latest`.
 
 The component workflows also run by themselves on a push to `main` that changes their own `Dockerfile.ghdl`, `Dockerfile.gcc` or `Dockerfile.spike`, or the workflow itself. There is no `commit` field then: they rebuild the commit the `latest` image already has (the recipe changed, not the version) with `force` on, and only use the latest upstream commit when nothing is published yet. So the merge that adds the `Dockerfile`s already publishes the components for the first time.
@@ -167,7 +169,7 @@ Everything is fixed by us except the packages of Ubuntu itself. The workflow tha
 | GHDL backend | LLVM | the `mcode` backend runs only on x86, and the same simulator must behave the same on a PC and on an ARM machine such as a Mac |
 | RISC-V GCC | 16.1.0, commit `d118e53` | built from source with our own picolibc configuration (`rv32im`, `ilp32`, one variant, no CSR, no floating point hardware); follows the head of `riscv-gnu-toolchain`, because its releases are a nightly snapshot of the head, not a stable point |
 | picolibc | 1.8.11 | the version the `riscv-gnu-toolchain` commit carries; compiled for the same `rv32im` as the GCC, so it has no CSR code and does floating point in software |
-| Spike | commit `fdc1ffa` | the head of `riscv-isa-sim`, because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
+| Spike | commit `89c7471` | the latest commit of `riscv-isa-sim` whose own CI passed (`Continuous Integration` and `Debug Quick Test`), because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
 | `uv` | 0.13.0 | the latest stable release of series 0 (`UV_SERIES`); it installs Python and the dependencies of each project, and replaces `pip` and virtual environments |
 | Python | 3.14.8 | the version the projects require (`>=3.14,<3.15`); the patch is the latest one the `uv` knows |
 | cocotb | 2.1.0 | the first release that supports Python 3.14 and the latest; every project simulates with it, so it is in the image, and it fixes the Python version: a newer Python waits for a cocotb that supports it. On `arm64` it has no wheel and is compiled, hence `g++` |

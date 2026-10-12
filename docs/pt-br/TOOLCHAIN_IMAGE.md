@@ -93,6 +93,8 @@ Cada componente tem um workflow de execução manual. Em Actions, escolha `GHDL 
 | `commit` | O commit a compilar. Vazio: o mais recente da branch padrão do projeto (no GHDL, o commit da tag de release mais recente) |
 | `force` | Recompilar e republicar mesmo que a imagem desse commit já exista |
 
+O `Spike image` não tem release para seguir (a última, `v1.1.0`, é de 2021), então um `commit` vazio pega o commit mais recente da branch `master` do `riscv-isa-sim` em que os workflows dele, `Continuous Integration` e `Debug Quick Test`, passaram. Um commit mais novo cujos workflows ainda estão rodando é aguardado, por até 60 minutos; um que falhou é pulado, e também um sem execução deles; um re-run que passou conta. O campo extra `ignore_ci` pega o topo da branch, seja qual for o resultado dos workflows. A escolha, com o estado de cada commit que olhou, vai para o resumo do run.
+
 O workflow resolve o commit, confere se `infra-gcc:<commit>` (ou `infra-spike:<commit>`) já existe e, se existir e `force` estiver desligado, não compila nada. Caso contrário, compila, confere a instalação e publica com as tags `<commit>` e `latest`.
 
 Os workflows de componente também rodam sozinhos num push na `main` que altere o próprio `Dockerfile.ghdl`, `Dockerfile.gcc` ou `Dockerfile.spike`, ou o próprio workflow. Nesse caso não há campo `commit`: eles recompilam o commit que a imagem `latest` já tem (a receita mudou, a versão não) com `force` ligado, e só usam o commit mais recente do upstream quando ainda não há imagem publicada. Por isso o merge que adiciona os `Dockerfile` já publica os componentes pela primeira vez.
@@ -167,7 +169,7 @@ Tudo é fixado por nós, exceto os pacotes do próprio Ubuntu. O workflow que at
 | Backend do GHDL | LLVM | o backend `mcode` só roda em x86, e o mesmo simulador precisa se comportar igual num PC e numa máquina ARM, como um Mac |
 | GCC RISC-V | 16.1.0, commit `d118e53` | compilado do fonte com a nossa configuração da picolibc (`rv32im`, `ilp32`, uma variante, sem CSR, sem ponto flutuante em hardware); segue o HEAD do `riscv-gnu-toolchain`, porque as releases dele são um instantâneo noturno do HEAD, e não um ponto estável |
 | picolibc | 1.8.11 | a versão que o commit do `riscv-gnu-toolchain` traz; compilada para o mesmo `rv32im` do GCC, então não tem código de CSR e faz ponto flutuante em software |
-| Spike | commit `fdc1ffa` | o HEAD do `riscv-isa-sim`, porque a última release (`v1.1.0`) é de 2021; o módulo de debug dele é movido do endereço `0x0` para `0x70000000`, para não se sobrepor à boot ROM |
+| Spike | commit `89c7471` | o commit mais recente do `riscv-isa-sim` cujo CI próprio passou (`Continuous Integration` e `Debug Quick Test`), porque a última release (`v1.1.0`) é de 2021; o módulo de debug dele é movido do endereço `0x0` para `0x70000000`, para não se sobrepor à boot ROM |
 | `uv` | 0.13.0 | a última release estável da série 0 (`UV_SERIES`); instala o Python e as dependências de cada projeto, e substitui o `pip` e os ambientes virtuais |
 | Python | 3.14.8 | a versão que os projetos exigem (`>=3.14,<3.15`); o patch é o mais recente que o `uv` conhece |
 | cocotb | 2.1.0 | a primeira release que suporta o Python 3.14 e a mais recente; todo projeto simula com ele, então está na imagem, e ele fixa a versão do Python: um Python mais novo espera um cocotb que o suporte. No `arm64` não há wheel e ele é compilado, por isso o `g++` |
