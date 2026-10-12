@@ -93,7 +93,7 @@ está no [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md) e no
 | LLVM (`libllvm21`, biblioteca em que o backend do GHDL roda) | 21.1.8 | o gerador de código com que o GHDL é ligado |
 | GCC RISC-V (`rv32im`, `ilp32`: sem CSR, sem F nem D) | 16.1.0 (commit `d118e53` do `riscv-gnu-toolchain`) | compila os programas de teste do core |
 | picolibc (biblioteca C do GCC RISC-V, uma variante para o mesmo `rv32im`: sem CSR, ponto flutuante em software) | 1.8.12 | a biblioteca C com que esses programas são ligados; compilada pela própria imagem com o GCC publicado antes dela; o GCC é então construído contra ela, a partir do segundo estágio |
-| Spike | 1.1.1-dev (commit `89c7471` do `riscv-isa-sim`, módulo de debug em `0x70000000`) | o simulador de referência que produz o resultado golden de cada programa; o módulo de debug é movido para não sobrepor a boot ROM |
+| Spike | 1.1.1-dev (commit `f8a060b` do `riscv-isa-sim`, módulo de debug em `0x70000000`) | o simulador de referência que produz o resultado golden de cada programa; o módulo de debug é movido para não sobrepor a boot ROM |
 | `uv` | 0.13.0 | instala o Python e as dependências de cada projeto (`uv sync`); a imagem não tem `pip` |
 | Python | 3.14.8 | a versão que os projetos exigem (`>=3.14,<3.15`) |
 | cocotb | 2.1.0 | os testbenches, escritos em Python; é ele que fixa a versão do Python |
