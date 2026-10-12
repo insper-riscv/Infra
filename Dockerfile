@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
 #
 # Everything the Insper RISC-V infrastructure needs except Quartus: GHDL, the RISC-V GCC with
-# picolibc, Spike and uv. The same image for linux/amd64 and linux/arm64: GHDL has the LLVM
+# picolibc, Spike, uv, and the formal tools (Yosys, SymbiYosys and the z3 and boolector solvers;
+# GHDL turns VHDL into the Verilog netlist Yosys reads). The same image for linux/amd64 and linux/arm64: GHDL has the LLVM
 # backend on both (the mcode backend is x86 only), so a simulation behaves the same on a PC and
 # on an ARM machine. The GHDL, the GCC and Spike come from the images Dockerfile.ghdl,
 # Dockerfile.gcc and Dockerfile.spike publish, so this build only copies them; they must be
@@ -21,6 +22,10 @@ ARG UV_VERSION=0.13.0
 # other Python libraries are each project's own and come from its `uv sync`.
 ARG PYTHON_VERSION=3.14
 ARG COCOTB_VERSION=2.1.0
+# SymbiYosys has no Ubuntu package: it is installed from the tag of its repository (pure Python).
+# Its release tags are named after the Yosys release they were made with; v0.69 is the one that runs
+# on the Yosys 0.52 of Ubuntu 26.04.
+ARG SBY_VERSION=v0.69
 ARG GHDL_IMAGE=ghcr.io/insper-riscv/infra-ghdl:latest
 ARG GCC_IMAGE=ghcr.io/insper-riscv/infra-gcc:latest
 ARG SPIKE_IMAGE=ghcr.io/insper-riscv/infra-spike:latest
@@ -41,13 +46,15 @@ FROM ${BASE_IMAGE}
 # installers and ACT4's own make. libglib2.0-0t64 (libglib-2.0 and libgthread-2.0) is the one system
 # library the command-line tools of a Quartus installation mounted from the host (quartus_sh,
 # quartus_stp, quartus_cdb and the rest) link against and Ubuntu's base image does not have; Quartus
-# itself is not in the image.
+# itself is not in the image. yosys, z3 and boolector are the formal tools: Yosys reads the Verilog
+# netlist GHDL synthesizes and the solvers prove the properties on it.
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates curl git make gcc g++ libc6-dev \
       libgnat-14 libllvm21 zlib1g-dev libedit2 \
       libmpc3 libmpfr6 \
       libglib2.0-0t64 \
+      yosys z3 boolector \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghdl /opt/ghdl /opt/ghdl
@@ -72,6 +79,15 @@ RUN uv python install "${PYTHON_VERSION}" \
  && ln -s "$python" /usr/local/bin/python \
  && chmod -R a+rX /opt/uv
 
+# SymbiYosys (sby): the front-end that runs Yosys and the solvers. It is a Python program that
+# imports click, which goes into the image's Python (the image has no pip).
+ARG SBY_VERSION
+RUN git clone --depth 1 --branch "${SBY_VERSION}" https://github.com/YosysHQ/sby.git /tmp/sby \
+ && make -C /tmp/sby install PREFIX=/usr/local \
+ && rm -rf /tmp/sby \
+ && uv pip install --break-system-packages --python "$(uv python find "${PYTHON_VERSION}")" click \
+ && chmod -R a+rX /opt/uv /usr/local/share/yosys
+
 # A broken build fails here and not in a user's CI: GHDL runs a VHDL-2008 design, the RISC-V GCC
 # compiles with picolibc, Spike runs, and the host gcc, which links the elaborated design, is not
 # the RISC-V one.
@@ -92,6 +108,17 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     gcc --version | head -n 1; \
     uv --version; \
     python3 -c "import sys, cocotb; assert sys.version_info[:2] == (3, 14); print('python', sys.version.split()[0], 'cocotb', cocotb.__version__)"; \
+    yosys -V; \
+    printf '%s\n' \
+      'module t (input clk);' \
+      '  reg [1:0] c = 0;' \
+      '  always @(posedge clk) c <= c + 1;' \
+      '  always @* assert(c <= 3);' \
+      'endmodule' > f.sv; \
+    printf '%s\n' '[options]' 'mode prove' 'depth 5' '[engines]' 'smtbmc z3' \
+      '[script]' 'read_verilog -formal -sv f.sv' 'prep -top t' '[files]' 'f.sv' > f.sby; \
+    sby -f f.sby > sby.log 2>&1 || { cat sby.log; exit 1; }; \
+    tail -n 1 sby.log; \
     cd /; rm -rf "$d"
 
 WORKDIR /workspace

@@ -1,6 +1,6 @@
 # Imagens Docker da toolchain
 
-Quatro imagens Docker com o que o fluxo de testes RISC-V precisa, exceto o Quartus: uma só com o GHDL, uma só com o GCC, uma só com o Spike e uma completa (GHDL, GCC RISC-V com picolibc, Spike e `uv`) que copia os artefatos das três primeiras. Os `Dockerfile` ficam na raiz deste repositório, e quatro workflows as publicam no GitHub Container Registry. Toda imagem é publicada para `linux/amd64` e `linux/arm64`, e as duas arquiteturas têm as mesmas versões das mesmas ferramentas: o GHDL tem o backend LLVM nas duas, então uma simulação se comporta igual num PC e numa máquina ARM, como um Mac.
+Quatro imagens Docker com o que o fluxo de testes RISC-V precisa, exceto o Quartus: uma só com o GHDL, uma só com o GCC, uma só com o Spike e uma completa (GHDL, GCC RISC-V com picolibc, Spike, `uv` e as ferramentas formais) que copia os artefatos das três primeiras. Os `Dockerfile` ficam na raiz deste repositório, e quatro workflows as publicam no GitHub Container Registry. Toda imagem é publicada para `linux/amd64` e `linux/arm64`, e as duas arquiteturas têm as mesmas versões das mesmas ferramentas: o GHDL tem o backend LLVM nas duas, então uma simulação se comporta igual num PC e numa máquina ARM, como um Mac.
 
 ## 1. As quatro imagens
 
@@ -25,6 +25,9 @@ Toda imagem leva os rótulos `org.opencontainers.image.title`, `description`, `s
 | `uv` | Gerenciador de projetos Python | `/usr/local/bin` |
 | Python | 3.14, instalado pelo `uv` para todos os usuários, com `python3` e `python` no `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, instalado nesse Python | `/opt/uv/python` |
+| Yosys | 0.52, do Ubuntu; lê o netlist Verilog que o GHDL sintetiza a partir do VHDL | `/usr/bin` |
+| SymbiYosys (`sby`) | v0.69, instalado a partir da tag do repositório; executa o Yosys e os solvers | `/usr/local/bin` |
+| `z3` e `boolector` | os solvers SMT que o SymbiYosys usa, do Ubuntu | `/usr/bin` |
 
 O GHDL, o GCC e o Spike já estão no `PATH` da imagem. O `gcc` do host também está na imagem, porque o backend LLVM liga com ele o projeto que elabora; o do RISC-V mantém os próprios nomes `riscv32-unknown-elf-`. Com o backend LLVM o `ghdl -r` precisa de um `ghdl -e` antes (ou use `ghdl --elab-run`); os Makefiles e o runner de simulação já fazem isso. Cada instalação guarda em `.tag` o commit de que foi compilada, e a imagem completa traz os três rótulos de commit.
 
@@ -82,6 +85,18 @@ O `jtagd` precisa estar rodando no host, e ele pode parar sozinho entre dois uso
 ```
 
 Com o `jtagd` do host rodando, o mesmo comando imprime o cabo e o chip (`USB-Blaster [3-5]`, `02B050DD 5CE(BA4|FA4)` na DE0-CV). Num daemon do Docker com remapeamento de usuários (user namespace), o `--network host` é recusado a menos que a execução também use `--userns=host`.
+
+### 3.2. Verificação formal
+
+O GHDL transforma uma entidade VHDL num netlist Verilog, que o Yosys lê e sobre o qual o SymbiYosys prova propriedades. As propriedades são escritas em SystemVerilog em volta do netlist, então nenhum plugin do GHDL para o Yosys é necessário:
+
+```bash
+ghdl -a --std=08 --workdir=work meu_bloco.vhd
+ghdl --synth --std=08 --workdir=work --out=verilog meu_bloco > meu_bloco.v
+sby -f meu_bloco.sby
+```
+
+O arquivo `.sby` informa o modo (`prove` para uma prova ilimitada por indução, `bmc` para uma checagem limitada, `cover` para confirmar que as propriedades não são vazias), a profundidade, o motor (`smtbmc z3`) e os arquivos. Uma prova que falha grava uma forma de onda do contraexemplo ao lado do log.
 
 ## 4. Atualizando o GHDL, o GCC ou o Spike
 
@@ -171,6 +186,7 @@ Tudo é fixado por nós, exceto os pacotes do próprio Ubuntu. O workflow que at
 | `uv` | 0.13.0 | a última release estável da série 0 (`UV_SERIES`); instala o Python e as dependências de cada projeto, e substitui o `pip` e os ambientes virtuais |
 | Python | 3.14.8 | a versão que os projetos exigem (`>=3.14,<3.15`); o patch é o mais recente que o `uv` conhece |
 | cocotb | 2.1.0 | a primeira release que suporta o Python 3.14 e a mais recente; todo projeto simula com ele, então está na imagem, e ele fixa a versão do Python: um Python mais novo espera um cocotb que o suporte. No `arm64` não há wheel e ele é compilado, por isso o `g++` |
+| SymbiYosys (`sby`) | v0.69 | o front-end formal não tem pacote no Ubuntu, então vem da tag do repositório; as tags de release dele levam o nome da versão do Yosys com que foram feitas, e a v0.69 roda no Yosys 0.52 do Ubuntu 26.04. Ele importa o `click`, que o `uv` instala no Python da imagem (8.5.0) |
 | GTKWave (`dev_tools`) | 3.3.116 | a última release estável da série 3 (`SERIES`); a linha 4.0.0 é pré-alfa e sem release. Compilado da árvore GTK 3, que tem backend Wayland |
 
 ### 8.2 O que vem do Ubuntu
@@ -183,6 +199,9 @@ Tudo é fixado por nós, exceto os pacotes do próprio Ubuntu. O workflow que at
 | `make` | 4.4.1 | os Makefiles dos projetos e o `make` do próprio ACT4 |
 | `curl` | 8.18.0 | instaladores e downloads |
 | `libglib2.0-0t64` | 2.88.0 | `libglib-2.0` e `libgthread-2.0`, que as ferramentas de linha de comando de uma instalação do Quartus montada do host usam |
+| Yosys | 0.52 | lê o netlist Verilog que o GHDL sintetiza a partir do VHDL, para a verificação formal |
+| `z3` | 4.13.3 | o solver SMT que o SymbiYosys executa por padrão |
+| `boolector` | 1.5.118 | um segundo solver SMT que o SymbiYosys pode usar |
 | GTK 3 (`dev_tools`) | 3.24.52 | o que o GTKWave usa, com os backends Wayland e X11 |
 | `gnat` (`dev_tools`) | 14 | o runtime e o compilador de Ada para compilar o GHDL ou código Ada no ambiente de desenvolvimento |
 
