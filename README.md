@@ -65,7 +65,7 @@ para funcionar como pretendido.
 Cada componente tem uma imagem própria, com um workflow que segue a release
 mais recente de uma série fixa (ou, no Spike, o commit mais recente cujo CI
 próprio está verde), e a imagem de toolchain os monta quando um deles muda. Cada workflow
-roda uma vez por dia (o GCC às segundas) e só constrói quando há uma versão nova;
+roda uma vez por dia e só constrói quando há uma versão nova;
 uma mudança num `Dockerfile` ou num workflow não constrói nada, e o workflow
 `Recipe changed` comenta no commit dizendo quais imagens precisam de um run à
 mão. Os detalhes e os comandos estão em [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md).

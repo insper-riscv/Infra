@@ -10,7 +10,7 @@ name: GCC image
 #
 # - Run by hand to update the GCC: it builds the commit given, or the latest of
 #   the upstream default branch, unless that image already exists.
-# - Runs every Monday (schedule): it takes the head of the upstream default branch and builds it
+# - Runs every day (schedule): it takes the head of the upstream default branch and builds it
 #   against the latest picolibc only if that image does not exist yet.
 #   A change of Dockerfile or of this workflow does not build by itself, so a recipe
 #   change that is not a new version does not rebuild an image for nothing: the Recipe
@@ -22,7 +22,7 @@ name: GCC image
 # The Toolchain image workflow then assembles a new complete image.
 on:
   schedule:
-    - cron: "10 3 * * 1"
+    - cron: "10 3 * * *"
   workflow_dispatch:
     inputs:
       confirm:
