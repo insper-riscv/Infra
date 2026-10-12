@@ -30,7 +30,7 @@ GHDL, the GCC and Spike are already on the image's `PATH`. The host `gcc` is in 
 
 Python is pinned to 3.14 because that is the version the projects require (`>=3.14,<3.15`), and cocotb 2.1.0 is the first release that supports it: cocotb is what fixes the Python version, so a newer Python waits for a cocotb that supports it (the build arguments `PYTHON_VERSION` and `COCOTB_VERSION` change both together). Every project simulates with cocotb, so it is in the image (cocotb 2.1.0 has wheels for Python 3.14 on Linux x86-64, macOS and Windows but not on Linux arm64, so on arm64 it is compiled, which is why the image has `g++`, and a project's `uv sync` compiles it there too); the other Python libraries are each project's own and come from its `uv sync`, which finds this Python instead of downloading one.
 
-Quartus is in none of the images, and a container cannot see the USB-Blaster without extra host configuration. The real-hardware tests therefore split the work: the test ROMs and their goldens are built inside the complete image, and Quartus and the JTAG cable are used from the self-hosted runner described in [RUNNER_SETUP.md](RUNNER_SETUP.md), which needs Docker and access to it.
+Quartus is in none of the images. The complete image has the system library the command-line tools of a Quartus installation link against (`libglib2.0-0t64`), so an installation on the host can be mounted into it and run there (section 3.1). The real-hardware tests of a project split the work: the test ROMs and their goldens are built inside the complete image, and Quartus and the JTAG cable are used from the self-hosted runner described in [RUNNER_SETUP.md](RUNNER_SETUP.md), which needs Docker and access to it.
 
 ## 3. Using the complete image
 
@@ -54,6 +54,27 @@ jobs:
 ```
 
 For a reproducible result, use the `sha-<commit>` tag of the wanted publication instead of `latest`.
+
+### 3.1. Quartus from the host
+
+The Quartus of the host (here `/opt/altera_lite/25.1std`) is mounted read-only and put on the `PATH` inside the container. The USB-Blaster is reached through the JTAG server (`jtagd`) of the host, which the container sees by sharing the host network:
+
+```bash
+docker run --rm --network host --user "$(id -u):$(id -g)" -e HOME=/tmp/h \
+  -v "$PWD:/workspace" -v /opt/altera_lite:/opt/altera_lite:ro \
+  ghcr.io/insper-riscv/infra-toolchain:latest bash -c '
+    export PATH=/opt/altera_lite/25.1std/quartus/bin:$PATH
+    jtagconfig
+    cd platforms/sdram-bringup/quartus && quartus_sh --flow compile sdram_bringup'
+```
+
+| Option | Why |
+| :--- | :--- |
+| `-v /opt/altera_lite:/opt/altera_lite:ro` | the Quartus installation, read-only; the image carries none |
+| `--network host` | `jtagd` listens on `localhost:1309` of the host, and the programmer and `quartus_stp` of the container connect to it there |
+| `--user "$(id -u):$(id -g)"` and `-e HOME=/tmp/h` | the files the build writes belong to the invoking user, and Quartus has a writable home |
+
+`jtagd` must be running on the host; `jtagconfig` starts it on first use. On a Docker daemon with user-namespace remapping, `--network host` is refused unless the run also has `--userns=host`.
 
 ## 4. Updating GHDL, the GCC or Spike
 
@@ -154,6 +175,7 @@ Everything is fixed by us except the packages of Ubuntu itself. The workflow tha
 | `git` | 2.53.0 | the checkout of a workflow |
 | `make` | 4.4.1 | the Makefiles of the projects and ACT4's own `make` |
 | `curl` | 8.18.0 | installers and downloads |
+| `libglib2.0-0t64` | 2.88.0 | `libglib-2.0` and `libgthread-2.0`, which the command-line tools of a Quartus installation mounted from the host link against |
 | GTK 3 (`dev_tools`) | 3.24.52 | what GTKWave runs on, with its Wayland and X11 backends |
 | `gnat` (`dev_tools`) | 14 | the Ada runtime and compiler for building GHDL or Ada code in the development environment |
 

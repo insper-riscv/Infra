@@ -30,7 +30,7 @@ O GHDL, o GCC e o Spike já estão no `PATH` da imagem. O `gcc` do host também 
 
 O Python é fixado em 3.14 porque é a versão que os projetos exigem (`>=3.14,<3.15`), e o cocotb 2.1.0 é a primeira versão que a suporta: o cocotb é quem fixa a versão do Python, então um Python mais novo espera um cocotb que o suporte (os argumentos de build `PYTHON_VERSION` e `COCOTB_VERSION` mudam os dois juntos). Todo projeto simula com o cocotb, então ele está na imagem (o cocotb 2.1.0 tem wheels para o Python 3.14 em Linux x86-64, macOS e Windows, mas não em Linux arm64, então no arm64 ele é compilado, e é por isso que a imagem tem `g++`, e o `uv sync` de um projeto também o compila lá); as outras bibliotecas Python são de cada projeto e vêm do `uv sync` dele, que encontra este Python em vez de baixar outro.
 
-O Quartus não está em nenhuma das imagens, e um container não enxerga o USB-Blaster sem configuração extra do host. Por isso os testes de hardware real dividem o trabalho: as ROMs de teste e seus goldens são construídos dentro da imagem completa, e o Quartus e o cabo JTAG são usados a partir do runner self-hosted descrito no [RUNNER_SETUP.md](RUNNER_SETUP.md), que precisa de Docker e de acesso a ele.
+O Quartus não está em nenhuma das imagens. A imagem completa tem a biblioteca de sistema que as ferramentas de linha de comando de uma instalação do Quartus usam (`libglib2.0-0t64`), então uma instalação do host pode ser montada nela e executada ali (seção 3.1). Os testes de hardware real de um projeto dividem o trabalho: as ROMs de teste e seus goldens são construídos dentro da imagem completa, e o Quartus e o cabo JTAG são usados a partir do runner self-hosted descrito no [RUNNER_SETUP.md](RUNNER_SETUP.md), que precisa de Docker e de acesso a ele.
 
 ## 3. Usando a imagem completa
 
@@ -54,6 +54,27 @@ jobs:
 ```
 
 Para um resultado reproduzível, use a tag `sha-<commit>` da publicação desejada em vez de `latest`.
+
+### 3.1. Quartus do host
+
+O Quartus do host (aqui `/opt/altera_lite/25.1std`) é montado somente para leitura e colocado no `PATH` dentro do container. O USB-Blaster é alcançado pelo servidor JTAG (`jtagd`) do host, que o container enxerga ao compartilhar a rede do host:
+
+```bash
+docker run --rm --network host --user "$(id -u):$(id -g)" -e HOME=/tmp/h \
+  -v "$PWD:/workspace" -v /opt/altera_lite:/opt/altera_lite:ro \
+  ghcr.io/insper-riscv/infra-toolchain:latest bash -c '
+    export PATH=/opt/altera_lite/25.1std/quartus/bin:$PATH
+    jtagconfig
+    cd platforms/sdram-bringup/quartus && quartus_sh --flow compile sdram_bringup'
+```
+
+| Opção | Para que serve |
+| :--- | :--- |
+| `-v /opt/altera_lite:/opt/altera_lite:ro` | a instalação do Quartus, somente leitura; a imagem não traz nenhuma |
+| `--network host` | o `jtagd` escuta em `localhost:1309` do host, e o programador e o `quartus_stp` do container se conectam a ele ali |
+| `--user "$(id -u):$(id -g)"` e `-e HOME=/tmp/h` | os arquivos que o build escreve pertencem ao usuário que chamou, e o Quartus tem um home gravável |
+
+O `jtagd` precisa estar rodando no host; o `jtagconfig` o inicia no primeiro uso. Num daemon do Docker com remapeamento de usuários (user namespace), o `--network host` é recusado a menos que a execução também use `--userns=host`.
 
 ## 4. Atualizando o GHDL, o GCC ou o Spike
 
@@ -154,6 +175,7 @@ Tudo é fixado por nós, exceto os pacotes do próprio Ubuntu. O workflow que at
 | `git` | 2.53.0 | o checkout de um workflow |
 | `make` | 4.4.1 | os Makefiles dos projetos e o `make` do próprio ACT4 |
 | `curl` | 8.18.0 | instaladores e downloads |
+| `libglib2.0-0t64` | 2.88.0 | `libglib-2.0` e `libgthread-2.0`, que as ferramentas de linha de comando de uma instalação do Quartus montada do host usam |
 | GTK 3 (`dev_tools`) | 3.24.52 | o que o GTKWave usa, com os backends Wayland e X11 |
 | `gnat` (`dev_tools`) | 14 | o runtime e o compilador de Ada para compilar o GHDL ou código Ada no ambiente de desenvolvimento |
 
