@@ -74,7 +74,14 @@ docker run --rm --network host --user "$(id -u):$(id -g)" -e HOME=/tmp/h \
 | `--network host` | o `jtagd` escuta em `localhost:1309` do host, e o programador e o `quartus_stp` do container se conectam a ele ali |
 | `--user "$(id -u):$(id -g)"` e `-e HOME=/tmp/h` | os arquivos que o build escreve pertencem ao usuário que chamou, e o Quartus tem um home gravável |
 
-O `jtagd` precisa estar rodando no host; o `jtagconfig` o inicia no primeiro uso. Num daemon do Docker com remapeamento de usuários (user namespace), o `--network host` é recusado a menos que a execução também use `--userns=host`.
+O `jtagd` precisa estar rodando no host, e ele pode parar sozinho entre dois usos. Rode o `jtagconfig` no host logo antes do container: ele inicia o `jtagd` se nenhum estiver rodando. Sem um `jtagd` no host, o container inicia um próprio, que não enxerga o USB, e o `jtagconfig` dentro do container imprime:
+
+```text
+1) USB-Blaster variant [3-5]
+  Unable to lock chain - Bad port name
+```
+
+Com o `jtagd` do host rodando, o mesmo comando imprime o cabo e o chip (`USB-Blaster [3-5]`, `02B050DD 5CE(BA4|FA4)` na DE0-CV). Num daemon do Docker com remapeamento de usuários (user namespace), o `--network host` é recusado a menos que a execução também use `--userns=host`.
 
 ## 4. Atualizando o GHDL, o GCC ou o Spike
 
