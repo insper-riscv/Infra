@@ -4,18 +4,32 @@
 # 1 to 3), alone. The published image holds just the install directory, and
 # the complete image (Dockerfile) copies it from there.
 #
-# The commit of riscv-collab/riscv-gnu-toolchain to build has no default:
+# riscv-gnu-toolchain builds this GCC in two stages: a first compiler, only to compile picolibc,
+# and then the whole GCC again with that picolibc installed, whose libgcc and libstdc++ are built
+# against it. picolibc is compiled by the picolibc image (Dockerfile.picolibc) from the GCC of the
+# previous build, so this build starts from the compiled picolibc and runs only the second stage:
+# the first compiler, about half of the build, is skipped. The image has the picolibc it was built
+# against, and a new picolibc gets a new build of this one, from the second stage.
+#
+# The commit of riscv-collab/riscv-gnu-toolchain and the picolibc image to build with have no
+# default:
 #
 #   docker build -f Dockerfile.gcc -t infra-gcc \
+#     --build-arg PICOLIBC_IMAGE=ghcr.io/insper-riscv/infra-picolibc:latest \
+#     --build-arg PICOLIBC_COMMIT="<the picolibc.commit label of that image>" \
 #     --build-arg RISCV_GNU_TOOLCHAIN_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .
 
 ARG BASE_IMAGE=ubuntu:26.04
+ARG PICOLIBC_IMAGE=ghcr.io/insper-riscv/infra-picolibc:latest
+
+FROM ${PICOLIBC_IMAGE} AS picolibc
 
 FROM ${BASE_IMAGE} AS build
 ARG RISCV_GNU_TOOLCHAIN_COMMIT
+ARG PICOLIBC_COMMIT
 
-RUN test -n "${RISCV_GNU_TOOLCHAIN_COMMIT}" \
- || { echo "pass --build-arg RISCV_GNU_TOOLCHAIN_COMMIT=<commit>"; exit 1; }
+RUN test -n "${RISCV_GNU_TOOLCHAIN_COMMIT}" && test -n "${PICOLIBC_COMMIT}" \
+ || { echo "pass --build-arg RISCV_GNU_TOOLCHAIN_COMMIT=<commit> --build-arg PICOLIBC_COMMIT=<commit>"; exit 1; }
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -31,21 +45,34 @@ RUN git init /src \
  && git -C /src checkout FETCH_HEAD \
  && git -C /src submodule update --init --depth 1 binutils gcc gdb picolibc
 
+COPY --from=picolibc /opt/riscv-foundation/riscv32-elf /picolibc
+
+# binutils first (the second stage needs them installed), then the compiled picolibc into the
+# sysroot, and the stamps of the first compiler and of the picolibc build marked as done: make then
+# runs only the second stage (the compiler again, libgcc and libstdc++ against that picolibc) and
+# GDB. The stamps are touched one after the other so each is newer than what it depends on.
 RUN mkdir /build \
  && cd /build \
  && /src/configure --prefix=/opt/riscv-foundation/riscv32-elf --with-arch=rv32im --enable-picolibc \
+ && make -j"$(nproc)" stamps/build-binutils-picolibc \
+ && cp -a /picolibc/. /opt/riscv-foundation/riscv32-elf/ \
+ && touch stamps/build-gcc-picolibc-stage1 \
+ && touch stamps/build-picolibc \
  && make -j"$(nproc)" \
  && echo "${RISCV_GNU_TOOLCHAIN_COMMIT}" > /opt/riscv-foundation/riscv32-elf/.tag \
- && rm -rf /build /src
+ && rm -rf /build /src /picolibc
 
 # Fail the build, before anything is published, if the install lacks picolibc
-# or has more than one library variant.
+# or has more than one library variant, or if it is not the picolibc it was built against.
 RUN export PATH="/opt/riscv-foundation/riscv32-elf/bin:${PATH}" \
  && riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null \
- && test "$(riscv32-unknown-elf-gcc -print-multi-lib)" = ".;"
+ && test "$(riscv32-unknown-elf-gcc -print-multi-lib)" = ".;" \
+ && test "$(cat /opt/riscv-foundation/riscv32-elf/.picolibc.tag)" = "${PICOLIBC_COMMIT}"
 
 
 FROM scratch
 ARG RISCV_GNU_TOOLCHAIN_COMMIT
+ARG PICOLIBC_COMMIT
 LABEL riscv-gnu-toolchain.commit="${RISCV_GNU_TOOLCHAIN_COMMIT}"
+LABEL picolibc.commit="${PICOLIBC_COMMIT}"
 COPY --from=build /opt/riscv-foundation/riscv32-elf /opt/riscv-foundation/riscv32-elf

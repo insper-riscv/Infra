@@ -71,7 +71,7 @@ Both are published for `linux/amd64` and `linux/arm64`, with the same versions o
 | GHDL (LLVM backend) | 6.0.0 | simulates the VHDL-2008 of the core; the LLVM backend because the `mcode` one runs only on x86, and a simulation must behave the same on a PC and on an ARM machine |
 | LLVM (`libllvm21`, library the GHDL backend runs on) | 21.1.8 | the code generator GHDL links against |
 | RISC-V GCC (`rv32im`, `ilp32`: no CSR, no F or D) | 16.1.0 (`riscv-gnu-toolchain` commit `d118e53`) | compiles the test programs for the core |
-| picolibc (C library of the RISC-V GCC, one variant for the same `rv32im`: no CSR, floating point in software) | 1.8.12 | the C library those programs link against; built from its own image with the GCC, so a new release needs no new GCC build |
+| picolibc (C library of the RISC-V GCC, one variant for the same `rv32im`: no CSR, floating point in software) | 1.8.12 | the C library those programs link against; compiled by its own image with the GCC published before it; the GCC is then built against it, from the second stage |
 | Spike | 1.1.1-dev (`riscv-isa-sim` commit `89c7471`, debug module at `0x70000000`) | the reference simulator that produces the golden result of each program; its debug module is moved so that it does not overlap the boot ROM |
 | `uv` | 0.13.0 | installs Python and the dependencies of each project (`uv sync`); the image has no `pip` |
 | Python | 3.14.8 | the version the projects require (`>=3.14,<3.15`) |

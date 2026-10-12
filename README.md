@@ -72,7 +72,7 @@ está no [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md) e no
 | GHDL (backend LLVM) | 6.0.0 | simula o VHDL-2008 do core; o backend LLVM porque o `mcode` roda só em x86, e uma simulação deve se comportar igual num PC e numa máquina ARM |
 | LLVM (`libllvm21`, biblioteca em que o backend do GHDL roda) | 21.1.8 | o gerador de código com que o GHDL é ligado |
 | GCC RISC-V (`rv32im`, `ilp32`: sem CSR, sem F nem D) | 16.1.0 (commit `d118e53` do `riscv-gnu-toolchain`) | compila os programas de teste do core |
-| picolibc (biblioteca C do GCC RISC-V, uma variante para o mesmo `rv32im`: sem CSR, ponto flutuante em software) | 1.8.12 | a biblioteca C com que esses programas são ligados; compilada a partir da própria imagem com o GCC, então uma release nova não exige novo build do GCC |
+| picolibc (biblioteca C do GCC RISC-V, uma variante para o mesmo `rv32im`: sem CSR, ponto flutuante em software) | 1.8.12 | a biblioteca C com que esses programas são ligados; compilada pela própria imagem com o GCC publicado antes dela; o GCC é então construído contra ela, a partir do segundo estágio |
 | Spike | 1.1.1-dev (commit `89c7471` do `riscv-isa-sim`, módulo de debug em `0x70000000`) | o simulador de referência que produz o resultado golden de cada programa; o módulo de debug é movido para não sobrepor a boot ROM |
 | `uv` | 0.13.0 | instala o Python e as dependências de cada projeto (`uv sync`); a imagem não tem `pip` |
 | Python | 3.14.8 | a versão que os projetos exigem (`>=3.14,<3.15`) |

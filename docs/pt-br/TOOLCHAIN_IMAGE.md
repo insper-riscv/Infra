@@ -7,8 +7,8 @@ Imagens Docker com o que o fluxo de testes RISC-V precisa, exceto o Quartus: uma
 | Imagem | `Dockerfile` | Workflow | Conteúdo | Tags |
 | :--- | :--- | :--- | :--- | :--- |
 | `ghcr.io/<organização>/infra-ghdl` | `Dockerfile.ghdl` | `GHDL image` | Só `/opt/ghdl` | `<commit>` e `latest` |
-| `ghcr.io/<organização>/infra-gcc` | `Dockerfile.gcc` | `GCC image` | Só `/opt/riscv-foundation/riscv32-elf` | `<commit>` e `latest` |
-| `ghcr.io/<organização>/infra-picolibc` | `Dockerfile.picolibc` | `Picolibc image` | Só os arquivos que a picolibc instala no sysroot do GCC, em `/opt/riscv-foundation/riscv32-elf` | `<commit da picolibc>-<commit do GCC>` e `latest` |
+| `ghcr.io/<organização>/infra-gcc` | `Dockerfile.gcc` | `GCC image` | Só `/opt/riscv-foundation/riscv32-elf` | `<commit do GCC>-<commit da picolibc>` e `latest` |
+| `ghcr.io/<organização>/infra-picolibc` | `Dockerfile.picolibc` | `Picolibc image` | Só os arquivos que a picolibc instala no sysroot do GCC, em `/opt/riscv-foundation/riscv32-elf` (a entrada do build da imagem do GCC) | `<commit da picolibc>-<commit do GCC>` e `latest` |
 | `ghcr.io/<organização>/infra-spike` | `Dockerfile.spike` | `Spike image` | Só `/opt/riscv-foundation/spike` | `<commit>` e `latest` |
 | `ghcr.io/<organização>/infra-yosys` | `Dockerfile.yosys` | `Yosys image` | Só `/opt/yosys` (Yosys e SymbiYosys) | `<commit do Yosys>-<commit do sby>` e `latest` |
 | `ghcr.io/<organização>/infra-toolchain` | `Dockerfile` | `Toolchain image` | A imagem completa | `latest`, `sha-<commit do Infra>` e `ghdl-<7 primeiros>-gcc-<7 primeiros>-spike-<7 primeiros>-yosys-<7 primeiros>-sby-<7 primeiros>-uv-<versão>` |
@@ -23,7 +23,7 @@ Toda imagem leva os rótulos `org.opencontainers.image.title`, `description`, `s
 | :--- | :--- | :--- |
 | GHDL | Backend LLVM, compilado do código-fonte (o backend mcode das imagens `ghdl/ghdl` é só x86, e as duas arquiteturas precisam rodar o mesmo GHDL) | `/opt/ghdl` |
 | GCC RISC-V | Alvo `rv32im`/`ilp32` uma única variante de biblioteca (o que o [GCC_SETUP.md](GCC_SETUP.md) compila) | `/opt/riscv-foundation/riscv32-elf` |
-| picolibc | A biblioteca C desse GCC, recompilada a partir da própria imagem por cima da que a imagem do GCC traz (mesmo sysroot, mesma variante única `rv32im`/`ilp32`) | `/opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf` |
+| picolibc | A biblioteca C desse GCC, compilada pela própria imagem e instalada no sysroot antes do segundo estágio do build do GCC, então o libgcc e o libstdc++ do GCC são compilados contra ela | `/opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf` |
 | Spike | Com o módulo de debug movido do endereço `0x0` para `0x70000000` (o que o [SPIKE_SETUP.md](SPIKE_SETUP.md) compila) | `/opt/riscv-foundation/spike` |
 | `uv` | Gerenciador de projetos Python | `/usr/local/bin` |
 | Python | 3.14, instalado pelo `uv` para todos os usuários, com `python3` e `python` no `PATH` | `/opt/uv/python` |
@@ -111,13 +111,15 @@ Cada componente tem um workflow de execução manual. Em Actions, escolha `GHDL 
 | `commit` | O commit a compilar. Vazio: o mais recente da branch padrão do projeto (no GHDL, o commit da tag de release mais recente) |
 | `force` | Recompilar e republicar mesmo que a imagem desse commit já exista |
 
-O `Picolibc image` recebe um `commit` da picolibc (vazio: a tag de release mais recente da série definida em `SERIES`, `1`, ou seja `1.x.y`) e compila com o GCC da imagem mais recente do GCC; ele também roda sozinho quando o `GCC image` termina, porque a biblioteca é compilada por esse GCC, e então mantém o commit da picolibc que já tem. Atualizar só a picolibc leva minutos, e o `Toolchain image` monta a nova imagem completa a partir dela sem recompilar o GCC.
+O `Picolibc image` recebe um `commit` da picolibc (vazio: a tag de release mais recente da série definida em `SERIES`, `1`, ou seja `1.x.y`) e a compila com o GCC da imagem mais recente do GCC. O `GCC image` é construído a partir dessa picolibc, então uma picolibc nova faz a imagem do GCC ser construída de novo: ele roda sozinho quando o `Picolibc image` termina, mantém o commit do GCC que já tem e executa só o segundo estágio do build, com a picolibc compilada já no sysroot; o primeiro compilador, que só existia para compilar a picolibc, é pulado. Um GCC novo (um run manual do `GCC image`) reaproveita a picolibc que já existe e não a compila de novo. A imagem do GCC leva no rótulo `picolibc.commit` a picolibc contra a qual foi construída, e o `Toolchain image` só monta quando ela é a picolibc mais recente, esperando o build da imagem do GCC caso contrário.
+
+O GCC com que a picolibc é compilada é o publicado antes dela, então a biblioteca vem do GCC do build anterior, e não daquele com que é instalada.
 
 O `Yosys image` tem mais um campo, `sby_commit` (vazio: a tag do `sby` com a mesma versão da release do Yosys), porque a imagem guarda os dois e o campo `commit` é o commit do Yosys. O `commit` vazio pega a tag de release mais recente da série definida em `SERIES` (`0`, ou seja `v0.N`, nunca uma branch em movimento).
 
-O workflow resolve o commit, confere se `infra-gcc:<commit>` (ou `infra-spike:<commit>`, ou `infra-picolibc:<commit da picolibc>-<commit do GCC>`, ou `infra-yosys:<commit do Yosys>-<commit do sby>`) já existe e, se existir e `force` estiver desligado, não compila nada. Caso contrário, compila, confere a instalação e publica com as tags `<commit>` e `latest`.
+O workflow resolve o commit, confere se `infra-gcc:<commit do GCC>-<commit da picolibc>` (ou `infra-spike:<commit>`, ou `infra-picolibc:<commit da picolibc>-<commit do GCC>`, ou `infra-yosys:<commit do Yosys>-<commit do sby>`) já existe e, se existir e `force` estiver desligado, não compila nada. Caso contrário, compila, confere a instalação e publica com as tags `<commit>` e `latest`.
 
-Os workflows de componente também rodam sozinhos num push na `main` que altere o próprio `Dockerfile.ghdl`, `Dockerfile.gcc`, `Dockerfile.picolibc`, `Dockerfile.spike` ou `Dockerfile.yosys`, ou o próprio workflow. Nesse caso não há campo `commit`: eles recompilam o commit que a imagem `latest` já tem (a receita mudou, a versão não) com `force` ligado, e só usam o commit mais recente do upstream quando ainda não há imagem publicada. Por isso o merge que adiciona os `Dockerfile` já publica os componentes pela primeira vez.
+Os workflows de componente também rodam sozinhos num push na `main` que altere o próprio `Dockerfile.ghdl`, `Dockerfile.gcc`, `Dockerfile.picolibc`, `Dockerfile.spike` ou `Dockerfile.yosys`, ou o próprio workflow. Nesse caso não há campo `commit`: eles recompilam o commit que a imagem `latest` já tem (a receita mudou, a versão não) com `force` ligado, e só usam o commit mais recente do upstream quando ainda não há imagem publicada. Por isso o merge que adiciona os `Dockerfile` já publica os componentes pela primeira vez. O `GCC image` também roda quando o `Picolibc image` termina.
 
 Quando um desses workflows termina com sucesso, o `Toolchain image` roda sozinho: lê os commits dos rótulos das três imagens `latest` e monta e publica uma imagem completa nova. Atualizar só o Spike leva alguns minutos, e atualizar o GCC ou o GHDL leva de dezenas de minutos a mais de uma hora.
 
@@ -138,6 +140,8 @@ docker build -f Dockerfile.ghdl -t infra-ghdl \
   --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl 'refs/tags/v6.0.0^{}' | cut -f1)" .
 
 docker build -f Dockerfile.gcc -t infra-gcc \
+  --build-arg PICOLIBC_IMAGE=ghcr.io/<organização>/infra-picolibc:latest \
+  --build-arg PICOLIBC_COMMIT="<o rótulo picolibc.commit dessa imagem>" \
   --build-arg RISCV_GNU_TOOLCHAIN_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .
 
 docker build -f Dockerfile.picolibc -t infra-picolibc \
@@ -153,11 +157,11 @@ docker build -f Dockerfile.yosys -t infra-yosys \
   --build-arg SBY_COMMIT="$(git ls-remote https://github.com/YosysHQ/sby 'refs/tags/v0.69^{}' | cut -f1)" .
 
 docker build -t infra-toolchain \
-  --build-arg GHDL_IMAGE=infra-ghdl --build-arg GCC_IMAGE=infra-gcc --build-arg PICOLIBC_IMAGE=infra-picolibc --build-arg SPIKE_IMAGE=infra-spike \
+  --build-arg GHDL_IMAGE=infra-ghdl --build-arg GCC_IMAGE=infra-gcc --build-arg SPIKE_IMAGE=infra-spike \
   --build-arg YOSYS_IMAGE=infra-yosys .
 ```
 
-O build do GCC leva de dezenas de minutos a mais de uma hora, conforme a máquina. Sem `GHDL_IMAGE`, `GCC_IMAGE`, `PICOLIBC_IMAGE`, `SPIKE_IMAGE` e `YOSYS_IMAGE`, o build da imagem completa usa as imagens `latest` publicadas no GHCR. Os outros argumentos:
+O build do GCC leva de dezenas de minutos a mais de uma hora, conforme a máquina. Sem `GHDL_IMAGE`, `GCC_IMAGE`, `SPIKE_IMAGE` e `YOSYS_IMAGE`, o build da imagem completa usa as imagens `latest` publicadas no GHCR. Os outros argumentos:
 
 | Argumento | Padrão | Significado |
 | :--- | :--- | :--- |
@@ -197,8 +201,8 @@ Tudo é fixado por nós, exceto os pacotes do próprio Ubuntu. O workflow que at
 | Ubuntu | 26.04 LTS | a última versão de suporte longo, uma base multi-arquitetura (`amd64` e `arm64`), e a em que o GHDL 6.0.0 foi compilado e testado com o LLVM 21 |
 | GHDL | 6.0.0 | a última release estável; a série é fixada em 6 (`SERIES` no workflow), então a 7.0.0, ainda em desenvolvimento, não entra sozinha |
 | Backend do GHDL | LLVM | o backend `mcode` só roda em x86, e o mesmo simulador precisa se comportar igual num PC e numa máquina ARM, como um Mac |
-| GCC RISC-V | 16.1.0, commit `d118e53` | compilado do fonte com a nossa configuração da picolibc (`rv32im`, `ilp32`, uma variante, sem CSR, sem ponto flutuante em hardware); segue o HEAD do `riscv-gnu-toolchain`, porque as releases dele são um instantâneo noturno do HEAD, e não um ponto estável |
-| picolibc | 1.8.12 | a release mais recente da série 1 (`SERIES` no workflow), compilada a partir da própria imagem com o GCC da imagem do GCC, então uma picolibc nova não exige novo build do GCC. O libstdc++ da imagem do GCC continua ligado aos cabeçalhos da picolibc com que o GCC foi compilado; ela é compilada com as opções do build que o `riscv-gnu-toolchain` roda para ela (meson, tamanho mínimo, instalada no sysroot) |
+| GCC RISC-V | 16.1.0, commit `d118e53` | compilado do fonte com a nossa configuração da picolibc (`rv32im`, `ilp32`, uma variante, sem CSR, sem ponto flutuante em hardware); segue o HEAD do `riscv-gnu-toolchain`, porque as releases dele são um instantâneo noturno do HEAD, e não um ponto estável; o build parte da picolibc compilada e executa só o segundo estágio, já que o primeiro compilador existia só para compilar a picolibc |
+| picolibc | 1.8.12 | a release mais recente da série 1 (`SERIES` no workflow); compilada pela própria imagem com o GCC publicado antes dela, e o GCC é então construído contra ela a partir do segundo estágio, então o libgcc e o libstdc++ dele combinam com ela. Ela é compilada com as opções do build que o `riscv-gnu-toolchain` roda para ela (meson, tamanho mínimo, instalada no sysroot) |
 | Spike | commit `fdc1ffa` | o HEAD do `riscv-isa-sim`, porque a última release (`v1.1.0`) é de 2021; o módulo de debug dele é movido do endereço `0x0` para `0x70000000`, para não se sobrepor à boot ROM |
 | `uv` | 0.13.0 | a última release estável da série 0 (`UV_SERIES`); instala o Python e as dependências de cada projeto, e substitui o `pip` e os ambientes virtuais |
 | Python | 3.14.8 | a versão que os projetos exigem (`>=3.14,<3.15`); o patch é o mais recente que o `uv` conhece |
