@@ -131,7 +131,7 @@ The component workflows also run by themselves, once a day (UTC), with no field 
 | `GTKWave image` | every day, 03:00 | the latest `3.3.x` release |
 | `Spike image` | every day, 03:00 | the latest upstream commit with green CI (it can wait up to 60 minutes for a running one) |
 | `GCC image` | every day, 03:10 | the head of `riscv-gnu-toolchain` |
-| `Toolchain image` | every day, 04:00 | the latest `uv` of series 0, and the combination of the components |
+| `Toolchain image` | every day, 03:20 | the latest `uv` of series 0, and the combination of the components |
 
 The runs are in two slots: at 03:00 everything that depends on no component being rebuilt (GHDL, GTKWave, Spike and Yosys, and picolibc, which is compiled by the GCC already published), and ten minutes later the GCC alone, which needs the latest picolibc (a scheduled run of it waits if the picolibc one is still going). A scheduled run builds **only if the image for that version does not exist yet**; when nothing changed it ends in seconds with a notice. The `GCC image` also runs when the `Picolibc image` finishes, and the `Toolchain image` and the `Dev tools image` run when a component finishes, as described below.
 
@@ -141,7 +141,7 @@ When one of these workflows finishes successfully, `Toolchain image` runs by its
 
 Each architecture is built on a runner of its own (`ubuntu-26.04` for `linux/amd64` and `ubuntu-24.04-arm` for `linux/arm64`): the GCC and GHDL builds take hours under emulation. A final job joins the two images into one manifest with the tags, so `docker pull` gives each machine its own.
 
-`uv` is the one component that has no image of ours: the complete image copies it from the official `ghcr.io/astral-sh/uv`. It follows the same rule as the others, in `Toolchain image`: a run triggered by a push or by a component finishing keeps the `uv` that the `latest` image already has (its `uv.version` label), and a manual run takes the `uv_version` field, empty meaning the latest stable release of `astral-sh/uv`. The version also goes into the combination tag (`ghdl-<7>-gcc-<7>-spike-<7>-uv-<version>`). To update `uv`, run `Toolchain image` by hand with `confirm` and an empty `uv_version`.
+`uv` is the one component that has no image of ours: the complete image copies it from the official `ghcr.io/astral-sh/uv`. Every run of `Toolchain image` takes the latest stable release of the series set in `UV_SERIES` (`0`), or the `uv_version` field of a manual run. The version goes into the combination tag (`ghdl-<7>-gcc-<7>-picolibc-<7>-spike-<7>-yosys-<7>-sby-<7>-uv-<version>`), so a run for a version that is already published assembles nothing, and a new `uv` is picked up by the first run after its release: the scheduled one, or the one a component starts when it finishes.
 
 `Toolchain image` does not wait for a component to finish: if, when it runs for a schedule or for the end of another component, a `GHDL image`, `GCC image`, `Picolibc image`, `Spike image` or `Yosys image` run is queued or going, it skips with a notice, and the end of that run triggers it again. The last component to finish does the single assembly. A manual run of `Toolchain image` never defers.
 

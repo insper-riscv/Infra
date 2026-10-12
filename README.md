@@ -77,7 +77,7 @@ mão. Os detalhes e os comandos estão em [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCH
 | picolibc | o `1.x.y` mais recente, compilada pelo GCC publicado antes dela | `Picolibc image`, que faz a imagem do GCC ser construída de novo |
 | Spike | o commit mais recente da `master` em que o CI dele passou (não tem release recente) | `Spike image` |
 | Yosys e SymbiYosys | a `v0.N` mais recente, lançadas em passo | `Yosys image` |
-| `uv` | o `0.x.y` mais recente | `Toolchain image`, rodado à mão |
+| `uv` | o `0.x.y` mais recente | `Toolchain image` |
 
 ## O que as imagens contêm
 

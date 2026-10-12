@@ -77,7 +77,7 @@ details and the commands are in [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md)
 | picolibc | the latest `1.x.y`, compiled by the GCC published before it | `Picolibc image`, which makes the GCC image build again |
 | Spike | the latest commit of its `master` on which its CI passed (it has no recent release) | `Spike image` |
 | Yosys and SymbiYosys | the latest `v0.N`, released in step | `Yosys image` |
-| `uv` | the latest `0.x.y` | `Toolchain image`, run by hand |
+| `uv` | the latest `0.x.y` | `Toolchain image` |
 
 ## What the images contain
 
