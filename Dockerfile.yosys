@@ -8,7 +8,7 @@
 # each with the same version. The commits to build have no default:
 #
 #   docker build -f Dockerfile.yosys -t infra-yosys \
-#     --build-arg YOSYS_COMMIT="$(git ls-remote https://github.com/YosysHQ/yosys refs/tags/v0.69 | cut -f1)" \
+#     --build-arg YOSYS_COMMIT="$(git ls-remote https://github.com/YosysHQ/yosys 'refs/tags/v0.69^{}' | cut -f1)" \
 #     --build-arg SBY_COMMIT="$(git ls-remote https://github.com/YosysHQ/sby 'refs/tags/v0.69^{}' | cut -f1)" .
 #
 # The SystemVerilog front-end based on Slang (the largest part of the build) is left out: the
