@@ -71,8 +71,8 @@ Both are published for `linux/amd64` and `linux/arm64`, with the same versions o
 | GHDL (LLVM backend) | 6.0.0 | simulates the VHDL-2008 of the core; the LLVM backend because the `mcode` one runs only on x86, and a simulation must behave the same on a PC and on an ARM machine |
 | LLVM (`libllvm21`, library the GHDL backend runs on) | 21.1.8 | the code generator GHDL links against |
 | RISC-V GCC (`rv32im`, `ilp32`: no CSR, no F or D) | 16.1.0 (`riscv-gnu-toolchain` commit `d118e53`) | compiles the test programs for the core |
-| picolibc (C library of the RISC-V GCC, one variant for the same `rv32im`: no CSR, floating point in software) | 1.8.11 | the C library those programs link against |
-| Spike | 1.1.1-dev (`riscv-isa-sim` commit `fdc1ffa`, debug module at `0x70000000`) | the reference simulator that produces the golden result of each program; its debug module is moved so that it does not overlap the boot ROM |
+| picolibc (C library of the RISC-V GCC, one variant for the same `rv32im`: no CSR, floating point in software) | 1.8.12 | the C library those programs link against; built from its own image with the GCC, so a new release needs no new GCC build |
+| Spike | 1.1.1-dev (`riscv-isa-sim` commit `89c7471`, debug module at `0x70000000`) | the reference simulator that produces the golden result of each program; its debug module is moved so that it does not overlap the boot ROM |
 | `uv` | 0.13.0 | installs Python and the dependencies of each project (`uv sync`); the image has no `pip` |
 | Python | 3.14.8 | the version the projects require (`>=3.14,<3.15`) |
 | cocotb | 2.1.0 | the testbenches, written in Python; it is what fixes the Python version |
@@ -87,8 +87,9 @@ Both are published for `linux/amd64` and `linux/arm64`, with the same versions o
 | `curl` | 8.18.0 | installers and downloads |
 | `ca-certificates` | 20260601 | the trusted certificates, so that `curl` and `git` verify HTTPS servers |
 | `libglib2.0-0t64` | 2.88.0 | `libglib-2.0` and `libgthread-2.0`, which the command-line tools of a Quartus installation mounted from the host link against |
-| Yosys | 0.52 | reads the Verilog netlist GHDL synthesizes from the VHDL, for formal verification |
-| SymbiYosys (`sby`) | v0.69 | runs Yosys and the solvers to prove properties of a block |
+| Yosys | 0.69 | built from source (the latest release of series 0); reads the Verilog netlist GHDL synthesizes from the VHDL, for formal verification |
+| SymbiYosys (`sby`) | v0.69 | built with Yosys, which it is released in step with; runs Yosys and the solvers to prove properties of a block |
+| `libreadline8t64`, `libtcl8.6` and `libffi8` | 8.3, 8.6.17 and 3.5.2 | the libraries Yosys links against |
 | `z3` and `boolector` | 4.13.3 and 1.5.118 | the SMT solvers SymbiYosys uses |
 | `click` | 8.5.0 | the Python library `sby` imports |
 

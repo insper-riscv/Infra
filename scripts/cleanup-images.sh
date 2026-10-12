@@ -19,7 +19,7 @@ set -euo pipefail
 ORG="${ORG:-insper-riscv}"
 MIN_AGE_MINUTES="${MIN_AGE_MINUTES:-120}"
 CUTOFF=$(date -u -d "-${MIN_AGE_MINUTES} minutes" +%Y-%m-%dT%H:%M:%SZ)
-ALL_PACKAGES=(infra-ghdl infra-gcc infra-spike infra-gtkwave infra-toolchain dev_tools)
+ALL_PACKAGES=(infra-ghdl infra-gcc infra-picolibc infra-spike infra-yosys infra-gtkwave infra-toolchain dev_tools)
 DELETE=false
 packages=()
 for arg in "$@"; do

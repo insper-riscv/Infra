@@ -72,8 +72,8 @@ está no [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md) e no
 | GHDL (backend LLVM) | 6.0.0 | simula o VHDL-2008 do core; o backend LLVM porque o `mcode` roda só em x86, e uma simulação deve se comportar igual num PC e numa máquina ARM |
 | LLVM (`libllvm21`, biblioteca em que o backend do GHDL roda) | 21.1.8 | o gerador de código com que o GHDL é ligado |
 | GCC RISC-V (`rv32im`, `ilp32`: sem CSR, sem F nem D) | 16.1.0 (commit `d118e53` do `riscv-gnu-toolchain`) | compila os programas de teste do core |
-| picolibc (biblioteca C do GCC RISC-V, uma variante para o mesmo `rv32im`: sem CSR, ponto flutuante em software) | 1.8.11 | a biblioteca C com que esses programas são ligados |
-| Spike | 1.1.1-dev (commit `fdc1ffa` do `riscv-isa-sim`, módulo de debug em `0x70000000`) | o simulador de referência que produz o resultado golden de cada programa; o módulo de debug é movido para não sobrepor a boot ROM |
+| picolibc (biblioteca C do GCC RISC-V, uma variante para o mesmo `rv32im`: sem CSR, ponto flutuante em software) | 1.8.12 | a biblioteca C com que esses programas são ligados; compilada a partir da própria imagem com o GCC, então uma release nova não exige novo build do GCC |
+| Spike | 1.1.1-dev (commit `89c7471` do `riscv-isa-sim`, módulo de debug em `0x70000000`) | o simulador de referência que produz o resultado golden de cada programa; o módulo de debug é movido para não sobrepor a boot ROM |
 | `uv` | 0.13.0 | instala o Python e as dependências de cada projeto (`uv sync`); a imagem não tem `pip` |
 | Python | 3.14.8 | a versão que os projetos exigem (`>=3.14,<3.15`) |
 | cocotb | 2.1.0 | os testbenches, escritos em Python; é ele que fixa a versão do Python |
@@ -88,8 +88,9 @@ está no [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md) e no
 | `curl` | 8.18.0 | instaladores e downloads |
 | `ca-certificates` | 20260601 | os certificados confiáveis, para o `curl` e o `git` verificarem servidores HTTPS |
 | `libglib2.0-0t64` | 2.88.0 | `libglib-2.0` e `libgthread-2.0`, com que as ferramentas de linha de comando de uma instalação do Quartus montada do host são ligadas |
-| Yosys | 0.52 | lê o netlist Verilog que o GHDL sintetiza a partir do VHDL, para a verificação formal |
-| SymbiYosys (`sby`) | v0.69 | executa o Yosys e os solvers para provar propriedades de um bloco |
+| Yosys | 0.69 | compilado do código-fonte (a release mais recente da série 0); lê o netlist Verilog que o GHDL sintetiza a partir do VHDL, para a verificação formal |
+| SymbiYosys (`sby`) | v0.69 | compilado com o Yosys, com que é lançado em passo; executa o Yosys e os solvers para provar propriedades de um bloco |
+| `libreadline8t64`, `libtcl8.6` e `libffi8` | 8.3, 8.6.17 e 3.5.2 | as bibliotecas com que o Yosys é ligado |
 | `z3` e `boolector` | 4.13.3 e 1.5.118 | os solvers SMT que o SymbiYosys usa |
 | `click` | 8.5.0 | a biblioteca Python que o `sby` importa |
 

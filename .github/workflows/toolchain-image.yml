@@ -1,8 +1,9 @@
 name: Toolchain image
 
-# Assembles the complete image (GHDL, the RISC-V GCC with picolibc, Spike and uv) for linux/amd64
-# and linux/arm64 from the latest infra-ghdl, infra-gcc and infra-spike images, which the GHDL
-# image, GCC image and Spike image workflows publish. It runs when one of them finishes, when the
+# Assembles the complete image (GHDL, the RISC-V GCC with picolibc, Spike, Yosys with SymbiYosys,
+# and uv) for linux/amd64 and linux/arm64 from the latest infra-ghdl, infra-gcc, infra-picolibc,
+# infra-spike and infra-yosys images, which the GHDL image, GCC image, Picolibc image, Spike image
+# and Yosys image workflows publish. It runs when one of them finishes, when the
 # Dockerfile changes on main, and on demand.
 on:
   push:
@@ -19,7 +20,7 @@ on:
         description: "uv version to put in the image (empty: the latest stable release of the series set in UV_SERIES)"
         required: false
   workflow_run:
-    workflows: ["GHDL image", "GCC image", "Spike image"]
+    workflows: ["GHDL image", "GCC image", "Picolibc image", "Spike image", "Yosys image"]
     types: [completed]
     branches: [main]
 
@@ -34,7 +35,9 @@ env:
   UV_SERIES: "0"
   GHDL_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-ghdl
   GCC_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gcc
+  PICOLIBC_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-picolibc
   SPIKE_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-spike
+  YOSYS_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-yosys
 
 jobs:
   pin:
@@ -50,7 +53,10 @@ jobs:
       skip: ${{ steps.skip.outputs.skip }}
       ghdl: ${{ steps.pins.outputs.ghdl }}
       gcc: ${{ steps.pins.outputs.gcc }}
+      picolibc: ${{ steps.pins.outputs.picolibc }}
       spike: ${{ steps.pins.outputs.spike }}
+      yosys: ${{ steps.pins.outputs.yosys }}
+      sby: ${{ steps.pins.outputs.sby }}
       uv: ${{ steps.uv.outputs.version }}
       short: ${{ steps.pins.outputs.short }}
 
@@ -127,23 +133,31 @@ jobs:
           }
           ghdl=$(label "$GHDL_IMAGE:latest" ghdl.commit)
           gcc=$(label "$GCC_IMAGE:latest" riscv-gnu-toolchain.commit)
+          picolibc=$(label "$PICOLIBC_IMAGE:latest" picolibc.commit)
+          # picolibc is compiled by the GCC: the image must be the one built with this GCC
+          picolibc_gcc=$(label "$PICOLIBC_IMAGE:latest" riscv-gnu-toolchain.commit)
           spike=$(label "$SPIKE_IMAGE:latest" riscv-isa-sim.commit)
-          if [ -z "$ghdl" ] || [ -z "$gcc" ] || [ -z "$spike" ]; then
+          yosys=$(label "$YOSYS_IMAGE:latest" yosys.commit)
+          sby=$(label "$YOSYS_IMAGE:latest" sby.commit)
+          if [ -z "$ghdl" ] || [ -z "$gcc" ] || [ -z "$picolibc" ] || [ "$picolibc_gcc" != "$gcc" ] || [ -z "$spike" ] || [ -z "$yosys" ] || [ -z "$sby" ]; then
             if [ "$EVENT" = "workflow_dispatch" ]; then
-              echo "::error::could not read the commits from the latest GHDL, GCC and Spike images; run the GHDL image, GCC image and Spike image workflows first"
+              echo "::error::could not read the commits from the latest GHDL, GCC, picolibc, Spike and Yosys images, or the picolibc image was not built with the latest GCC; run the GHDL image, GCC image, Picolibc image, Spike image and Yosys image workflows first"
               exit 1
             fi
             # A push can land before the components exist (the merge that
             # adds them also changes this workflow); their runs trigger this
             # one when they finish.
-            echo "::notice::the GHDL, GCC and Spike images are not all published yet; their runs trigger this workflow when they finish."
+            echo "::notice::the GHDL, GCC, picolibc, Spike and Yosys images are not all published yet (or the picolibc image is not the one built with the latest GCC); their runs trigger this workflow when they finish."
             echo "missing=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           echo "ghdl=$ghdl" >> "$GITHUB_OUTPUT"
           echo "gcc=$gcc" >> "$GITHUB_OUTPUT"
+          echo "picolibc=$picolibc" >> "$GITHUB_OUTPUT"
           echo "spike=$spike" >> "$GITHUB_OUTPUT"
-          echo "short=ghdl-${ghdl:0:7}-gcc-${gcc:0:7}-spike-${spike:0:7}-uv-${UV}" >> "$GITHUB_OUTPUT"
+          echo "yosys=$yosys" >> "$GITHUB_OUTPUT"
+          echo "sby=$sby" >> "$GITHUB_OUTPUT"
+          echo "short=ghdl-${ghdl:0:7}-gcc-${gcc:0:7}-picolibc-${picolibc:0:7}-spike-${spike:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-uv-${UV}" >> "$GITHUB_OUTPUT"
 
       - name: Decide whether there is anything to assemble now
         # Nothing to do when a component is not published yet, when a
@@ -165,7 +179,7 @@ jobs:
         run: |
           pending=0
           if [ "$EVENT" != "workflow_dispatch" ]; then
-            for workflow in ghdl-image.yml gcc-image.yml spike-image.yml; do
+            for workflow in ghdl-image.yml gcc-image.yml picolibc-image.yml spike-image.yml yosys-image.yml; do
               for status in queued in_progress; do
                 # A workflow GitHub does not know yet (the merge that adds
                 # them together) makes this fail; count it as none.
@@ -178,7 +192,7 @@ jobs:
           if [ "$MISSING" = "true" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "$pending" -gt 0 ]; then
-            echo "::notice::a GHDL, GCC or Spike image run is still going; it triggers this workflow when it finishes."
+            echo "::notice::a GHDL, GCC, picolibc, Spike or Yosys image run is still going; it triggers this workflow when it finishes."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "$EVENT" = "workflow_run" ] && docker buildx imagetools inspect "$IMAGE:$COMBINATION" > /dev/null 2>&1; then
             echo "::notice::$IMAGE:$COMBINATION already exists; nothing to assemble."
@@ -198,18 +212,23 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/infra-toolchain
       dockerfile: Dockerfile
       title: Insper RISC-V toolchain
-      description: GHDL, the RISC-V GCC with picolibc, Spike, uv, Python and cocotb, for linux/amd64 and linux/arm64.
+      description: GHDL, the RISC-V GCC with picolibc, Spike, Yosys with SymbiYosys, uv, Python and cocotb, for linux/amd64 and linux/arm64.
       timeout-minutes: 60
       build-args: |
         GHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-ghdl:${{ needs.pin.outputs.ghdl }}
         UV_VERSION=${{ needs.pin.outputs.uv }}
         GCC_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-gcc:${{ needs.pin.outputs.gcc }}
+        PICOLIBC_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-picolibc:${{ needs.pin.outputs.picolibc }}-${{ needs.pin.outputs.gcc }}
         SPIKE_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-spike:${{ needs.pin.outputs.spike }}
+        YOSYS_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-yosys:${{ needs.pin.outputs.yosys }}-${{ needs.pin.outputs.sby }}
       labels: |
         uv.version=${{ needs.pin.outputs.uv }}
         ghdl.commit=${{ needs.pin.outputs.ghdl }}
         riscv-gnu-toolchain.commit=${{ needs.pin.outputs.gcc }}
+        picolibc.commit=${{ needs.pin.outputs.picolibc }}
         riscv-isa-sim.commit=${{ needs.pin.outputs.spike }}
+        yosys.commit=${{ needs.pin.outputs.yosys }}
+        sby.commit=${{ needs.pin.outputs.sby }}
       tags: |
         latest
         sha-${{ github.sha }}
@@ -219,7 +238,10 @@ jobs:
         riscv32-unknown-elf-gcc --version | head -n 1
         riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null
         test "$(riscv32-unknown-elf-gcc -print-multi-lib)" = ".;"
+        grep -h '__PICOLIBC_VERSION__' /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h | head -n 1
         out=$(spike --isa=rv32i -m0x0:0x10000 --pc=0 --disable-dtb /dev/null 2>&1 || true)
         if echo "$out" | grep -q overlap; then echo "Spike still places its debug module at address 0"; exit 1; fi
+        yosys -V | head -n 1
+        sby --version
         uv --version
         python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"

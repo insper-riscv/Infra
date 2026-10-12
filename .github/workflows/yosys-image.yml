@@ -1,0 +1,176 @@
+name: Yosys image
+
+# Builds Yosys and SymbiYosys (sby) from source, alone, and publishes them as infra-yosys for
+# linux/amd64 and linux/arm64, tagged with the two commits and as latest.
+#
+# The two projects are released in step (Yosys v0.N and sby v0.N), so the image holds one of each
+# with the same version.
+#
+# - Run by hand to update them: it builds the commits given, or the commits of the latest release
+#   tag of the series set in SERIES (0.N), unless that image already exists.
+# - Runs on a push to main that changes Dockerfile.yosys or this workflow: it rebuilds the commits
+#   latest already has (the recipe changed, not the version), or the upstream latest release when
+#   nothing is published yet.
+#
+# The Toolchain image workflow then assembles a new complete image.
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile.yosys
+      - .github/workflows/yosys-image.yml
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
+        required: true
+      commit:
+        description: "yosys commit to build (empty: the latest release tag of the series set in SERIES)"
+        required: false
+      sby_commit:
+        description: "sby commit to build (empty: the tag with the same version as the yosys release)"
+        required: false
+      force:
+        description: "Rebuild and republish even if the image for those commits already exists"
+        type: boolean
+        default: false
+
+concurrency:
+  group: yosys-image
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-yosys
+  YOSYS_UPSTREAM: https://github.com/YosysHQ/yosys
+  SBY_UPSTREAM: https://github.com/YosysHQ/sby
+  # the major version the image follows (0.N: the minor moves to the latest release); a new major is
+  # chosen by editing this line
+  SERIES: "0"
+
+jobs:
+  pin:
+    # Only decides what to build: the published image, tagged by commits, is what a later run
+    # checks to skip the build.
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      commit: ${{ steps.pin.outputs.commit }}
+      sby: ${{ steps.pin.outputs.sby }}
+      build: ${{ steps.pin.outputs.build }}
+
+    steps:
+      - name: Authorize manual run
+        # Only applies to workflow_dispatch: repo write access already gates
+        # who can trigger this, but on a repo shared with people who
+        # shouldn't publish the image, this adds a second check: only
+        # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
+        # push to main skips this: branch protection on main is the gate for
+        # that path instead.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          SECRET: ${{ secrets.IMAGE_PUBLISH_SECRET }}
+        run: |
+          if [ "$CONFIRM" != "$SECRET" ]; then
+            echo "::error::confirmation does not match IMAGE_PUBLISH_SECRET, refusing to publish the image"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve the commits
+        id: pin
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_COMMIT: ${{ inputs.commit }}
+          INPUT_SBY: ${{ inputs.sby_commit }}
+          INPUT_FORCE: ${{ inputs.force }}
+        run: |
+          label() {
+            docker buildx imagetools inspect "$IMAGE:latest" --format '{{json .Image}}' 2>/dev/null \
+              | jq -r --arg key "$1" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
+          }
+          # the commit a tag points at: an annotated tag has a second line, peeled to the commit
+          # (^{}); a lightweight one is the commit
+          tag_commit() {
+            git ls-remote "$1" "refs/tags/$2" "refs/tags/$2^{}" | tail -n 1 | cut -f1
+          }
+          # the latest stable release tag of the series SERIES (v0.N), not of a moving branch, and
+          # not of a newer series: moving to the next one is an edit of SERIES
+          latest_tag() {
+            git ls-remote --tags --refs "$YOSYS_UPSTREAM" "v${SERIES}.*" | sed 's|.*refs/tags/||' \
+              | grep -E "^v${SERIES}\.[0-9]+$" | sort -V | tail -n 1
+          }
+
+          force="$INPUT_FORCE"
+          commit="${INPUT_COMMIT:-}"
+          sby="${INPUT_SBY:-}"
+          if [ -z "$commit" ] && [ -z "$sby" ] && [ "$EVENT" = "push" ]; then
+            # The recipe changed: rebuild what latest already holds.
+            commit=$(label yosys.commit)
+            sby=$(label sby.commit)
+            force=true
+          fi
+          tag=""
+          if [ -z "$commit" ] || [ -z "$sby" ]; then
+            tag=$(latest_tag)
+            if [ -z "$tag" ]; then
+              echo "::error::no release tag of the series ${SERIES} in $YOSYS_UPSTREAM"
+              exit 1
+            fi
+          fi
+          [ -n "$commit" ] || commit=$(tag_commit "$YOSYS_UPSTREAM" "$tag")
+          # sby is released with the same version as Yosys
+          [ -n "$sby" ] || sby=$(tag_commit "$SBY_UPSTREAM" "$tag")
+          for c in "$commit" "$sby"; do
+            if ! printf '%s' "$c" | grep -Eq '^[0-9a-f]{40}$'; then
+              echo "::error::not a full commit hash: '$c' (is there a $tag tag in both repositories?)"
+              exit 1
+            fi
+          done
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "sby=$sby" >> "$GITHUB_OUTPUT"
+
+          if [ "$force" != "true" ] && docker buildx imagetools inspect "$IMAGE:$commit-$sby" > /dev/null 2>&1; then
+            echo "::notice::$IMAGE:$commit-$sby already exists; nothing to build (run again with force to rebuild)."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Building yosys $commit and sby $sby."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  image:
+    # linux/amd64 and linux/arm64, each built on a runner of its own architecture, then one
+    # manifest (build-image.yml).
+    needs: pin
+    if: needs.pin.outputs.build == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/infra-yosys
+      dockerfile: Dockerfile.yosys
+      title: Yosys and SymbiYosys
+      description: Yosys, the open synthesis framework, and SymbiYosys (sby), its formal verification front-end, built from source. Only the install directory, /opt/yosys.
+      timeout-minutes: 120
+      build-args: |
+        YOSYS_COMMIT=${{ needs.pin.outputs.commit }}
+        SBY_COMMIT=${{ needs.pin.outputs.sby }}
+      labels: |
+        yosys.commit=${{ needs.pin.outputs.commit }}
+        sby.commit=${{ needs.pin.outputs.sby }}
+      tags: |
+        ${{ needs.pin.outputs.commit }}-${{ needs.pin.outputs.sby }}
+        latest
