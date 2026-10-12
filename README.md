@@ -18,10 +18,11 @@ GitHub Actions, ferramentas compartilhadas), feita para distros Debian-like
   e `dnf`/`yum`.
 - [GCC_SETUP.md](docs/pt-br/GCC_SETUP.md): compilar o GCC RISC-V a partir do
   código-fonte no mesmo cache compartilhado, em distros `apt` e `dnf`/`yum`.
-- [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md): imagens Docker do GCC
-  RISC-V (picolibc), do Spike e uma completa com GHDL, GCC, Spike e `uv`,
-  construídas e publicadas pelo CI, para quem não quer instalar isso numa
-  máquina.
+- [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md): imagens Docker,
+  construídas e publicadas pelo CI, de cada componente (GHDL, GCC RISC-V com
+  picolibc, Spike, e Yosys com SymbiYosys) e uma completa com eles mais `uv`,
+  Python e cocotb, para quem não quer instalar isso numa máquina. Mostra
+  também como usar o Quartus do host dentro da imagem.
 - [DEVTOOLS_IMAGE.md](docs/pt-br/DEVTOOLS_IMAGE.md): `dev_tools`, a imagem do
   toolchain mais o usuário `dev`, o Python, o GTKWave (Wayland nativo) e as
   ferramentas de compilação, para um Dev Container.
@@ -33,8 +34,11 @@ workstation nova é:
 
 1. [QUARTUS_INSTALL.md](docs/pt-br/QUARTUS_INSTALL.md)
 2. [RUNNER_SETUP.md](docs/pt-br/RUNNER_SETUP.md)
-3. [GCC_SETUP.md](docs/pt-br/GCC_SETUP.md)
-4. [SPIKE_SETUP.md](docs/pt-br/SPIKE_SETUP.md)
+3. [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md): o GCC, o Spike, o GHDL, o
+   Yosys e o resto vêm na imagem, com o Docker como único requisito.
+
+[GCC_SETUP.md](docs/pt-br/GCC_SETUP.md) e [SPIKE_SETUP.md](docs/pt-br/SPIKE_SETUP.md)
+servem só para compilar essas ferramentas na própria máquina, fora da imagem.
 
 ## Escopo
 
@@ -55,6 +59,22 @@ workstation nova é:
 
 Esses docs juntos são a base da qual `RV32`, `Tests` e `Tools` dependem
 para funcionar como pretendido.
+
+## Como as imagens se mantêm atualizadas
+
+Cada componente tem uma imagem própria, com um workflow que segue a release
+mais recente de uma série fixa (ou, no Spike, o commit mais recente cujo CI
+próprio está verde), e a imagem de toolchain os monta quando um deles muda. Os
+detalhes e os comandos estão em [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md).
+
+| Componente | Segue | Atualizado por |
+| :--- | :--- | :--- |
+| GHDL | o `6.x.y` mais recente | `GHDL image` |
+| GCC RISC-V | o HEAD do `riscv-gnu-toolchain`, construído do segundo estágio contra a picolibc compilada | `GCC image` |
+| picolibc | o `1.x.y` mais recente, compilada pelo GCC publicado antes dela | `Picolibc image`, que faz a imagem do GCC ser construída de novo |
+| Spike | o commit mais recente da `master` em que o CI dele passou (não tem release recente) | `Spike image` |
+| Yosys e SymbiYosys | a `v0.N` mais recente, lançadas em passo | `Yosys image` |
+| `uv` | o `0.x.y` mais recente | `Toolchain image`, rodado à mão |
 
 ## O que as imagens contêm
 

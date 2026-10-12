@@ -18,10 +18,11 @@ RHEL-like (`dnf`/`yum`) distros.
   `dnf`/`yum` distros.
 - [GCC_SETUP.md](docs/en/GCC_SETUP.md): build the RISC-V GCC from source
   into the same shared cache, on `apt` and `dnf`/`yum` distros.
-- [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md): Docker images of the
-  RISC-V GCC (picolibc), of Spike and a complete one with GHDL, the GCC, Spike
-  and `uv`, built and published by CI, for anyone who does not want to install
-  them on a machine.
+- [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md): Docker images, built and
+  published by CI, of each component (GHDL, the RISC-V GCC with picolibc, Spike,
+  and Yosys with SymbiYosys) and a complete one with them plus `uv`, Python and
+  cocotb, for anyone who does not want to install them on a machine. It also
+  shows how to run the Quartus of the host inside the image.
 - [DEVTOOLS_IMAGE.md](docs/en/DEVTOOLS_IMAGE.md): `dev_tools`, the toolchain
   image plus the user `dev`, Python, GTKWave (native Wayland) and the build tools, for a Dev
   Container.
@@ -33,8 +34,11 @@ new workstation is:
 
 1. [QUARTUS_INSTALL.md](docs/en/QUARTUS_INSTALL.md)
 2. [RUNNER_SETUP.md](docs/en/RUNNER_SETUP.md)
-3. [GCC_SETUP.md](docs/en/GCC_SETUP.md)
-4. [SPIKE_SETUP.md](docs/en/SPIKE_SETUP.md)
+3. [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md): the GCC, Spike, GHDL, Yosys
+   and the rest come in the image, with Docker as the only requirement.
+
+[GCC_SETUP.md](docs/en/GCC_SETUP.md) and [SPIKE_SETUP.md](docs/en/SPIKE_SETUP.md)
+are only for compiling those tools on the machine itself, outside the image.
 
 ## Scope
 
@@ -55,6 +59,22 @@ new workstation is:
 
 Together, these docs are the foundation that `RV32`, `Tests` and
 `Tools` depend on to work as intended.
+
+## How the images stay up to date
+
+Each component has an image of its own, with a workflow that follows the latest
+release of a fixed series (or, for Spike, the latest commit whose own CI is
+green), and the toolchain image assembles them when one changes. The details
+and the commands are in [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md).
+
+| Component | Follows | Updated by |
+| :--- | :--- | :--- |
+| GHDL | the latest `6.x.y` | `GHDL image` |
+| RISC-V GCC | the head of `riscv-gnu-toolchain`, built from the second stage against the compiled picolibc | `GCC image` |
+| picolibc | the latest `1.x.y`, compiled by the GCC published before it | `Picolibc image`, which makes the GCC image build again |
+| Spike | the latest commit of its `master` on which its CI passed (it has no recent release) | `Spike image` |
+| Yosys and SymbiYosys | the latest `v0.N`, released in step | `Yosys image` |
+| `uv` | the latest `0.x.y` | `Toolchain image`, run by hand |
 
 ## What the images contain
 
