@@ -73,7 +73,7 @@ Both are published for `linux/amd64` and `linux/arm64`, with the same versions o
 | RISC-V GCC (`rv32im`, `ilp32`: no CSR, no F or D) | 16.1.0 (`riscv-gnu-toolchain` commit `d118e53`) |
 | picolibc (C library of the RISC-V GCC, one variant for the same `rv32im`: no CSR, floating point in software) | 1.8.11 |
 | Spike | 1.1.1-dev (`riscv-isa-sim` commit `fdc1ffa`, debug module at `0x70000000`) |
-| `uv` | 0.12.23 |
+| `uv` | 0.13.0 |
 | Python | 3.14.8 |
 | cocotb | 2.1.0 |
 | `gcc` and `g++` (host) | 15.2.0 |

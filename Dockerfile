@@ -14,7 +14,7 @@
 #   docker run --rm -it -v "$PWD:/workspace" infra-toolchain
 
 ARG BASE_IMAGE=ubuntu:26.04
-ARG UV_VERSION=0.12.23
+ARG UV_VERSION=0.13.0
 # Python 3.14 is the version the projects require (>=3.14,<3.15), and cocotb 2.1.0 is the first
 # release that supports it: cocotb is what fixes the Python version, so a newer Python waits for a
 # cocotb that supports it. Every project simulates with cocotb, so both are in the image; the

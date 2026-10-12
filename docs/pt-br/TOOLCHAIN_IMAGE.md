@@ -161,7 +161,7 @@ Tudo é fixado por nós, exceto os pacotes do próprio Ubuntu. O workflow que at
 | GCC RISC-V | 16.1.0, commit `d118e53` | compilado do fonte com a nossa configuração da picolibc (`rv32im`, `ilp32`, uma variante, sem CSR, sem ponto flutuante em hardware); segue o HEAD do `riscv-gnu-toolchain`, porque as releases dele são um instantâneo noturno do HEAD, e não um ponto estável |
 | picolibc | 1.8.11 | a versão que o commit do `riscv-gnu-toolchain` traz; compilada para o mesmo `rv32im` do GCC, então não tem código de CSR e faz ponto flutuante em software |
 | Spike | commit `fdc1ffa` | o HEAD do `riscv-isa-sim`, porque a última release (`v1.1.0`) é de 2021; o módulo de debug dele é movido do endereço `0x0` para `0x70000000`, para não se sobrepor à boot ROM |
-| `uv` | 0.12.23 | a última release estável da série 0 (`UV_SERIES`); instala o Python e as dependências de cada projeto, e substitui o `pip` e os ambientes virtuais |
+| `uv` | 0.13.0 | a última release estável da série 0 (`UV_SERIES`); instala o Python e as dependências de cada projeto, e substitui o `pip` e os ambientes virtuais |
 | Python | 3.14.8 | a versão que os projetos exigem (`>=3.14,<3.15`); o patch é o mais recente que o `uv` conhece |
 | cocotb | 2.1.0 | a primeira release que suporta o Python 3.14 e a mais recente; todo projeto simula com ele, então está na imagem, e ele fixa a versão do Python: um Python mais novo espera um cocotb que o suporte. No `arm64` não há wheel e ele é compilado, por isso o `g++` |
 | GTKWave (`dev_tools`) | 3.3.116 | a última release estável da série 3 (`SERIES`); a linha 4.0.0 é pré-alfa e sem release. Compilado da árvore GTK 3, que tem backend Wayland |

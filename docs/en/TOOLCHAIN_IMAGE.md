@@ -161,7 +161,7 @@ Everything is fixed by us except the packages of Ubuntu itself. The workflow tha
 | RISC-V GCC | 16.1.0, commit `d118e53` | built from source with our own picolibc configuration (`rv32im`, `ilp32`, one variant, no CSR, no floating point hardware); follows the head of `riscv-gnu-toolchain`, because its releases are a nightly snapshot of the head, not a stable point |
 | picolibc | 1.8.11 | the version the `riscv-gnu-toolchain` commit carries; compiled for the same `rv32im` as the GCC, so it has no CSR code and does floating point in software |
 | Spike | commit `fdc1ffa` | the head of `riscv-isa-sim`, because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
-| `uv` | 0.12.23 | the latest stable release of series 0 (`UV_SERIES`); it installs Python and the dependencies of each project, and replaces `pip` and virtual environments |
+| `uv` | 0.13.0 | the latest stable release of series 0 (`UV_SERIES`); it installs Python and the dependencies of each project, and replaces `pip` and virtual environments |
 | Python | 3.14.8 | the version the projects require (`>=3.14,<3.15`); the patch is the latest one the `uv` knows |
 | cocotb | 2.1.0 | the first release that supports Python 3.14 and the latest; every project simulates with it, so it is in the image, and it fixes the Python version: a newer Python waits for a cocotb that supports it. On `arm64` it has no wheel and is compiled, hence `g++` |
 | GTKWave (`dev_tools`) | 3.3.116 | the latest stable release of series 3 (`SERIES`); the 4.0.0 line is a pre-alpha with no release. Built from the GTK 3 tree, which has a Wayland backend |
