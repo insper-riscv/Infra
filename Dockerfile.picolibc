@@ -1,0 +1,97 @@
+# syntax=docker/dockerfile:1
+#
+# picolibc for the RISC-V GCC of Dockerfile.gcc (rv32im/ilp32, one library variant), alone. The
+# published image holds just the files picolibc installs into the sysroot of that GCC, and
+# Dockerfile.gcc starts from them: it installs them before the second stage of the GCC build, so
+# the GCC is built against this picolibc without compiling a first compiler for it.
+#
+# picolibc is compiled by the cross compiler, so the image is built from a GCC image (the one
+# published before the GCC that will be built from this picolibc) and carries the commit of that
+# GCC. The recipe is the one riscv-gnu-toolchain runs for picolibc (meson, a cross file, minimum
+# size, installed into the sysroot).
+#
+# The commit of picolibc to build has no default:
+#
+#   docker build -f Dockerfile.picolibc -t infra-picolibc \
+#     --build-arg PICOLIBC_COMMIT="$(git ls-remote https://github.com/picolibc/picolibc 'refs/tags/1.8.12^{}' | cut -f1)" .
+
+ARG BASE_IMAGE=ubuntu:26.04
+ARG GCC_IMAGE=ghcr.io/insper-riscv/infra-gcc:latest
+
+FROM ${GCC_IMAGE} AS gcc
+
+FROM ${BASE_IMAGE} AS build
+ARG PICOLIBC_COMMIT
+
+RUN test -n "${PICOLIBC_COMMIT}" \
+ || { echo "pass --build-arg PICOLIBC_COMMIT=<commit>"; exit 1; }
+
+# meson and ninja build picolibc; a host C compiler is what meson looks for even in a cross
+# build; libmpc3 and libmpfr6 are what cc1 of the RISC-V GCC links against.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates git python3 meson ninja-build build-essential libmpc3 libmpfr6 \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=gcc /opt/riscv-foundation/riscv32-elf /opt/riscv-foundation/riscv32-elf
+
+RUN git init /src \
+ && git -C /src fetch --depth 1 https://github.com/picolibc/picolibc "${PICOLIBC_COMMIT}" \
+ && git -C /src checkout FETCH_HEAD
+
+# The cross file and the options of riscv-gnu-toolchain's picolibc rule: the code model of the GCC
+# (medlow), picolibc's own -msave-restore and -fno-common, minimum size, and a sysroot install
+# into riscv32-unknown-elf. DESTDIR keeps the result apart from the GCC's files.
+RUN set -e; \
+    prefix=/opt/riscv-foundation/riscv32-elf; tuple=riscv32-unknown-elf; tool=$prefix/bin/$tuple; \
+    mkdir /build; \
+    { \
+      echo "[binaries]"; \
+      echo "c = ['$tool-gcc', '-nostdlib']"; \
+      echo "cpp = ['$tool-g++', '-nostdlib']"; \
+      echo "ar = '$tool-ar'"; \
+      echo "as = '$tool-as'"; \
+      echo "nm = '$tool-nm'"; \
+      echo "strip = '$tool-strip'"; \
+      echo "[host_machine]"; \
+      echo "system = 'unknown'"; \
+      echo "cpu_family = 'riscv32'"; \
+      echo "cpu = 'riscv32'"; \
+      echo "endian = 'little'"; \
+      echo "[properties]"; \
+      echo "c_args = ['-msave-restore', '-fno-common', '-mcmodel=medlow']"; \
+      echo "cpp_args = ['-msave-restore', '-fno-common', '-mcmodel=medlow']"; \
+      echo "skip_sanity_check = true"; \
+    } > /build/cross.txt; \
+    meson setup /build/out /src \
+      --cross-file /build/cross.txt \
+      --buildtype=minsize \
+      --prefix=$prefix/$tuple \
+      -Dincludedir=include \
+      -Dlibdir=lib \
+      -Dsysroot-install=true \
+      -Dsystem-libc=true \
+      -Dtests=false; \
+    DESTDIR=/out ninja -C /build/out install; \
+    echo "${PICOLIBC_COMMIT}" > /out$prefix/.picolibc.tag
+
+# Fail the build, before anything is published, if the GCC cannot use what was built: a program
+# links against it with picolibc.specs and the library reports the version that was asked for.
+RUN set -e; d="$(mktemp -d)"; cd "$d"; \
+    cp -r /out/opt/riscv-foundation/riscv32-elf/. /opt/riscv-foundation/riscv32-elf/; \
+    export PATH=/opt/riscv-foundation/riscv32-elf/bin:$PATH; \
+    printf '%s\n' '#include <picolibc.h>' '#include <stdio.h>' \
+      'int main(void) { printf("%s\n", __PICOLIBC_VERSION__); return 0; }' > t.c; \
+    riscv32-unknown-elf-gcc -march=rv32im -mabi=ilp32 --specs=picolibc.specs -T/dev/null -c t.c -o t.o; \
+    riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; \
+    test "$(riscv32-unknown-elf-gcc -print-multi-lib)" = ".;"; \
+    grep -h "__PICOLIBC_VERSION__" /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h | head -n 1; \
+    cd /; rm -rf "$d"
+
+
+FROM scratch
+ARG PICOLIBC_COMMIT
+ARG GCC_COMMIT
+LABEL picolibc.commit="${PICOLIBC_COMMIT}"
+LABEL riscv-gnu-toolchain.commit="${GCC_COMMIT}"
+COPY --from=build /out/opt/riscv-foundation/riscv32-elf /opt/riscv-foundation/riscv32-elf
