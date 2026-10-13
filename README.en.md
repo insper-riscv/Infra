@@ -5,7 +5,9 @@
 Documentation of the requirements and of how to install and configure the
 organization's infrastructure (workstations with FPGA hardware, self-hosted
 GitHub Actions runners, shared tooling), made for Debian-like (`apt`) and
-RHEL-like (`dnf`/`yum`) distros.
+RHEL-like (`dnf`/`yum`) distros. The software tools (GHDL, the RISC-V GCC with
+picolibc, Spike, Yosys) can also come from Docker images, with Docker as the
+only requirement on the machine.
 
 ## Docs
 
@@ -16,15 +18,18 @@ RHEL-like (`dnf`/`yum`) distros.
 - [SPIKE_SETUP.md](docs/en/SPIKE_SETUP.md): install `uv` globally and build
   the RISC-V reference simulator into the shared cache, on `apt` and
   `dnf`/`yum` distros.
-- [GCC_SETUP.md](docs/en/GCC_SETUP.md): build the RISC-V GCC from source
-  into the same shared cache, on `apt` and `dnf`/`yum` distros.
-- [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md): Docker images, built and
-  published by CI, of each component (GHDL, the RISC-V GCC with picolibc, Spike,
-  and Yosys with SymbiYosys) and a complete one with them plus `uv`, Python and
-  cocotb, for anyone who does not want to install them on a machine. It also
-  shows how to run the Quartus of the host inside the image.
+- [GCC_SETUP.md](docs/en/GCC_SETUP.md): build the RISC-V GCC and its C
+  library, picolibc, from source into the same shared cache, on `apt` and
+  `dnf`/`yum` distros.
+- [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md): the Docker option, for
+  anyone who does not want to install the tools on a machine (Docker is all
+  that is needed). CI builds and publishes one image for each component (GHDL,
+  the RISC-V GCC with picolibc, Spike, and Yosys with SymbiYosys) and a
+  complete image, `infra-toolchain`, that brings all of those components
+  together and adds `uv`, Python and cocotb. It also shows how to run the
+  Quartus of the host inside the image.
 - [DEVTOOLS_IMAGE.md](docs/en/DEVTOOLS_IMAGE.md): `dev_tools`, the toolchain
-  image plus the user `dev`, Python, GTKWave (native Wayland) and the build tools, for a Dev
+  image plus the user `dev`, GTKWave (native Wayland) and the build tools, for a Dev
   Container.
 
 ## Suggested order

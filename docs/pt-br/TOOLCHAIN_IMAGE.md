@@ -197,6 +197,8 @@ Para configurar, no repositório: **Settings → Secrets and variables → Actio
 
 ## 7. Verificar
 
+Cada build da imagem completa imprime uma linha por componente com a versão e o commit (`ghdl`, `gcc` com o commit do `riscv-gnu-toolchain`, `picolibc`, `spike`, `yosys`, `sby`, `uv`, Python e cocotb), então o log do build já mostra o que entrou. O workflow também falha antes de publicar se o commit que um componente deixou na imagem (o arquivo `.tag` dele) não for o que foi fixado para ele.
+
 ```bash
 docker run --rm infra-toolchain riscv32-unknown-elf-gcc --version
 docker run --rm infra-toolchain riscv32-unknown-elf-gcc -print-multi-lib

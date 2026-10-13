@@ -1,7 +1,7 @@
 name: Dev tools image
 
 # Builds the development environment image (Dockerfile.devtools: the complete toolchain image plus
-# GTKWave, Python from uv, the user dev and the build tools) for linux/amd64 and linux/arm64 and
+# GTKWave, the user dev and the build tools; Python comes from the toolchain image) for linux/amd64 and linux/arm64 and
 # publishes it as dev_tools, tagged latest and with the Infra commit. It runs when the Toolchain
 # image or the GTKWave image workflow finishes (a new toolchain or a new GTKWave means a new
 # image), every day at 03:30 UTC (after both are looked up, as a check that the image follows the

@@ -227,6 +227,16 @@ jobs:
         sha-${{ github.sha }}
         ${{ needs.pin.outputs.short }}
       check: |
+        # what is inside the image is what the workflow pinned: the commit each component left in its
+        # install directory against the commit the labels and tags of this image say
+        expect() { if [ "$2" = "$3" ]; then echo "ok    $1 $3"; else echo "WRONG $1: expected $2, found $3"; exit 1; fi; }
+        expect ghdl     "${{ needs.pin.outputs.ghdl }}"                 "$(cat /opt/ghdl/.tag)"
+        expect gcc      "${{ needs.pin.outputs.gcc }}"                  "$(cat /opt/riscv-foundation/riscv32-elf/.tag)"
+        expect picolibc "${{ needs.pin.outputs.picolibc }}"             "$(cat /opt/riscv-foundation/riscv32-elf/.picolibc.tag)"
+        expect spike    "${{ needs.pin.outputs.spike }}-debug-start"    "$(cat /opt/riscv-foundation/spike/.tag)"
+        expect yosys    "${{ needs.pin.outputs.yosys }}"                "$(cat /opt/yosys/.tag)"
+        expect sby      "${{ needs.pin.outputs.sby }}"                  "$(cat /opt/yosys/.sby.tag)"
+        expect uv       "${{ needs.pin.outputs.uv }}"                   "$(uv --version | cut -d' ' -f2)"
         ghdl --version | head -n 1
         riscv32-unknown-elf-gcc --version | head -n 1
         riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null

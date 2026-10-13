@@ -197,6 +197,8 @@ To set it up, in the repository: **Settings → Secrets and variables → Action
 
 ## 7. Verify
 
+Each build of the complete image prints one line per component with its version and commit (`ghdl`, `gcc` with the `riscv-gnu-toolchain` commit, `picolibc`, `spike`, `yosys`, `sby`, `uv`, Python and cocotb), so the build log already shows what went in. The workflow also fails before publishing if the commit a component left in the image (its `.tag` file) is not the one pinned for it.
+
 ```bash
 docker run --rm infra-toolchain riscv32-unknown-elf-gcc --version
 docker run --rm infra-toolchain riscv32-unknown-elf-gcc -print-multi-lib
