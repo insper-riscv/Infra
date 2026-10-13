@@ -91,18 +91,19 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
       'architecture a of t is signal s : std_logic := '"'"'1'"'"'; begin' \
       '  process begin assert s = '"'"'1'"'"' severity failure; report "ghdl ok"; wait; end process;' \
       'end;' > t.vhd; \
-    ghdl --version | head -n 1; \
+    echo "ghdl      $(ghdl --version | head -n 1) (commit $(cat /opt/ghdl/.tag))"; \
     ghdl -a --std=08 t.vhd; \
     ghdl --elab-run --std=08 t; \
-    riscv32-unknown-elf-gcc --version | head -n 1; \
+    echo "gcc       $(riscv32-unknown-elf-gcc --version | head -n 1) (riscv-gnu-toolchain $(cat /opt/riscv-foundation/riscv32-elf/.tag))"; \
     riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; \
-    grep -h '__PICOLIBC_VERSION__' /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h | head -n 1; \
+    echo "picolibc  $(sed -n 's/.*__PICOLIBC_VERSION__ "\(.*\)"/\1/p' /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h) (commit $(cat /opt/riscv-foundation/riscv32-elf/.picolibc.tag))"; \
     test "$(riscv32-unknown-elf-gcc -print-multi-lib)" = ".;"; \
-    spike --help 2>&1 | head -n 1 || true; \
-    gcc --version | head -n 1; \
-    uv --version; \
-    python3 -c "import sys, cocotb; assert sys.version_info[:2] == (3, 14); print('python', sys.version.split()[0], 'cocotb', cocotb.__version__)"; \
-    yosys -V; \
+    test -s /opt/riscv-foundation/spike/.tag; \
+    echo "spike     $(spike --help 2>&1 | head -n 1) (commit $(sed 's/-debug-start$//' /opt/riscv-foundation/spike/.tag))"; \
+    echo "yosys     $(yosys -V) (commit $(cat /opt/yosys/.tag))"; \
+    echo "uv        $(uv --version)"; \
+    python3 -c "import sys, cocotb; assert sys.version_info[:2] == (3, 14); print('python   ', sys.version.split()[0], 'cocotb', cocotb.__version__)"; \
+    echo "gcc host  $(gcc --version | head -n 1)"; \
     printf '%s\n' \
       'module t (input clk);' \
       '  reg [1:0] c = 0;' \
@@ -112,7 +113,7 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     printf '%s\n' '[options]' 'mode prove' 'depth 5' '[engines]' 'smtbmc z3' \
       '[script]' 'read_verilog -formal -sv f.sv' 'prep -top t' '[files]' 'f.sv' > f.sby; \
     sby -f f.sby > sby.log 2>&1 || { cat sby.log; exit 1; }; \
-    tail -n 1 sby.log; \
+    echo "sby       $(sby --version 2>&1 | head -n 1) (commit $(cat /opt/yosys/.sby.tag)); proof: $(tail -n 1 sby.log)"; \
     cd /; rm -rf "$d"
 
 WORKDIR /workspace

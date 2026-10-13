@@ -1,0 +1,113 @@
+name: Recipe changed
+
+# An image is built when a version changes (a new release of a component, a new commit of Spike's
+# green CI), not when its Dockerfile or workflow changes: a change of the recipe that is not a new
+# version would otherwise rebuild, for nothing, images that take most of an hour. So the merge of a
+# recipe change to main builds nothing, and this workflow says which images the change affects and
+# that a run by hand is needed to rebuild them: it writes a warning on the run, the table of the
+# images and the command in the summary, and a comment on the commit.
+#
+# It has no effect on the images; a change in docs or in this repository's other files is ignored.
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - Dockerfile.*
+      - .github/workflows/*-image.yml
+      - .github/scripts/spike-green-commit.sh
+
+permissions:
+  contents: write
+
+jobs:
+  warn:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 2
+
+      - name: Which images the change affects
+        id: affected
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          # file -> workflow that builds the image (the name in Actions)
+          declare -A image=(
+            [Dockerfile]="Toolchain image"
+            [Dockerfile.ghdl]="GHDL image"           [.github/workflows/ghdl-image.yml]="GHDL image"
+            [Dockerfile.gcc]="GCC image"             [.github/workflows/gcc-image.yml]="GCC image"
+            [Dockerfile.picolibc]="Picolibc image"   [.github/workflows/picolibc-image.yml]="Picolibc image"
+            [Dockerfile.spike]="Spike image"         [.github/workflows/spike-image.yml]="Spike image"
+            [.github/scripts/spike-green-commit.sh]="Spike image"
+            [Dockerfile.yosys]="Yosys image"         [.github/workflows/yosys-image.yml]="Yosys image"
+            [Dockerfile.gtkwave]="GTKWave image"     [.github/workflows/gtkwave-image.yml]="GTKWave image"
+            [.github/workflows/toolchain-image.yml]="Toolchain image"
+            [Dockerfile.devtools]="Dev tools image"  [.github/workflows/devtools-image.yml]="Dev tools image"
+          )
+          # the files of the push (a new branch has no "before": take the commit alone)
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            files=$(git diff-tree --no-commit-id --name-only -r "$AFTER")
+          else
+            files=$(git diff --name-only "$BEFORE" "$AFTER")
+          fi
+
+          declare -A seen=(); rows=""
+          all=false
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            if [ "$f" = ".github/workflows/build-image.yml" ]; then all=true; continue; fi
+            w="${image[$f]:-}"
+            [ -n "$w" ] || continue
+            [ -z "${seen[$w]:-}" ] || continue
+            seen[$w]=1; rows+="| $w | \`$f\` |"$'\n'
+          done <<< "$files"
+          if [ "$all" = true ]; then
+            for w in "GHDL image" "GCC image" "Picolibc image" "Spike image" "Yosys image" "GTKWave image" "Toolchain image" "Dev tools image"; do
+              [ -z "${seen[$w]:-}" ] || continue
+              seen[$w]=1; rows+="| $w | \`.github/workflows/build-image.yml\` (shared by every image) |"$'\n'
+            done
+          fi
+
+          if [ -z "$rows" ]; then
+            echo "no image recipe in this push"
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "any=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "rows<<EOF"
+            printf '%s' "$rows"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          names=$(printf '%s' "$rows" | cut -d'|' -f2 | sed 's/^ *//; s/ *$//' | paste -sd, - | sed 's/,/, /g')
+          echo "names=$names" >> "$GITHUB_OUTPUT"
+
+      - name: Warn that a run by hand is needed
+        if: steps.affected.outputs.any == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ROWS: ${{ steps.affected.outputs.rows }}
+          NAMES: ${{ steps.affected.outputs.names }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "::warning title=Image recipe changed::$NAMES: the recipe changed and nothing was rebuilt. Run the workflow by hand (Actions, Run workflow, force on) to rebuild the image with it."
+          body=$(cat <<EOT
+          **The recipe of an image changed in this commit, and no image was rebuilt.**
+
+          Images are built when a version changes (a new release, a new commit of Spike's green CI), not when a Dockerfile or a workflow changes, so a recipe change builds nothing by itself. To publish an image with the new recipe, run its workflow by hand (Actions, *Run workflow*) with the confirmation value and \`force\` on:
+
+          | Workflow | Changed file |
+          | :--- | :--- |
+          $ROWS
+
+          The images that follow (the \`Toolchain image\`, then the \`Dev tools image\`) are assembled by themselves when a component finishes.
+          EOT
+          )
+          body=$(printf '%s\n' "$body" | sed 's/^          //')
+          { echo "### Image recipe changed: run by hand"; echo; echo "$body"; } >> "$GITHUB_STEP_SUMMARY"
+          gh api -X POST "repos/$REPO/commits/$SHA/comments" -f body="$body" > /dev/null

@@ -121,17 +121,32 @@ O `Yosys image` tem mais um campo, `sby_commit` (vazio: a tag do `sby` com a mes
 
 O workflow resolve o commit, confere se `infra-gcc:<commit do GCC>-<commit da picolibc>` (ou `infra-spike:<commit>`, ou `infra-picolibc:<commit da picolibc>-<commit do GCC>`, ou `infra-yosys:<commit do Yosys>-<commit do sby>`) já existe e, se existir e `force` estiver desligado, não compila nada. Caso contrário, compila, confere a instalação e publica com as tags `<commit>` e `latest`.
 
-Os workflows de componente também rodam sozinhos num push na `main` que altere o próprio `Dockerfile.ghdl`, `Dockerfile.gcc`, `Dockerfile.picolibc`, `Dockerfile.spike` ou `Dockerfile.yosys`, ou o próprio workflow. Nesse caso não há campo `commit`: eles recompilam o commit que a imagem `latest` já tem (a receita mudou, a versão não) com `force` ligado, e só usam o commit mais recente do upstream quando ainda não há imagem publicada. Por isso o merge que adiciona os `Dockerfile` já publica os componentes pela primeira vez. O `GCC image` também roda quando o `Picolibc image` termina.
+Os workflows de componente também rodam sozinhos, uma vez por dia (UTC), sem nenhum campo a preencher:
+
+| Workflow | Quando | O que olha |
+| :--- | :--- | :--- |
+| `GHDL image` | todo dia, 03:00 | a release `6.x.y` mais recente |
+| `Picolibc image` | todo dia, 03:00 | a release `1.x.y` mais recente |
+| `Yosys image` | todo dia, 03:00 | a release `v0.N` mais recente do Yosys, com o `sby` da mesma versão |
+| `GTKWave image` | todo dia, 03:00 | a release `3.3.x` mais recente |
+| `Spike image` | todo dia, 03:00 | o commit mais recente do upstream com CI verde (pode esperar até 60 minutos por um que esteja rodando) |
+| `GCC image` | todo dia, 03:10 | o HEAD do `riscv-gnu-toolchain` |
+| `Toolchain image` | todo dia, 03:20 | o `uv` mais recente da série 0, e a combinação dos componentes |
+| `Dev tools image` | todo dia, 03:30 | a imagem de toolchain e o GTKWave: constrói só se a combinação dos dois for nova |
+
+Os runs ficam em dois horários: às 03:00 tudo o que não depende de componente nenhum sendo reconstruído (GHDL, GTKWave, Spike e Yosys, e a picolibc, que é compilada pelo GCC já publicado), e dez minutos depois só o GCC, que precisa da picolibc mais recente (um run agendado dele espera se o da picolibc ainda estiver rodando). Um run agendado constrói **só se a imagem dessa versão ainda não existir**; quando nada mudou, termina em segundos com um aviso. O `GCC image` também roda quando o `Picolibc image` termina, e o `Toolchain image` e o `Dev tools image` rodam quando um componente termina, como descrito abaixo.
+
+**Uma mudança num `Dockerfile` ou num workflow não constrói nada.** Uma imagem é construída quando uma versão muda, não quando a receita muda, então uma mudança de receita que não é uma versão nova não reconstrói uma imagem à toa (o GCC e o GHDL levam quase uma hora). O workflow `Recipe changed` roda no merge dessa mudança, escreve um aviso no run e comenta no commit, listando as imagens que a mudança afeta. Para publicá-las com a receita nova, rode à mão o workflow de cada uma com `force` ligado.
 
 Quando um desses workflows termina com sucesso, o `Toolchain image` roda sozinho: lê os commits dos rótulos das três imagens `latest` e monta e publica uma imagem completa nova. Atualizar só o Spike leva alguns minutos, e atualizar o GCC ou o GHDL leva de dezenas de minutos a mais de uma hora.
 
 Cada arquitetura é compilada num runner dela (`ubuntu-26.04` para `linux/amd64` e `ubuntu-24.04-arm` para `linux/arm64`): os builds do GCC e do GHDL levam horas sob emulação. Um job final junta as duas imagens num só manifesto com as tags, e o `docker pull` entrega a cada máquina a sua.
 
-O `uv` é o único componente sem imagem nossa: a imagem completa o copia da imagem oficial `ghcr.io/astral-sh/uv`. Ele segue a mesma regra dos outros, no `Toolchain image`: um run disparado por um push ou pelo fim de um componente mantém o `uv` que a imagem `latest` já tem (o rótulo `uv.version`), e um run manual usa o campo `uv_version`, que vazio significa a última release estável do `astral-sh/uv`. A versão entra também na tag de combinação (`ghdl-<7>-gcc-<7>-spike-<7>-uv-<versão>`). Para atualizar o `uv`, rode o `Toolchain image` à mão com `confirm` e o `uv_version` vazio.
+O `uv` é o único componente sem imagem nossa: a imagem completa o copia da imagem oficial `ghcr.io/astral-sh/uv`. Todo run do `Toolchain image` usa a última release estável da série definida em `UV_SERIES` (`0`), ou o campo `uv_version` de um run manual. A versão entra na tag de combinação (`ghdl-<7>-gcc-<7>-picolibc-<7>-spike-<7>-yosys-<7>-sby-<7>-uv-<versão>`), então um run para uma versão que já está publicada não monta nada, e um `uv` novo é pego pelo primeiro run depois do lançamento: o agendado, ou o que um componente inicia ao terminar.
 
-O `Toolchain image` não espera um componente terminar: se, ao rodar por um push ou pelo fim de outro componente, houver um run de `GHDL image`, `GCC image`, `Picolibc image`, `Spike image` ou `Yosys image` na fila ou em andamento, ele pula com um aviso, e o fim desse run o dispara de novo. O último componente a terminar faz a montagem única. Um run manual do `Toolchain image` nunca adia.
+O `Toolchain image` não espera um componente terminar: se, ao rodar por um agendamento ou pelo fim de outro componente, houver um run de `GHDL image`, `GCC image`, `Picolibc image`, `Spike image` ou `Yosys image` na fila ou em andamento, ele pula com um aviso, e o fim desse run o dispara de novo. O último componente a terminar faz a montagem única. Um run manual do `Toolchain image` nunca adia.
 
-O `Toolchain image` precisa da imagem `latest` de cada componente. Se um push chegar antes de elas existirem, ele termina com um aviso, sem falhar, e roda quando os componentes terminarem. Um run manual dele sem as imagens falha, com uma mensagem que aponta os workflows dos componentes.
+O `Toolchain image` precisa da imagem `latest` de cada componente. Se um run começar antes de elas existirem, ele termina com um aviso, sem falhar, e roda quando os componentes terminarem. Um run manual dele sem as imagens falha, com uma mensagem que aponta os workflows dos componentes.
 
 ## 5. Construindo localmente
 
@@ -181,6 +196,8 @@ A execução manual de qualquer um dos workflows de imagem pede o campo `confirm
 Para configurar, no repositório: **Settings → Secrets and variables → Actions → New repository secret**, com o nome `IMAGE_PUBLISH_SECRET` e como valor qualquer frase (por exemplo `openssl rand -hex 32`).
 
 ## 7. Verificar
+
+Cada build da imagem completa imprime uma linha por componente com a versão e o commit (`ghdl`, `gcc` com o commit do `riscv-gnu-toolchain`, `picolibc`, `spike`, `yosys`, `sby`, `uv`, Python e cocotb), então o log do build já mostra o que entrou. O workflow também falha antes de publicar se o commit que um componente deixou na imagem (o arquivo `.tag` dele) não for o que foi fixado para ele.
 
 ```bash
 docker run --rm infra-toolchain riscv32-unknown-elf-gcc --version

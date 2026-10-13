@@ -5,7 +5,9 @@
 Documentação dos requisitos e de como instalar/configurar a infraestrutura
 da organização (workstations com hardware FPGA, runners self-hosted do
 GitHub Actions, ferramentas compartilhadas), feita para distros Debian-like
-(`apt`) e RHEL-like (`dnf`/`yum`).
+(`apt`) e RHEL-like (`dnf`/`yum`). As ferramentas de software (GHDL, GCC RISC-V
+com picolibc, Spike, Yosys) também podem vir de imagens Docker, com o Docker
+como único requisito na máquina.
 
 ## Docs
 
@@ -16,16 +18,19 @@ GitHub Actions, ferramentas compartilhadas), feita para distros Debian-like
 - [SPIKE_SETUP.md](docs/pt-br/SPIKE_SETUP.md): instalar `uv` globalmente e compilar o
   simulador de referência RISC-V no cache compartilhado, em distros `apt`
   e `dnf`/`yum`.
-- [GCC_SETUP.md](docs/pt-br/GCC_SETUP.md): compilar o GCC RISC-V a partir do
-  código-fonte no mesmo cache compartilhado, em distros `apt` e `dnf`/`yum`.
-- [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md): imagens Docker,
-  construídas e publicadas pelo CI, de cada componente (GHDL, GCC RISC-V com
-  picolibc, Spike, e Yosys com SymbiYosys) e uma completa com eles mais `uv`,
-  Python e cocotb, para quem não quer instalar isso numa máquina. Mostra
-  também como usar o Quartus do host dentro da imagem.
+- [GCC_SETUP.md](docs/pt-br/GCC_SETUP.md): compilar o GCC RISC-V e a sua
+  biblioteca C, a picolibc, a partir do código-fonte no mesmo cache
+  compartilhado, em distros `apt` e `dnf`/`yum`.
+- [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md): a opção Docker, para
+  quem não quer instalar as ferramentas numa máquina (só o Docker é
+  necessário). O CI constrói e publica uma imagem para cada componente (GHDL,
+  GCC RISC-V com picolibc, Spike, e Yosys com SymbiYosys) e uma imagem
+  completa, a `infra-toolchain`, que reúne todos esses componentes e acrescenta
+  `uv`, Python e cocotb. Mostra também como usar o Quartus do host dentro da
+  imagem.
 - [DEVTOOLS_IMAGE.md](docs/pt-br/DEVTOOLS_IMAGE.md): `dev_tools`, a imagem do
-  toolchain mais o usuário `dev`, o Python, o GTKWave (Wayland nativo) e as
-  ferramentas de compilação, para um Dev Container.
+  toolchain mais o usuário `dev`, o GTKWave (Wayland nativo) e as ferramentas
+  de compilação, para um Dev Container.
 
 ## Ordem sugerida
 
@@ -64,8 +69,11 @@ para funcionar como pretendido.
 
 Cada componente tem uma imagem própria, com um workflow que segue a release
 mais recente de uma série fixa (ou, no Spike, o commit mais recente cujo CI
-próprio está verde), e a imagem de toolchain os monta quando um deles muda. Os
-detalhes e os comandos estão em [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md).
+próprio está verde), e a imagem de toolchain os monta quando um deles muda. Cada workflow
+roda uma vez por dia e só constrói quando há uma versão nova;
+uma mudança num `Dockerfile` ou num workflow não constrói nada, e o workflow
+`Recipe changed` comenta no commit dizendo quais imagens precisam de um run à
+mão. Os detalhes e os comandos estão em [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md).
 
 | Componente | Segue | Atualizado por |
 | :--- | :--- | :--- |
@@ -74,7 +82,7 @@ detalhes e os comandos estão em [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE
 | picolibc | o `1.x.y` mais recente, compilada pelo GCC publicado antes dela | `Picolibc image`, que faz a imagem do GCC ser construída de novo |
 | Spike | o commit mais recente da `master` em que o CI dele passou (não tem release recente) | `Spike image` |
 | Yosys e SymbiYosys | a `v0.N` mais recente, lançadas em passo | `Yosys image` |
-| `uv` | o `0.x.y` mais recente | `Toolchain image`, rodado à mão |
+| `uv` | o `0.x.y` mais recente | `Toolchain image` |
 
 ## O que as imagens contêm
 

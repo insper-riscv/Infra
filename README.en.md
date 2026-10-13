@@ -5,7 +5,9 @@
 Documentation of the requirements and of how to install and configure the
 organization's infrastructure (workstations with FPGA hardware, self-hosted
 GitHub Actions runners, shared tooling), made for Debian-like (`apt`) and
-RHEL-like (`dnf`/`yum`) distros.
+RHEL-like (`dnf`/`yum`) distros. The software tools (GHDL, the RISC-V GCC with
+picolibc, Spike, Yosys) can also come from Docker images, with Docker as the
+only requirement on the machine.
 
 ## Docs
 
@@ -16,15 +18,18 @@ RHEL-like (`dnf`/`yum`) distros.
 - [SPIKE_SETUP.md](docs/en/SPIKE_SETUP.md): install `uv` globally and build
   the RISC-V reference simulator into the shared cache, on `apt` and
   `dnf`/`yum` distros.
-- [GCC_SETUP.md](docs/en/GCC_SETUP.md): build the RISC-V GCC from source
-  into the same shared cache, on `apt` and `dnf`/`yum` distros.
-- [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md): Docker images, built and
-  published by CI, of each component (GHDL, the RISC-V GCC with picolibc, Spike,
-  and Yosys with SymbiYosys) and a complete one with them plus `uv`, Python and
-  cocotb, for anyone who does not want to install them on a machine. It also
-  shows how to run the Quartus of the host inside the image.
+- [GCC_SETUP.md](docs/en/GCC_SETUP.md): build the RISC-V GCC and its C
+  library, picolibc, from source into the same shared cache, on `apt` and
+  `dnf`/`yum` distros.
+- [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md): the Docker option, for
+  anyone who does not want to install the tools on a machine (Docker is all
+  that is needed). CI builds and publishes one image for each component (GHDL,
+  the RISC-V GCC with picolibc, Spike, and Yosys with SymbiYosys) and a
+  complete image, `infra-toolchain`, that brings all of those components
+  together and adds `uv`, Python and cocotb. It also shows how to run the
+  Quartus of the host inside the image.
 - [DEVTOOLS_IMAGE.md](docs/en/DEVTOOLS_IMAGE.md): `dev_tools`, the toolchain
-  image plus the user `dev`, Python, GTKWave (native Wayland) and the build tools, for a Dev
+  image plus the user `dev`, GTKWave (native Wayland) and the build tools, for a Dev
   Container.
 
 ## Suggested order
@@ -64,8 +69,11 @@ Together, these docs are the foundation that `RV32`, `Tests` and
 
 Each component has an image of its own, with a workflow that follows the latest
 release of a fixed series (or, for Spike, the latest commit whose own CI is
-green), and the toolchain image assembles them when one changes. The details
-and the commands are in [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md).
+green), and the toolchain image assembles them when one changes. Each workflow
+runs once a day and builds only when there is a new version;
+a change of a `Dockerfile` or of a workflow builds nothing, and the `Recipe changed`
+workflow comments on the commit saying which images need a run by hand. The
+details and the commands are in [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md).
 
 | Component | Follows | Updated by |
 | :--- | :--- | :--- |
@@ -74,7 +82,7 @@ and the commands are in [TOOLCHAIN_IMAGE.md](docs/en/TOOLCHAIN_IMAGE.md).
 | picolibc | the latest `1.x.y`, compiled by the GCC published before it | `Picolibc image`, which makes the GCC image build again |
 | Spike | the latest commit of its `master` on which its CI passed (it has no recent release) | `Spike image` |
 | Yosys and SymbiYosys | the latest `v0.N`, released in step | `Yosys image` |
-| `uv` | the latest `0.x.y` | `Toolchain image`, run by hand |
+| `uv` | the latest `0.x.y` | `Toolchain image` |
 
 ## What the images contain
 

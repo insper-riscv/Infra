@@ -52,11 +52,14 @@ RUN cd /yosys \
  && echo "${YOSYS_COMMIT}" > /opt/yosys/.tag \
  && rm -rf /yosys
 
-# sby is Python: it installs next to Yosys, into the same share/yosys/python3.
+# sby is Python: it installs next to Yosys, into the same share/yosys/python3. Its version string comes
+# from `git describe`, which a clone of one commit cannot answer, so it is given: the highest release tag
+# that points at the commit (two releases can share one), or the short commit when there is none.
 RUN git init /sby \
  && git -C /sby fetch --depth 1 https://github.com/YosysHQ/sby "${SBY_COMMIT}" \
  && git -C /sby checkout FETCH_HEAD \
- && make -C /sby install PREFIX=/opt/yosys \
+ && tag="$(git ls-remote --tags https://github.com/YosysHQ/sby | sed -n "s|^${SBY_COMMIT}[[:space:]]refs/tags/\(.*\)^{}\$|\1|p" | sort -V | tail -n 1)" \
+ && make -C /sby install PREFIX=/opt/yosys YOSYS_RELEASE_VERSION="SBY ${tag:-$(printf %.7s "${SBY_COMMIT}")}" \
  && echo "${SBY_COMMIT}" > /opt/yosys/.sby.tag \
  && rm -rf /sby
 

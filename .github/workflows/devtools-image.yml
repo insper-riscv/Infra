@@ -1,16 +1,15 @@
 name: Dev tools image
 
 # Builds the development environment image (Dockerfile.devtools: the complete toolchain image plus
-# GTKWave, Python from uv, the user dev and the build tools) for linux/amd64 and linux/arm64 and
+# GTKWave, the user dev and the build tools; Python comes from the toolchain image) for linux/amd64 and linux/arm64 and
 # publishes it as dev_tools, tagged latest and with the Infra commit. It runs when the Toolchain
 # image or the GTKWave image workflow finishes (a new toolchain or a new GTKWave means a new
-# image), when Dockerfile.devtools changes on main, and on demand.
+# image), every day at 03:30 UTC (after both are looked up, as a check that the image follows the
+# latest of the two), and on demand. A change of Dockerfile.devtools or of this workflow does not
+# build by itself: the Recipe changed workflow warns about it, and a run by hand rebuilds.
 on:
-  push:
-    branches: [main]
-    paths:
-      - Dockerfile.devtools
-      - .github/workflows/devtools-image.yml
+  schedule:
+    - cron: "30 3 * * *"
   workflow_dispatch:
     inputs:
       confirm:
@@ -49,7 +48,7 @@ jobs:
       - name: Authorize manual run
         # Only applies to workflow_dispatch: repo write access already gates who can trigger this,
         # but on a repo shared with people who shouldn't publish the image, this adds a second
-        # check: only someone who separately knows IMAGE_PUBLISH_SECRET can run it. A push to main
+        # check: only someone who separately knows IMAGE_PUBLISH_SECRET can run it. A workflow_run
         # skips this: branch protection on main is the gate for that path instead, and a
         # workflow_run follows a run that was already authorized.
         if: github.event_name == 'workflow_dispatch'
@@ -89,7 +88,7 @@ jobs:
               echo "::error::could not read the commits from the latest GTKWave and toolchain images; run the GTKWave image and Toolchain image workflows first"
               exit 1
             fi
-            # A push can land before the images exist (the merge that adds this workflow also adds
+            # A run can start before the images exist (the merge that adds this workflow also adds
             # the GTKWave one); their runs trigger this one when they finish.
             echo "::notice::the GTKWave and toolchain images are not both published yet; their runs trigger this workflow when they finish."
             echo "missing=true" >> "$GITHUB_OUTPUT"
@@ -106,9 +105,8 @@ jobs:
         # Nothing to do when an image is not published yet, when a GTKWave or toolchain run is
         # still queued or going (its end triggers this workflow again, so the last one to finish
         # does the single assembly), or when a component workflow that found its image already
-        # published (it still ends successfully) triggered this run for a combination that exists.
-        # A manual run never defers, and otherwise a push always builds: the Dockerfile may have
-        # changed.
+        # published (it still ends successfully) triggered this run, or the schedule did, for a
+        # combination that exists. A manual run never defers and always builds.
         id: skip
         env:
           EVENT: ${{ github.event_name }}
@@ -133,7 +131,7 @@ jobs:
           elif [ "$pending" -gt 0 ]; then
             echo "::notice::a GTKWave image or Toolchain image run is still going; it triggers this workflow when it finishes."
             echo "skip=true" >> "$GITHUB_OUTPUT"
-          elif [ "$EVENT" = "workflow_run" ] && docker buildx imagetools inspect "$IMAGE:$COMBINATION" > /dev/null 2>&1; then
+          elif [ "$EVENT" != "workflow_dispatch" ] && docker buildx imagetools inspect "$IMAGE:$COMBINATION" > /dev/null 2>&1; then
             echo "::notice::$IMAGE:$COMBINATION already exists; nothing to assemble."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
