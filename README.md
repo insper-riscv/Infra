@@ -5,7 +5,9 @@
 Documentação dos requisitos e de como instalar/configurar a infraestrutura
 da organização (workstations com hardware FPGA, runners self-hosted do
 GitHub Actions, ferramentas compartilhadas), feita para distros Debian-like
-(`apt`) e RHEL-like (`dnf`/`yum`).
+(`apt`) e RHEL-like (`dnf`/`yum`). As ferramentas de software (GHDL, GCC RISC-V
+com picolibc, Spike, Yosys) também podem vir de imagens Docker, com o Docker
+como único requisito na máquina.
 
 ## Docs
 
@@ -16,15 +18,19 @@ GitHub Actions, ferramentas compartilhadas), feita para distros Debian-like
 - [SPIKE_SETUP.md](docs/pt-br/SPIKE_SETUP.md): instalar `uv` globalmente e compilar o
   simulador de referência RISC-V no cache compartilhado, em distros `apt`
   e `dnf`/`yum`.
-- [GCC_SETUP.md](docs/pt-br/GCC_SETUP.md): compilar o GCC RISC-V a partir do
-  código-fonte no mesmo cache compartilhado, em distros `apt` e `dnf`/`yum`.
-- [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md): imagens Docker do GCC
-  RISC-V (picolibc), do Spike e uma completa com GHDL, GCC, Spike e `uv`,
-  construídas e publicadas pelo CI, para quem não quer instalar isso numa
-  máquina.
+- [GCC_SETUP.md](docs/pt-br/GCC_SETUP.md): compilar o GCC RISC-V e a sua
+  biblioteca C, a picolibc, a partir do código-fonte no mesmo cache
+  compartilhado, em distros `apt` e `dnf`/`yum`.
+- [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md): a opção Docker, para
+  quem não quer instalar as ferramentas numa máquina (só o Docker é
+  necessário). O CI constrói e publica uma imagem para cada componente (GHDL,
+  GCC RISC-V com picolibc, Spike, e Yosys com SymbiYosys) e uma imagem
+  completa, a `infra-toolchain`, que reúne todos esses componentes e acrescenta
+  `uv`, Python e cocotb. Mostra também como usar o Quartus do host dentro da
+  imagem.
 - [DEVTOOLS_IMAGE.md](docs/pt-br/DEVTOOLS_IMAGE.md): `dev_tools`, a imagem do
-  toolchain mais o usuário `dev`, o Python, o GTKWave (Wayland nativo) e as
-  ferramentas de compilação, para um Dev Container.
+  toolchain mais o usuário `dev`, o GTKWave (Wayland nativo) e as ferramentas
+  de compilação, para um Dev Container.
 
 ## Ordem sugerida
 
@@ -33,8 +39,11 @@ workstation nova é:
 
 1. [QUARTUS_INSTALL.md](docs/pt-br/QUARTUS_INSTALL.md)
 2. [RUNNER_SETUP.md](docs/pt-br/RUNNER_SETUP.md)
-3. [GCC_SETUP.md](docs/pt-br/GCC_SETUP.md)
-4. [SPIKE_SETUP.md](docs/pt-br/SPIKE_SETUP.md)
+3. [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md): o GCC, o Spike, o GHDL, o
+   Yosys e o resto vêm na imagem, com o Docker como único requisito.
+
+[GCC_SETUP.md](docs/pt-br/GCC_SETUP.md) e [SPIKE_SETUP.md](docs/pt-br/SPIKE_SETUP.md)
+servem só para compilar essas ferramentas na própria máquina, fora da imagem.
 
 ## Escopo
 
@@ -56,6 +65,25 @@ workstation nova é:
 Esses docs juntos são a base da qual `RV32`, `Tests` e `Tools` dependem
 para funcionar como pretendido.
 
+## Como as imagens se mantêm atualizadas
+
+Cada componente tem uma imagem própria, com um workflow que segue a release
+mais recente de uma série fixa (ou, no Spike, o commit mais recente cujo CI
+próprio está verde), e a imagem de toolchain os monta quando um deles muda. Cada workflow
+roda uma vez por dia e só constrói quando há uma versão nova;
+uma mudança num `Dockerfile` ou num workflow não constrói nada, e o workflow
+`Recipe changed` comenta no commit dizendo quais imagens precisam de um run à
+mão. Os detalhes e os comandos estão em [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md).
+
+| Componente | Segue | Atualizado por |
+| :--- | :--- | :--- |
+| GHDL | o `6.x.y` mais recente | `GHDL image` |
+| GCC RISC-V | o HEAD do `riscv-gnu-toolchain`, construído do segundo estágio contra a picolibc compilada | `GCC image` |
+| picolibc | o `1.x.y` mais recente, compilada pelo GCC publicado antes dela | `Picolibc image`, que faz a imagem do GCC ser construída de novo |
+| Spike | o commit mais recente da `master` em que o CI dele passou (não tem release recente) | `Spike image` |
+| Yosys e SymbiYosys | a `v0.N` mais recente, lançadas em passo | `Yosys image` |
+| `uv` | o `0.x.y` mais recente | `Toolchain image` |
+
 ## O que as imagens contêm
 
 As duas são publicadas para `linux/amd64` e `linux/arm64`, com as mesmas versões em cada uma, e a
@@ -73,7 +101,7 @@ está no [TOOLCHAIN_IMAGE.md](docs/pt-br/TOOLCHAIN_IMAGE.md) e no
 | LLVM (`libllvm21`, biblioteca em que o backend do GHDL roda) | 21.1.8 | o gerador de código com que o GHDL é ligado |
 | GCC RISC-V (`rv32im`, `ilp32`: sem CSR, sem F nem D) | 16.1.0 (commit `d118e53` do `riscv-gnu-toolchain`) | compila os programas de teste do core |
 | picolibc (biblioteca C do GCC RISC-V, uma variante para o mesmo `rv32im`: sem CSR, ponto flutuante em software) | 1.8.12 | a biblioteca C com que esses programas são ligados; compilada pela própria imagem com o GCC publicado antes dela; o GCC é então construído contra ela, a partir do segundo estágio |
-| Spike | 1.1.1-dev (commit `89c7471` do `riscv-isa-sim`, módulo de debug em `0x70000000`) | o simulador de referência que produz o resultado golden de cada programa; o módulo de debug é movido para não sobrepor a boot ROM |
+| Spike | 1.1.1-dev (commit `f8a060b` do `riscv-isa-sim`, módulo de debug em `0x70000000`) | o simulador de referência que produz o resultado golden de cada programa; o módulo de debug é movido para não sobrepor a boot ROM |
 | `uv` | 0.13.0 | instala o Python e as dependências de cada projeto (`uv sync`); a imagem não tem `pip` |
 | Python | 3.14.8 | a versão que os projetos exigem (`>=3.14,<3.15`) |
 | cocotb | 2.1.0 | os testbenches, escritos em Python; é ele que fixa a versão do Python |

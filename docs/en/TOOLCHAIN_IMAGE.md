@@ -121,17 +121,32 @@ The `Yosys image` has one more field, `sby_commit` (empty: the `sby` tag with th
 
 The workflow resolves the commit, checks whether `infra-gcc:<GCC commit>-<picolibc commit>` (or `infra-spike:<commit>`, or `infra-picolibc:<picolibc commit>-<GCC commit>`, or `infra-yosys:<Yosys commit>-<sby commit>`) already exists and, if it does and `force` is off, builds nothing. Otherwise it builds, checks the install and publishes it with the tags `<commit>` and `latest`.
 
-The component workflows also run by themselves on a push to `main` that changes their own `Dockerfile.ghdl`, `Dockerfile.gcc`, `Dockerfile.picolibc`, `Dockerfile.spike` or `Dockerfile.yosys`, or the workflow itself. There is no `commit` field then: they rebuild the commit the `latest` image already has (the recipe changed, not the version) with `force` on, and only use the latest upstream commit when nothing is published yet. So the merge that adds the `Dockerfile`s already publishes the components for the first time. The `GCC image` also runs when the `Picolibc image` finishes.
+The component workflows also run by themselves, once a day (UTC), with no field to fill in:
+
+| Workflow | When | What it looks at |
+| :--- | :--- | :--- |
+| `GHDL image` | every day, 03:00 | the latest `6.x.y` release |
+| `Picolibc image` | every day, 03:00 | the latest `1.x.y` release |
+| `Yosys image` | every day, 03:00 | the latest `v0.N` release of Yosys, with the `sby` of the same version |
+| `GTKWave image` | every day, 03:00 | the latest `3.3.x` release |
+| `Spike image` | every day, 03:00 | the latest upstream commit with green CI (it can wait up to 60 minutes for a running one) |
+| `GCC image` | every day, 03:10 | the head of `riscv-gnu-toolchain` |
+| `Toolchain image` | every day, 03:20 | the latest `uv` of series 0, and the combination of the components |
+| `Dev tools image` | every day, 03:30 | the toolchain image and GTKWave: builds only if the combination of the two is new |
+
+The runs are in two slots: at 03:00 everything that depends on no component being rebuilt (GHDL, GTKWave, Spike and Yosys, and picolibc, which is compiled by the GCC already published), and ten minutes later the GCC alone, which needs the latest picolibc (a scheduled run of it waits if the picolibc one is still going). A scheduled run builds **only if the image for that version does not exist yet**; when nothing changed it ends in seconds with a notice. The `GCC image` also runs when the `Picolibc image` finishes, and the `Toolchain image` and the `Dev tools image` run when a component finishes, as described below.
+
+**A change of a `Dockerfile` or of a workflow builds nothing.** An image is built when a version changes, not when its recipe changes, so a recipe change that is not a new version does not rebuild an image for nothing (the GCC and GHDL take most of an hour). The `Recipe changed` workflow runs on the merge of such a change, writes a warning on the run, and comments on the commit, listing the images the change affects. To publish them with the new recipe, run the workflow of each by hand with `force` on.
 
 When one of these workflows finishes successfully, `Toolchain image` runs by itself: it reads the commits from the labels of the three `latest` images and assembles and publishes a new complete image. Updating just Spike takes a few minutes, and updating the GCC or GHDL takes from tens of minutes to over an hour.
 
 Each architecture is built on a runner of its own (`ubuntu-26.04` for `linux/amd64` and `ubuntu-24.04-arm` for `linux/arm64`): the GCC and GHDL builds take hours under emulation. A final job joins the two images into one manifest with the tags, so `docker pull` gives each machine its own.
 
-`uv` is the one component that has no image of ours: the complete image copies it from the official `ghcr.io/astral-sh/uv`. It follows the same rule as the others, in `Toolchain image`: a run triggered by a push or by a component finishing keeps the `uv` that the `latest` image already has (its `uv.version` label), and a manual run takes the `uv_version` field, empty meaning the latest stable release of `astral-sh/uv`. The version also goes into the combination tag (`ghdl-<7>-gcc-<7>-spike-<7>-uv-<version>`). To update `uv`, run `Toolchain image` by hand with `confirm` and an empty `uv_version`.
+`uv` is the one component that has no image of ours: the complete image copies it from the official `ghcr.io/astral-sh/uv`. Every run of `Toolchain image` takes the latest stable release of the series set in `UV_SERIES` (`0`), or the `uv_version` field of a manual run. The version goes into the combination tag (`ghdl-<7>-gcc-<7>-picolibc-<7>-spike-<7>-yosys-<7>-sby-<7>-uv-<version>`), so a run for a version that is already published assembles nothing, and a new `uv` is picked up by the first run after its release: the scheduled one, or the one a component starts when it finishes.
 
-`Toolchain image` does not wait for a component to finish: if, when it runs for a push or for the end of another component, a `GHDL image`, `GCC image`, `Picolibc image`, `Spike image` or `Yosys image` run is queued or going, it skips with a notice, and the end of that run triggers it again. The last component to finish does the single assembly. A manual run of `Toolchain image` never defers.
+`Toolchain image` does not wait for a component to finish: if, when it runs for a schedule or for the end of another component, a `GHDL image`, `GCC image`, `Picolibc image`, `Spike image` or `Yosys image` run is queued or going, it skips with a notice, and the end of that run triggers it again. The last component to finish does the single assembly. A manual run of `Toolchain image` never defers.
 
-`Toolchain image` needs the `latest` image of every component. If a push lands before they exist, it ends with a notice, without failing, and runs when the components finish. A manual run of it without the images fails, with a message that points at the component workflows.
+`Toolchain image` needs the `latest` image of every component. If a run starts before they exist, it ends with a notice, without failing, and runs when the components finish. A manual run of it without the images fails, with a message that points at the component workflows.
 
 ## 5. Building locally
 
@@ -182,6 +197,8 @@ To set it up, in the repository: **Settings → Secrets and variables → Action
 
 ## 7. Verify
 
+Each build of the complete image prints one line per component with its version and commit (`ghdl`, `gcc` with the `riscv-gnu-toolchain` commit, `picolibc`, `spike`, `yosys`, `sby`, `uv`, Python and cocotb), so the build log already shows what went in. The workflow also fails before publishing if the commit a component left in the image (its `.tag` file) is not the one pinned for it.
+
 ```bash
 docker run --rm infra-toolchain riscv32-unknown-elf-gcc --version
 docker run --rm infra-toolchain riscv32-unknown-elf-gcc -print-multi-lib
@@ -205,7 +222,7 @@ Everything is fixed by us except the packages of Ubuntu itself. The workflow tha
 | GHDL backend | LLVM | the `mcode` backend runs only on x86, and the same simulator must behave the same on a PC and on an ARM machine such as a Mac |
 | RISC-V GCC | 16.1.0, commit `d118e53` | built from source with our own picolibc configuration (`rv32im`, `ilp32`, one variant, no CSR, no floating point hardware); follows the head of `riscv-gnu-toolchain`, because its releases are a nightly snapshot of the head, not a stable point; the build starts from the compiled picolibc and runs only the second stage, since the first compiler existed only to compile picolibc |
 | picolibc | 1.8.12 | the latest release of series 1 (`SERIES` in the workflow); compiled by its own image with the GCC published before it, and the GCC is then built against it from the second stage, so its libgcc and libstdc++ match it. It is compiled with the options of the build `riscv-gnu-toolchain` runs for it (meson, minimum size, installed into the sysroot) |
-| Spike | commit `89c7471` | the latest commit of `riscv-isa-sim` whose own CI passed (`Continuous Integration` and `Debug Quick Test`), because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
+| Spike | commit `f8a060b` | the latest commit of `riscv-isa-sim` whose own CI passed (`Continuous Integration` and `Debug Quick Test`), because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
 | `uv` | 0.13.0 | the latest stable release of series 0 (`UV_SERIES`); it installs Python and the dependencies of each project, and replaces `pip` and virtual environments |
 | Python | 3.14.8 | the version the projects require (`>=3.14,<3.15`); the patch is the latest one the `uv` knows |
 | cocotb | 2.1.0 | the first release that supports Python 3.14 and the latest; every project simulates with it, so it is in the image, and it fixes the Python version: a newer Python waits for a cocotb that supports it. On `arm64` it has no wheel and is compiled, hence `g++` |

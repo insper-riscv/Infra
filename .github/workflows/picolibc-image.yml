@@ -13,17 +13,17 @@ name: Picolibc image
 # - Run by hand to update picolibc: it builds the commit given, or the commit of the latest release
 #   tag of the series set in SERIES (1.x.y), with the GCC the latest GCC image holds, unless that
 #   image already exists.
-# - Runs on a push to main that changes Dockerfile.picolibc or this workflow: it rebuilds the
-#   commit latest already has (the recipe changed, not the version).
+# - Runs every day (schedule): it takes the commit of the latest release tag of the series set in
+#   SERIES and builds it only if the image for it and for the latest GCC does not exist yet.
+#   A change of Dockerfile or of this workflow does not build by itself, so a recipe
+#   change that is not a new version does not rebuild an image for nothing: the Recipe
+#   changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
 # The GCC image workflow then builds the GCC against it, and the Toolchain image workflow
 # assembles a new complete image.
 on:
-  push:
-    branches: [main]
-    paths:
-      - Dockerfile.picolibc
-      - .github/workflows/picolibc-image.yml
+  schedule:
+    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       confirm:
@@ -70,7 +70,7 @@ jobs:
         # who can trigger this, but on a repo shared with people who
         # shouldn't publish the image, this adds a second check: only
         # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
-        # push to main skips this: branch protection on main is the gate for
+        # scheduled run skips this: branch protection on main is the gate for
         # that path instead.
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -130,11 +130,6 @@ jobs:
 
           force="$INPUT_FORCE"
           commit="${INPUT_COMMIT:-}"
-          if [ -z "$commit" ] && [ "$EVENT" = "push" ]; then
-            # The recipe changed: rebuild the picolibc latest already holds.
-            commit=$(label "$IMAGE:latest" picolibc.commit)
-            force=true
-          fi
           if [ -z "$commit" ]; then
             commit=$(upstream_commit)
           fi
