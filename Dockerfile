@@ -98,7 +98,8 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; \
     grep -h '__PICOLIBC_VERSION__' /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h | head -n 1; \
     test "$(riscv32-unknown-elf-gcc -print-multi-lib)" = ".;"; \
-    spike --help 2>&1 | head -n 1 || true; \
+    test -s /opt/riscv-foundation/spike/.tag; \
+    echo "$(spike --help 2>&1 | head -n 1) (commit $(sed 's/-debug-start$//' /opt/riscv-foundation/spike/.tag))"; \
     gcc --version | head -n 1; \
     uv --version; \
     python3 -c "import sys, cocotb; assert sys.version_info[:2] == (3, 14); print('python', sys.version.split()[0], 'cocotb', cocotb.__version__)"; \
