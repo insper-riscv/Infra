@@ -181,6 +181,7 @@ if [ -d "$SRC_DIR/.git" ]; then
 else
   git clone https://github.com/riscv-software-src/riscv-isa-sim "$SRC_DIR"
 fi
+git -C "$SRC_DIR" submodule update --init --depth 1 berkeley-softfloat-3
 sed -i "s/^#define DEBUG_START .*/#define DEBUG_START        0x70000000/" "$SRC_DIR/riscv/platform.h"
 ```
 

@@ -26,6 +26,7 @@ RUN apt-get update \
 RUN git init /src \
  && git -C /src fetch --depth 1 https://github.com/riscv-software-src/riscv-isa-sim "${RISCV_ISA_SIM_COMMIT}" \
  && git -C /src checkout FETCH_HEAD \
+ && git -C /src submodule update --init --depth 1 berkeley-softfloat-3 \
  && sed -i "s/^#define DEBUG_START .*/#define DEBUG_START        0x70000000/" /src/riscv/platform.h
 
 RUN mkdir /build \
