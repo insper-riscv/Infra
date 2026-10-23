@@ -128,7 +128,7 @@ Tudo o que está na imagem do toolchain, mais:
 
 | Item | Versão | Por que está na imagem |
 | :--- | :--- | :--- |
-| GTKWave (árvore GTK 3, Wayland e X11) | 3.3.116 | abre as formas de onda (`.ghw`, `.fst`) de uma simulação |
+| GTKWave (árvore GTK 3, Wayland e X11) | 3.3 (branch lts) | abre as formas de onda (`.ghw`, `.fst`) de uma simulação |
 | GTK 3 (`libgtk-3-0t64`) | 3.24.52 | o toolkit em que o GTKWave roda, com os backends Wayland e X11 |
 | `libjudydebian1`, `libbz2-1.0` e `liblzma5` | 1.0.5, 1.0.8 e 5.8.3 | bibliotecas com que o GTKWave é ligado (arrays Judy, bzip2 e xz) |
 | `adwaita-icon-theme` e `shared-mime-info` | 50.0 e 2.4 | os ícones e a base de tipos MIME que o GTK lê |

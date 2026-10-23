@@ -1,12 +1,14 @@
 name: GTKWave image
 
-# Builds GTKWave (the stable 3.3 line, GTK 3 tree) alone and publishes it as
+# Builds GTKWave (the 3.3 maintenance branch, GTK 3 tree) alone and publishes it as
 # infra-gtkwave, tagged with the gtkwave/gtkwave commit and as latest, for linux/amd64 and linux/arm64.
 #
-# - Run by hand to update GTKWave: it builds the commit given, or the commit of the latest 3.x
-#   release tag of the upstream, unless that image already exists.
-# - Runs every day (schedule): it takes the commit of the latest release tag of the series set in
-#   SERIES and builds it only if that image does not exist yet.
+# - Run by hand to update GTKWave: it builds the commit given, or the head of the upstream's
+#   maintenance branch of the 3.3 line (BRANCH), unless that image already exists. The upstream has
+#   tagged no release since v3.3.116 (2023), while the branch keeps getting fixes, security ones
+#   included, so the branch is what the image follows.
+# - Runs every day (schedule): it takes the head of BRANCH and builds it only if that image does
+#   not exist yet.
 #   A change of Dockerfile or of this workflow does not build by itself, so a recipe
 #   change that is not a new version does not rebuild an image for nothing: the Recipe
 #   changed workflow warns about it, and a run by hand with `force` rebuilds.
@@ -21,7 +23,7 @@ on:
         description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
         required: true
       commit:
-        description: "gtkwave commit to build (empty: the commit of the latest 3.x release tag)"
+        description: "gtkwave commit to build (empty: the head of the lts branch)"
         required: false
       force:
         description: "Rebuild and republish even if the image for that commit already exists"
@@ -36,8 +38,9 @@ env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
   UPSTREAM: https://github.com/gtkwave/gtkwave
   LABEL: gtkwave.commit
-  # the major version of GTKWave the image follows (3.x.y); a new series is chosen by editing this line
-  SERIES: "3"
+  # the upstream branch the image follows: the maintenance line of GTKWave 3.3 (master is the 4.0
+  # pre-alpha); a different line is chosen by editing this line
+  BRANCH: lts
 
 jobs:
   pin:
@@ -88,16 +91,8 @@ jobs:
           INPUT_FORCE: ${{ inputs.force }}
         run: |
           upstream_commit() {
-            # the commit of the latest stable release tag of the series SERIES (v3.x.y), not of the
-            # development line: moving to the next series is an edit of SERIES
-            tag=$(git ls-remote --tags --refs "$UPSTREAM" "v${SERIES}.*" | sed 's|.*refs/tags/||' \
-                  | grep -E "^v${SERIES}\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
-            if [ -z "$tag" ]; then
-              echo "::error::no release tag of the series ${SERIES} in $UPSTREAM" >&2
-              return 1
-            fi
-            # an annotated tag has a second line, peeled to the commit (^{}); a lightweight one is the commit
-            git ls-remote "$UPSTREAM" "refs/tags/${tag}" "refs/tags/${tag}^{}" | tail -n 1 | cut -f1
+            # the head of the branch BRANCH, not of a release tag: there is no tag after v3.3.116
+            git ls-remote "$UPSTREAM" "refs/heads/${BRANCH}" | cut -f1
           }
 
           force="$INPUT_FORCE"
@@ -132,7 +127,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
       dockerfile: Dockerfile.gtkwave
       title: GTKWave (GTK 3)
-      description: GTKWave, the waveform viewer, GTK 3 tree of the stable 3.3 line. Only the install directory, /opt/gtkwave.
+      description: GTKWave, the waveform viewer, GTK 3 tree of the 3.3 maintenance branch (lts). Only the install directory, /opt/gtkwave.
       timeout-minutes: 150
       build-args: GTKWAVE_COMMIT=${{ needs.pin.outputs.commit }}
       labels: gtkwave.commit=${{ needs.pin.outputs.commit }}
