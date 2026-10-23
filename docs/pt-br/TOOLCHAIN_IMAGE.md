@@ -28,8 +28,8 @@ Toda imagem leva os rótulos `org.opencontainers.image.title`, `description`, `s
 | `uv` | Gerenciador de projetos Python | `/usr/local/bin` |
 | Python | 3.14, instalado pelo `uv` para todos os usuários, com `python3` e `python` no `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, instalado nesse Python | `/opt/uv/python` |
-| Yosys | 0.69, compilado do código-fonte; lê o netlist Verilog que o GHDL sintetiza a partir do VHDL | `/opt/yosys` |
-| SymbiYosys (`sby`) | v0.69, compilado do código-fonte com o Yosys; executa o Yosys e os solvers | `/opt/yosys` |
+| Yosys | 0.70, compilado do código-fonte; lê o netlist Verilog que o GHDL sintetiza a partir do VHDL | `/opt/yosys` |
+| SymbiYosys (`sby`) | v0.70, compilado do código-fonte com o Yosys; executa o Yosys e os solvers | `/opt/yosys` |
 | `z3` e `boolector` | os solvers SMT que o SymbiYosys usa, do Ubuntu | `/usr/bin` |
 
 O GHDL, o GCC e o Spike já estão no `PATH` da imagem. O `gcc` do host também está na imagem, porque o backend LLVM liga com ele o projeto que elabora; o do RISC-V mantém os próprios nomes `riscv32-unknown-elf-`. Com o backend LLVM o `ghdl -r` precisa de um `ghdl -e` antes (ou use `ghdl --elab-run`); os Makefiles e o runner de simulação já fazem isso. Cada instalação guarda em `.tag` o commit de que foi compilada, e a imagem completa traz os três rótulos de commit.
@@ -170,8 +170,8 @@ docker build -f Dockerfile.spike -t infra-spike \
   --build-arg RISCV_ISA_SIM_COMMIT="$(git ls-remote https://github.com/riscv-software-src/riscv-isa-sim HEAD | cut -f1)" .
 
 docker build -f Dockerfile.yosys -t infra-yosys \
-  --build-arg YOSYS_COMMIT="$(git ls-remote https://github.com/YosysHQ/yosys 'refs/tags/v0.69^{}' | cut -f1)" \
-  --build-arg SBY_COMMIT="$(git ls-remote https://github.com/YosysHQ/sby 'refs/tags/v0.69^{}' | cut -f1)" .
+  --build-arg YOSYS_COMMIT="$(git ls-remote https://github.com/YosysHQ/yosys 'refs/tags/v0.70^{}' | cut -f1)" \
+  --build-arg SBY_COMMIT="$(git ls-remote https://github.com/YosysHQ/sby 'refs/tags/v0.70^{}' | cut -f1)" .
 
 docker build -t infra-toolchain \
   --build-arg GHDL_IMAGE=infra-ghdl --build-arg GCC_IMAGE=infra-gcc --build-arg SPIKE_IMAGE=infra-spike \
@@ -222,12 +222,12 @@ Tudo é fixado por nós, exceto os pacotes do próprio Ubuntu. O workflow que at
 | Backend do GHDL | LLVM | o backend `mcode` só roda em x86, e o mesmo simulador precisa se comportar igual num PC e numa máquina ARM, como um Mac |
 | GCC RISC-V | 16.1.0, commit `d118e53` | compilado do fonte com a nossa configuração da picolibc (`rv32im`, `ilp32`, uma variante, sem CSR, sem ponto flutuante em hardware); segue o HEAD do `riscv-gnu-toolchain`, porque as releases dele são um instantâneo noturno do HEAD, e não um ponto estável; o build parte da picolibc compilada e executa só o segundo estágio, já que o primeiro compilador existia só para compilar a picolibc |
 | picolibc | 1.8.12 | a release mais recente da série 1 (`SERIES` no workflow); compilada pela própria imagem com o GCC publicado antes dela, e o GCC é então construído contra ela a partir do segundo estágio, então o libgcc e o libstdc++ dele combinam com ela. Ela é compilada com as opções do build que o `riscv-gnu-toolchain` roda para ela (meson, tamanho mínimo, instalada no sysroot) |
-| Spike | commit `f8a060b` | o commit mais recente do `riscv-isa-sim` cujo CI próprio passou (`Continuous Integration` e `Debug Quick Test`), porque a última release (`v1.1.0`) é de 2021; o módulo de debug dele é movido do endereço `0x0` para `0x70000000`, para não se sobrepor à boot ROM |
-| `uv` | 0.13.0 | a última release estável da série 0 (`UV_SERIES`); instala o Python e as dependências de cada projeto, e substitui o `pip` e os ambientes virtuais |
-| Python | 3.14.8 | a versão que os projetos exigem (`>=3.14,<3.15`); o patch é o mais recente que o `uv` conhece |
+| Spike | commit `2c300cd` | o commit mais recente do `riscv-isa-sim` cujo CI próprio passou (`Continuous Integration` e `Debug Quick Test`), porque a última release (`v1.1.0`) é de 2021; o módulo de debug dele é movido do endereço `0x0` para `0x70000000`, para não se sobrepor à boot ROM |
+| `uv` | 0.13.5 | a última release estável da série 0 (`UV_SERIES`); instala o Python e as dependências de cada projeto, e substitui o `pip` e os ambientes virtuais |
+| Python | 3.14.9 | a versão que os projetos exigem (`>=3.14,<3.15`); o patch é o mais recente que o `uv` conhece |
 | cocotb | 2.1.0 | a primeira release que suporta o Python 3.14 e a mais recente; todo projeto simula com ele, então está na imagem, e ele fixa a versão do Python: um Python mais novo espera um cocotb que o suporte. No `arm64` não há wheel e ele é compilado, por isso o `g++` |
-| Yosys | 0.69 | a release mais recente da série 0 (`SERIES` no workflow), compilada do código-fonte porque o Ubuntu 26.04 tem a 0.52, mais antiga; a mais nova evita fundir propriedades formais (`opt_merge`, desde a 0.61) e acompanha o `sby` de mesmo número. O front-end de SystemVerilog baseado no Slang fica fora do build |
-| SymbiYosys (`sby`) | v0.69 | lançado em passo com o Yosys (a `v0.N` de um com a `v0.N` do outro), então a imagem pega a tag com a versão do Yosys. Ele importa o `click`, que o `uv` instala no Python da imagem (8.5.0) |
+| Yosys | 0.70 | a release mais recente da série 0 (`SERIES` no workflow), compilada do código-fonte porque o Ubuntu 26.04 tem a 0.52, mais antiga; a mais nova evita fundir propriedades formais (`opt_merge`, desde a 0.61) e acompanha o `sby` de mesmo número. O front-end de SystemVerilog baseado no Slang fica fora do build |
+| SymbiYosys (`sby`) | v0.70 | lançado em passo com o Yosys (a `v0.N` de um com a `v0.N` do outro), então a imagem pega a tag com a versão do Yosys. Ele importa o `click`, que o `uv` instala no Python da imagem (8.5.0) |
 | GTKWave (`dev_tools`) | 3.3 (lts) | a ponta do branch `lts` (`BRANCH` no workflow): o upstream não marca release desde a 3.3.116 (2023), mas segue corrigindo esse branch, inclusive falhas de segurança; a linha 4.0.0 (`master`) é pré-alfa e sem release. Compilado da árvore GTK 3, que tem backend Wayland |
 
 ### 8.2 O que vem do Ubuntu
