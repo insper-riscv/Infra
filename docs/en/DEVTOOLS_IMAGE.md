@@ -6,7 +6,7 @@
 
 | Addition | Detail |
 | :--- | :--- |
-| GTKWave | the stable 3.3 line (3.3.116, GTK 3 tree), copied from the `infra-gtkwave` image into `/opt/gtkwave`; runs on Wayland natively and on X11 |
+| GTKWave | the head of the `lts` branch (3.3 maintenance line, GTK 3 tree), copied from the `infra-gtkwave` image into `/opt/gtkwave`; runs on Wayland natively and on X11 |
 | User | `dev`, with `/work` as the working directory |
 | Build tools | `build-essential`, `pkg-config`, `gnat` |
 
@@ -33,7 +33,7 @@ In a `.devcontainer/devcontainer.json`:
 
 ### 2.1 Opening GTKWave
 
-GTKWave is the GTK 3 tree of the stable 3.3 line, which has a Wayland backend. `twinwave` and the `-X` option embed windows with XEmbed, which exists only on X11, and do not work on Wayland; opening a waveform file does not use either.
+GTKWave is the GTK 3 tree of the 3.3 maintenance line, which has a Wayland backend. `twinwave` and the `-X` option embed windows with XEmbed, which exists only on X11, and do not work on Wayland; opening a waveform file does not use either.
 
 GTKWave needs a display. On Wayland, pass the compositor socket and its name:
 
@@ -54,7 +54,7 @@ On an X11 session, where there is no Wayland socket, mount the X socket and pass
 | `latest` | the last publication |
 | `sha-<Infra commit>` | the Infra commit that built it |
 
-GTKWave is built by its own image, `infra-gtkwave` (Dockerfile.gtkwave, workflow `GTKWave image`), the same way as the GCC and Spike: a build stage compiles the commit, and the published image holds only the install directory. To update GTKWave, run the `GTKWave image` workflow by hand with the commit wanted (empty: the latest of the upstream default branch); the `Dev tools` image is then rebuilt.
+GTKWave is built by its own image, `infra-gtkwave` (Dockerfile.gtkwave, workflow `GTKWave image`), the same way as the GCC and Spike: a build stage compiles the commit, and the published image holds only the install directory. To update GTKWave, run the `GTKWave image` workflow by hand with the commit wanted (empty: the head of the upstream `lts` branch); the `Dev tools` image is then rebuilt.
 
 The workflow runs when the `Toolchain image` or the `GTKWave image` workflow finishes, when `Dockerfile.devtools` changes on `main`, and on demand with the same confirmation secret as the other image workflows. Like `Toolchain image`, it does not fail when an input is missing and does not assemble twice. If the `infra-gtkwave` or `infra-toolchain` image is not published yet, it ends with a notice and runs when they finish. If a `GTKWave image` or `Toolchain image` run is queued or going, it skips with a notice, and the end of that run triggers it again, so the last one to finish does the single assembly. When a run is triggered for a combination of commits that already has an image (tag `ghdl-<7>-gcc-<7>-spike-<7>-gtkwave-<7>-toolchain-<12>`, which ends with the start of the digest of the toolchain image, since the toolchain can change while the commits of the components stay the same), it builds nothing. A manual run never defers, and fails with a message when the inputs do not exist.
 

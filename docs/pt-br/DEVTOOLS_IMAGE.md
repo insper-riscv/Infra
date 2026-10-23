@@ -6,7 +6,7 @@
 
 | Acréscimo | Detalhe |
 | :--- | :--- |
-| GTKWave | linha estável 3.3 (3.3.116, árvore GTK 3), copiado da imagem `infra-gtkwave` para `/opt/gtkwave`; roda em Wayland nativo e em X11 |
+| GTKWave | a ponta do branch `lts` (linha de manutenção 3.3, árvore GTK 3), copiado da imagem `infra-gtkwave` para `/opt/gtkwave`; roda em Wayland nativo e em X11 |
 | Usuário | `dev`, com `/work` como diretório de trabalho |
 | Ferramentas de compilação | `build-essential`, `pkg-config`, `gnat` |
 
@@ -33,7 +33,7 @@ Em um `.devcontainer/devcontainer.json`:
 
 ### 2.1 Abrir o GTKWave
 
-O GTKWave é a árvore GTK 3 da linha estável 3.3, que tem backend Wayland. O `twinwave` e a opção `-X` embutem janelas com XEmbed, que só existe em X11, e não funcionam em Wayland; abrir um arquivo de forma de onda não usa nenhum dos dois.
+O GTKWave é a árvore GTK 3 da linha de manutenção 3.3, que tem backend Wayland. O `twinwave` e a opção `-X` embutem janelas com XEmbed, que só existe em X11, e não funcionam em Wayland; abrir um arquivo de forma de onda não usa nenhum dos dois.
 
 O GTKWave precisa de uma tela. Em Wayland, passe o socket do compositor e o nome dele:
 
@@ -54,7 +54,7 @@ Numa sessão X11, onde não há socket Wayland, monte o socket do X e passe o `D
 | `latest` | a última publicação |
 | `sha-<commit do Infra>` | o commit do Infra que a construiu |
 
-O GTKWave é construído pela imagem própria `infra-gtkwave` (Dockerfile.gtkwave, workflow `GTKWave image`), do mesmo jeito que o GCC e o Spike: um estágio de build compila o commit, e a imagem publicada guarda só o diretório de instalação. Para atualizar o GTKWave, rode o workflow `GTKWave image` à mão com o commit desejado (vazio: o último da branch padrão do upstream); a imagem `dev_tools` é então reconstruída.
+O GTKWave é construído pela imagem própria `infra-gtkwave` (Dockerfile.gtkwave, workflow `GTKWave image`), do mesmo jeito que o GCC e o Spike: um estágio de build compila o commit, e a imagem publicada guarda só o diretório de instalação. Para atualizar o GTKWave, rode o workflow `GTKWave image` à mão com o commit desejado (vazio: a ponta do branch `lts` do upstream); a imagem `dev_tools` é então reconstruída.
 
 O workflow roda quando o `Toolchain image` ou o `GTKWave image` termina, quando o `Dockerfile.devtools` muda no `main` e sob demanda, com o mesmo segredo de confirmação dos outros workflows de imagem. Como o `Toolchain image`, ele não falha quando falta uma entrada e não monta duas vezes. Se a imagem `infra-gtkwave` ou `infra-toolchain` ainda não foi publicada, termina com um aviso e roda quando elas terminarem. Se um run de `GTKWave image` ou `Toolchain image` estiver na fila ou em andamento, ele pula com um aviso, e o fim desse run o dispara de novo, de modo que o último a terminar faz a montagem única. Quando um run é disparado para uma combinação de commits que já tem imagem (tag `ghdl-<7>-gcc-<7>-spike-<7>-gtkwave-<7>-toolchain-<12>`, que termina com o início do digest da imagem do toolchain, porque o toolchain pode mudar sem que os commits dos componentes mudem), nada é construído. Um run manual nunca adia, e falha com uma mensagem quando as entradas não existem.
 

@@ -228,7 +228,7 @@ Tudo é fixado por nós, exceto os pacotes do próprio Ubuntu. O workflow que at
 | cocotb | 2.1.0 | a primeira release que suporta o Python 3.14 e a mais recente; todo projeto simula com ele, então está na imagem, e ele fixa a versão do Python: um Python mais novo espera um cocotb que o suporte. No `arm64` não há wheel e ele é compilado, por isso o `g++` |
 | Yosys | 0.69 | a release mais recente da série 0 (`SERIES` no workflow), compilada do código-fonte porque o Ubuntu 26.04 tem a 0.52, mais antiga; a mais nova evita fundir propriedades formais (`opt_merge`, desde a 0.61) e acompanha o `sby` de mesmo número. O front-end de SystemVerilog baseado no Slang fica fora do build |
 | SymbiYosys (`sby`) | v0.69 | lançado em passo com o Yosys (a `v0.N` de um com a `v0.N` do outro), então a imagem pega a tag com a versão do Yosys. Ele importa o `click`, que o `uv` instala no Python da imagem (8.5.0) |
-| GTKWave (`dev_tools`) | 3.3.116 | a última release estável da série 3 (`SERIES`); a linha 4.0.0 é pré-alfa e sem release. Compilado da árvore GTK 3, que tem backend Wayland |
+| GTKWave (`dev_tools`) | 3.3 (lts) | a ponta do branch `lts` (`BRANCH` no workflow): o upstream não marca release desde a 3.3.116 (2023), mas segue corrigindo esse branch, inclusive falhas de segurança; a linha 4.0.0 (`master`) é pré-alfa e sem release. Compilado da árvore GTK 3, que tem backend Wayland |
 
 ### 8.2 O que vem do Ubuntu
 

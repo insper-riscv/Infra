@@ -127,7 +127,7 @@ Everything in the toolchain image, plus:
 
 | Item | Version | Why it is in the image |
 | :--- | :--- | :--- |
-| GTKWave (GTK 3 tree, Wayland and X11) | 3.3.116 | opens the waveforms (`.ghw`, `.fst`) of a simulation |
+| GTKWave (GTK 3 tree, Wayland and X11) | 3.3 (lts branch) | opens the waveforms (`.ghw`, `.fst`) of a simulation |
 | GTK 3 (`libgtk-3-0t64`) | 3.24.52 | the toolkit GTKWave runs on, with its Wayland and X11 backends |
 | `libjudydebian1`, `libbz2-1.0` and `liblzma5` | 1.0.5, 1.0.8 and 5.8.3 | libraries GTKWave links against (Judy arrays, bzip2 and xz) |
 | `adwaita-icon-theme` and `shared-mime-info` | 50.0 and 2.4 | the icons and the MIME database GTK reads |

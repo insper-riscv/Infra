@@ -2,7 +2,7 @@
 #
 # The development environment of the Insper RISC-V project, for a Dev Container: the complete
 # toolchain image (GHDL, the RISC-V GCC with picolibc, Spike and uv) plus GTKWave (copied from its
-# own image: the stable 3.3 line, GTK 3 tree, so it runs on Wayland and on X11) and
+# own image: the 3.3 lts branch, GTK 3 tree, so it runs on Wayland and on X11) and
 # what one needs to work inside it, and the user `dev`. Python 3.14 and cocotb 2.1.0 come from the
 # toolchain image; a project installs its other dependencies with `uv sync`, and the image has no
 # pip.

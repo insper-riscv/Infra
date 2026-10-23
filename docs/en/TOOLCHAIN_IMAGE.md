@@ -228,7 +228,7 @@ Everything is fixed by us except the packages of Ubuntu itself. The workflow tha
 | cocotb | 2.1.0 | the first release that supports Python 3.14 and the latest; every project simulates with it, so it is in the image, and it fixes the Python version: a newer Python waits for a cocotb that supports it. On `arm64` it has no wheel and is compiled, hence `g++` |
 | Yosys | 0.69 | the latest release of series 0 (`SERIES` in the workflow), built from source because Ubuntu 26.04 has the older 0.52; the newer release avoids merging formal properties (`opt_merge`, since 0.61) and goes with the same-numbered `sby`. The Slang-based SystemVerilog front-end is left out of the build |
 | SymbiYosys (`sby`) | v0.69 | released in step with Yosys (`v0.N` of one with `v0.N` of the other), so the image takes the tag with the Yosys version. It imports `click`, which `uv` installs into the image's Python (8.5.0) |
-| GTKWave (`dev_tools`) | 3.3.116 | the latest stable release of series 3 (`SERIES`); the 4.0.0 line is a pre-alpha with no release. Built from the GTK 3 tree, which has a Wayland backend |
+| GTKWave (`dev_tools`) | 3.3 (lts) | the head of the `lts` branch (`BRANCH` in the workflow): the upstream has tagged no release since 3.3.116 (2023) but keeps fixing that branch, security fixes included; the 4.0.0 line (`master`) is a pre-alpha with no release. Built from the GTK 3 tree, which has a Wayland backend |
 
 ### 8.2 What comes from Ubuntu
 
