@@ -31,6 +31,9 @@ como único requisito na máquina.
 - [DEVTOOLS_IMAGE.md](docs/pt-br/DEVTOOLS_IMAGE.md): `dev_tools`, a imagem do
   toolchain mais o usuário `dev`, o GTKWave (Wayland nativo) e as ferramentas
   de compilação, para um Dev Container.
+- [ACT_IMAGE.md](docs/pt-br/ACT_IMAGE.md): `infra-sail` (o modelo Sail RISC-V) e
+  `act_tools`, a `dev_tools` mais o Sail, o Ruby, o Bundler e as dependências do
+  ACT4, para rodar a suíte riscv-arch-test.
 
 ## Ordem sugerida
 
