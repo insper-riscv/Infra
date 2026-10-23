@@ -28,8 +28,8 @@ Every image carries the labels `org.opencontainers.image.title`, `description`, 
 | `uv` | Python project manager | `/usr/local/bin` |
 | Python | 3.14, installed by `uv` for every user, with `python3` and `python` on the `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, installed in that Python | `/opt/uv/python` |
-| Yosys | 0.69, built from source; reads the Verilog netlist GHDL synthesizes from the VHDL | `/opt/yosys` |
-| SymbiYosys (`sby`) | v0.69, built from source with Yosys; runs Yosys and the solvers | `/opt/yosys` |
+| Yosys | 0.70, built from source; reads the Verilog netlist GHDL synthesizes from the VHDL | `/opt/yosys` |
+| SymbiYosys (`sby`) | v0.70, built from source with Yosys; runs Yosys and the solvers | `/opt/yosys` |
 | `z3` and `boolector` | the SMT solvers SymbiYosys uses, from Ubuntu | `/usr/bin` |
 
 GHDL, the GCC and Spike are already on the image's `PATH`. The host `gcc` is in the image too, because the LLVM backend links the design it elaborates with it; the RISC-V one keeps its own `riscv32-unknown-elf-` names. With the LLVM backend `ghdl -r` needs a prior `ghdl -e` (or use `ghdl --elab-run`); the Makefiles and the simulation runner already do. Each install keeps in `.tag` the commit it was built from, and the complete image carries the three commit labels.
@@ -170,8 +170,8 @@ docker build -f Dockerfile.spike -t infra-spike \
   --build-arg RISCV_ISA_SIM_COMMIT="$(git ls-remote https://github.com/riscv-software-src/riscv-isa-sim HEAD | cut -f1)" .
 
 docker build -f Dockerfile.yosys -t infra-yosys \
-  --build-arg YOSYS_COMMIT="$(git ls-remote https://github.com/YosysHQ/yosys 'refs/tags/v0.69^{}' | cut -f1)" \
-  --build-arg SBY_COMMIT="$(git ls-remote https://github.com/YosysHQ/sby 'refs/tags/v0.69^{}' | cut -f1)" .
+  --build-arg YOSYS_COMMIT="$(git ls-remote https://github.com/YosysHQ/yosys 'refs/tags/v0.70^{}' | cut -f1)" \
+  --build-arg SBY_COMMIT="$(git ls-remote https://github.com/YosysHQ/sby 'refs/tags/v0.70^{}' | cut -f1)" .
 
 docker build -t infra-toolchain \
   --build-arg GHDL_IMAGE=infra-ghdl --build-arg GCC_IMAGE=infra-gcc --build-arg SPIKE_IMAGE=infra-spike \
@@ -222,12 +222,12 @@ Everything is fixed by us except the packages of Ubuntu itself. The workflow tha
 | GHDL backend | LLVM | the `mcode` backend runs only on x86, and the same simulator must behave the same on a PC and on an ARM machine such as a Mac |
 | RISC-V GCC | 16.1.0, commit `d118e53` | built from source with our own picolibc configuration (`rv32im`, `ilp32`, one variant, no CSR, no floating point hardware); follows the head of `riscv-gnu-toolchain`, because its releases are a nightly snapshot of the head, not a stable point; the build starts from the compiled picolibc and runs only the second stage, since the first compiler existed only to compile picolibc |
 | picolibc | 1.8.12 | the latest release of series 1 (`SERIES` in the workflow); compiled by its own image with the GCC published before it, and the GCC is then built against it from the second stage, so its libgcc and libstdc++ match it. It is compiled with the options of the build `riscv-gnu-toolchain` runs for it (meson, minimum size, installed into the sysroot) |
-| Spike | commit `f8a060b` | the latest commit of `riscv-isa-sim` whose own CI passed (`Continuous Integration` and `Debug Quick Test`), because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
-| `uv` | 0.13.0 | the latest stable release of series 0 (`UV_SERIES`); it installs Python and the dependencies of each project, and replaces `pip` and virtual environments |
-| Python | 3.14.8 | the version the projects require (`>=3.14,<3.15`); the patch is the latest one the `uv` knows |
+| Spike | commit `2c300cd` | the latest commit of `riscv-isa-sim` whose own CI passed (`Continuous Integration` and `Debug Quick Test`), because its last release (`v1.1.0`) is from 2021; its debug module is moved from address `0x0` to `0x70000000` so that it does not overlap the boot ROM |
+| `uv` | 0.13.5 | the latest stable release of series 0 (`UV_SERIES`); it installs Python and the dependencies of each project, and replaces `pip` and virtual environments |
+| Python | 3.14.9 | the version the projects require (`>=3.14,<3.15`); the patch is the latest one the `uv` knows |
 | cocotb | 2.1.0 | the first release that supports Python 3.14 and the latest; every project simulates with it, so it is in the image, and it fixes the Python version: a newer Python waits for a cocotb that supports it. On `arm64` it has no wheel and is compiled, hence `g++` |
-| Yosys | 0.69 | the latest release of series 0 (`SERIES` in the workflow), built from source because Ubuntu 26.04 has the older 0.52; the newer release avoids merging formal properties (`opt_merge`, since 0.61) and goes with the same-numbered `sby`. The Slang-based SystemVerilog front-end is left out of the build |
-| SymbiYosys (`sby`) | v0.69 | released in step with Yosys (`v0.N` of one with `v0.N` of the other), so the image takes the tag with the Yosys version. It imports `click`, which `uv` installs into the image's Python (8.5.0) |
+| Yosys | 0.70 | the latest release of series 0 (`SERIES` in the workflow), built from source because Ubuntu 26.04 has the older 0.52; the newer release avoids merging formal properties (`opt_merge`, since 0.61) and goes with the same-numbered `sby`. The Slang-based SystemVerilog front-end is left out of the build |
+| SymbiYosys (`sby`) | v0.70 | released in step with Yosys (`v0.N` of one with `v0.N` of the other), so the image takes the tag with the Yosys version. It imports `click`, which `uv` installs into the image's Python (8.5.0) |
 | GTKWave (`dev_tools`) | 3.3 (lts) | the head of the `lts` branch (`BRANCH` in the workflow): the upstream has tagged no release since 3.3.116 (2023) but keeps fixing that branch, security fixes included; the 4.0.0 line (`master`) is a pre-alpha with no release. Built from the GTK 3 tree, which has a Wayland backend |
 
 ### 8.2 What comes from Ubuntu

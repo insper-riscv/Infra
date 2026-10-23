@@ -47,6 +47,8 @@ docker run --rm -it -v "$PWD:/work" \
 
 On an X11 session, where there is no Wayland socket, mount the X socket and pass `DISPLAY` instead: `-v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY`. To force one backend, set `GDK_BACKEND=wayland` or `GDK_BACKEND=x11`.
 
+On a Docker daemon that remaps user namespaces (`userns-remap`), the host user appears as `nobody` inside the container and cannot use the socket or the mounted directory: add `--userns=host` to the command.
+
 ## 3. Publication
 
 | Tag | Meaning |
