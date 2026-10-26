@@ -16,7 +16,7 @@ Os três diretórios de cache podem ser escritos por qualquer usuário do contê
 
 ## 2. Rodando a suíte ACT4
 
-Clone o ACT4 no commit que o projeto fixa e rode o contêiner com o clone como diretório de trabalho:
+Clone o ACT4 no commit do rótulo `act4.commit` da imagem e rode o contêiner com o clone como diretório de trabalho:
 
 ```bash
 docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/tmp -e UV_LINK_MODE=copy \
@@ -51,13 +51,13 @@ Com a configuração `config/sail/sail-rv32-max` do ACT4, trocando apenas os doi
 | Rótulos | `act4.commit` e `sail-riscv.commit` |
 | Agenda | no mesmo run da `ci-asm`, logo depois dela: todo dia, 03:00 UTC, e quando `Sail image` termina |
 
-O commit do ACT4 cujas dependências são instaladas é o `ACT4_COMMIT` do workflow `CI images`, que muda editando-o, ou pelo campo `act4_commit` de uma execução manual. O ACT4 é fixado como submódulo nos projetos que o usam, e os dois commits devem andar juntos.
+O commit do ACT4 cujas dependências são instaladas é o commit mais recente do ramo `act4` do `riscv/riscv-arch-test` em que o workflow `ACT Regression` dele passou, consultado a cada run, então a imagem acompanha a suíte e um commit novo gera uma tag nova. O commit só é aceito se o Sail da imagem for a versão que ele exige. Quando não é, o run mantém o commit do ACT4 da `ci-elf` publicada e avisa, e falha se esse commit também não casar com o Sail. Um projeto que usa o ACT4 como submódulo pega o commit do rótulo `act4.commit`.
 
 | Campo (execução manual) | Significado |
 | :--- | :--- |
 | `confirm` | o valor do secret `IMAGE_PUBLISH_SECRET` |
 | `from_level` | o nível a partir do qual reconstruir (`vhdl`, `asm`, `elf` ou `devtools`): ele e os de cima são reconstruídos, os de baixo são reaproveitados |
-| `act4_commit` | o commit do `riscv/riscv-arch-test`; vazio, o `ACT4_COMMIT` do workflow |
+| `act4_commit` | o commit do `riscv/riscv-arch-test`; vazio, o commit verde mais recente do ramo `act4`. O run falha se o Sail da imagem não for a versão que esse commit exige |
 
 ## 4. Construindo localmente
 
