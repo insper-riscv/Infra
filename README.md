@@ -33,7 +33,7 @@ Toda imagem é publicada em `ghcr.io/insper-riscv` para `linux/amd64` e `linux/a
 
 | Caminho | Conteúdo |
 | :--- | :--- |
-| `Dockerfile.*` | a receita de cada imagem |
+| `docker/` | a receita (`Dockerfile`) de cada imagem, em `base/` para as ferramentas, `ci/` para os níveis e `dev-tools/` |
 | `.github/workflows/` | um workflow por imagem, o build compartilhado, o aviso de receitas alteradas e a limpeza de versões antigas |
 | `.github/scripts/` | a escolha do commit mais recente do upstream cujo CI passou, com o teste dela |
 | `scripts/` | a limpeza de versões antigas dos pacotes |

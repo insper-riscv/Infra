@@ -8,7 +8,7 @@ As imagens Docker do projeto reúnem o que o fluxo de testes RISC-V precisa. Há
 | CI | `ci-*` | as imagens em que o CI de um projeto roda; cada uma é a anterior mais outras ferramentas, em níveis |
 | Final | `dev_tools` | o último nível, para o Dev Container |
 
-Os `Dockerfile`s ficam na raiz do repositório e um workflow por imagem as publica no GitHub Container Registry, em `ghcr.io/<organização>/`. Toda imagem é publicada para `linux/amd64` e `linux/arm64`, com as mesmas versões das mesmas ferramentas; o GHDL usa o backend LLVM nas duas, então uma simulação se comporta igual num PC e num ARM como o Mac.
+Os `Dockerfile`s ficam na pasta `docker` do repositório (`base/`, `ci/` e `dev-tools/`) e um workflow por imagem as publica no GitHub Container Registry, em `ghcr.io/<organização>/`. Toda imagem é publicada para `linux/amd64` e `linux/arm64`, com as mesmas versões das mesmas ferramentas; o GHDL usa o backend LLVM nas duas, então uma simulação se comporta igual num PC e num ARM como o Mac.
 
 ## 1. Os níveis
 

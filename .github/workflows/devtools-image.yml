@@ -1,10 +1,10 @@
 name: Dev tools image
 
-# Builds level 4 of the images, the final one (Dockerfile.devtools: the ELF image, that is every level
+# Builds level 4 of the images, the final one (docker/dev-tools/Dockerfile: the ELF image, that is every level
 # below it, plus GTKWave, the user dev and the build tools; Python comes from the VHDL image) for linux/amd64 and linux/arm64 and
 # publishes it as dev_tools, tagged latest and with the Infra commit. It runs when the ELF
 # image or the GTKWave image workflow finishes (a new ELF image or a new GTKWave means a new
-# image; both run every day, so the image follows the latest of the two), and on demand. A change of Dockerfile.devtools or of this workflow does not
+# image; both run every day, so the image follows the latest of the two), and on demand. A change of docker/dev-tools/Dockerfile or of this workflow does not
 # build by itself: the Recipe changed workflow warns about it, and a run by hand rebuilds.
 on:
   workflow_dispatch:
@@ -144,7 +144,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/dev_tools
-      dockerfile: Dockerfile.devtools
+      dockerfile: docker/dev-tools/Dockerfile
       title: Insper RISC-V dev tools
       description: Every level of the images (VHDL, ASM, ELF) plus GTKWave, the build tools and the user dev, for a Dev Container.
       timeout-minutes: 60

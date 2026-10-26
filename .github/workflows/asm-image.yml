@@ -1,11 +1,11 @@
 name: ASM image
 
-# Assembles level 2 of the images (Dockerfile.asm-img: the VHDL image plus the RISC-V GCC, picolibc
+# Assembles level 2 of the images (docker/ci/asm/Dockerfile: the VHDL image plus the RISC-V GCC, picolibc
 # and Spike) for linux/amd64 and linux/arm64 and publishes it as
 # ci-asm. It runs when the VHDL image, GCC image, Picolibc image or Spike image workflow finishes
 # (they run every day, so the image follows the latest of the four), and on demand. The picolibc
 # is the latest picolibc image, and this workflow assembles when that image was compiled with the
-# latest GCC image. A change of Dockerfile.asm-img or of this workflow does not assemble by itself: the Recipe changed
+# latest GCC image. A change of docker/ci/asm/Dockerfile or of this workflow does not assemble by itself: the Recipe changed
 # workflow warns about it, and a run by hand rebuilds. The ELF image workflow builds on the image
 # this one publishes.
 on:
@@ -155,7 +155,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/ci-asm
-      dockerfile: Dockerfile.asm-img
+      dockerfile: docker/ci/asm/Dockerfile
       title: Insper RISC-V ASM tests
       description: The VHDL image plus the RISC-V GCC, picolibc and Spike, for linux/amd64 and linux/arm64.
       timeout-minutes: 30

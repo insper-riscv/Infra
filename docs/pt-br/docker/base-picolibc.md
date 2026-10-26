@@ -14,7 +14,7 @@ A picolibc é compilada por um cross compiler, então o build usa a imagem de GC
 
 | Item | Valor |
 | :--- | :--- |
-| Receita | `Dockerfile.picolibc` |
+| Receita | `docker/base/picolibc/Dockerfile` |
 | Workflow | `Picolibc image` |
 | Tags | `<commit da picolibc>-<commit do GCC>` e `latest` |
 | Rótulos | `picolibc.commit` e `riscv-gnu-toolchain.commit` |
@@ -33,7 +33,7 @@ O workflow segue a série 1 (`SERIES`), então o run agendado usa a tag de relea
 ## 4. Construindo localmente
 
 ```bash
-docker build -f Dockerfile.picolibc -t base-picolibc \
+docker build -f docker/base/picolibc/Dockerfile -t base-picolibc \
   --build-arg GCC_IMAGE=base-gcc \
   --build-arg PICOLIBC_COMMIT="$(git ls-remote https://github.com/picolibc/picolibc 'refs/tags/1.8.12^{}' | cut -f1)" \
   --build-arg GCC_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .

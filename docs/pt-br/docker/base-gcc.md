@@ -29,7 +29,7 @@ O build instala o binutils e o primeiro compilador da configuração da picolibc
 
 | Item | Valor |
 | :--- | :--- |
-| Receita | `Dockerfile.gcc` |
+| Receita | `docker/base/gcc/Dockerfile` |
 | Workflow | `GCC image` |
 | Tags | `<commit do GCC>` e `latest` |
 | Rótulo | `riscv-gnu-toolchain.commit` |
@@ -49,7 +49,7 @@ O GCC não tem release a seguir, então o run agendado usa o commit mais recente
 ## 4. Construindo localmente
 
 ```bash
-docker build -f Dockerfile.gcc -t base-gcc \
+docker build -f docker/base/gcc/Dockerfile -t base-gcc \
   --build-arg RISCV_GNU_TOOLCHAIN_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .
 ```
 

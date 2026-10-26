@@ -2,7 +2,7 @@
 # and linux/arm64. The GCC, picolibc and Spike are copied from base-gcc, base-picolibc and
 # base-spike. See docs/en/docker/ci-asm.md.
 #
-#   docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.asm-img -t ci-asm \
+#   docker buildx build --platform linux/amd64,linux/arm64 -f docker/ci/asm/Dockerfile -t ci-asm \
 #     --build-arg VHDL_IMAGE=ci-vhdl --build-arg GCC_IMAGE=base-gcc \
 #     --build-arg PICOLIBC_IMAGE=base-picolibc --build-arg SPIKE_IMAGE=base-spike .
 

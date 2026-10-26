@@ -131,7 +131,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/base-ghdl
-      dockerfile: Dockerfile.ghdl
+      dockerfile: docker/base/ghdl/Dockerfile
       title: GHDL (LLVM backend)
       description: GHDL, the VHDL simulator, with the LLVM backend, built from source. Only the install directory, /opt/ghdl.
       timeout-minutes: 240

@@ -17,7 +17,7 @@ The GCC, picolibc and Spike are already on the `PATH`. The executables of the RI
 
 | Item | Value |
 | :--- | :--- |
-| Recipe | `Dockerfile.asm-img` |
+| Recipe | `docker/ci/asm/Dockerfile` |
 | Workflow | `ASM image` |
 | Tags | `latest`, `sha-<Infra commit>` and `vhdl-<12 of the digest>-gcc-<7>-picolibc-<7>-spike-<7>` |
 | Labels | `riscv-gnu-toolchain.commit`, `picolibc.commit` and `riscv-isa-sim.commit` |
@@ -36,7 +36,7 @@ Before publishing, the workflow checks that the commits left in the image (the `
 ## 4. Building locally
 
 ```bash
-docker build -f Dockerfile.asm-img -t ci-asm \
+docker build -f docker/ci/asm/Dockerfile -t ci-asm \
   --build-arg VHDL_IMAGE=ci-vhdl --build-arg GCC_IMAGE=base-gcc --build-arg SPIKE_IMAGE=base-spike .
 ```
 

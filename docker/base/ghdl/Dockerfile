@@ -5,7 +5,7 @@
 #
 # The commit of ghdl/ghdl to build has no default:
 #
-#   docker build -f Dockerfile.ghdl -t base-ghdl \
+#   docker build -f docker/base/ghdl/Dockerfile -t base-ghdl \
 #     --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl refs/tags/v6.0.0 refs/tags/v6.0.0^{} | tail -n 1 | cut -f1)" .
 
 ARG BASE_IMAGE=ubuntu:26.04

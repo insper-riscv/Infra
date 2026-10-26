@@ -1,12 +1,12 @@
 # Sail RISC-V, the formal model of the RISC-V ISA, alone: the executable `sail_riscv_sim` of a
 # release of riscv/sail-riscv. The ACT4 test generator runs it to compute the expected result of
 # every test. The published image holds just the install directory, and the ACT4 image
-# (Dockerfile.elf-img) copies it from there.
+# (docker/ci/elf/Dockerfile) copies it from there.
 #
 # The release and the SHA-256 of its two tarballs have no default (GitHub publishes the
 # digest of each asset of a release):
 #
-#   docker build -f Dockerfile.sail-img -t base-sail \
+#   docker build -f docker/base/sail/Dockerfile -t base-sail \
 #     --build-arg SAIL_VERSION=0.16 \
 #     --build-arg SAIL_SHA256_AMD64=<digest of sail-riscv-Linux-x86_64.tar.gz> \
 #     --build-arg SAIL_SHA256_ARM64=<digest of sail-riscv-Linux-aarch64.tar.gz> .

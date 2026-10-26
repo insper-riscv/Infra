@@ -12,7 +12,7 @@ on:
   push:
     branches: [main]
     paths:
-      - Dockerfile.*
+      - docker/**/Dockerfile
       - .github/workflows/*-image.yml
       - .github/scripts/green-commit.sh
 
@@ -36,18 +36,18 @@ jobs:
         run: |
           # file -> workflow that builds the image (the name in Actions)
           declare -A image=(
-            [Dockerfile.vhdl-img]="VHDL image"           [.github/workflows/vhdl-image.yml]="VHDL image"
-            [Dockerfile.asm-img]="ASM image"             [.github/workflows/asm-image.yml]="ASM image"
-            [Dockerfile.ghdl]="GHDL image"           [.github/workflows/ghdl-image.yml]="GHDL image"
-            [Dockerfile.gcc]="GCC image"             [.github/workflows/gcc-image.yml]="GCC image"
-            [Dockerfile.picolibc]="Picolibc image"   [.github/workflows/picolibc-image.yml]="Picolibc image"
-            [Dockerfile.spike]="Spike image"         [.github/workflows/spike-image.yml]="Spike image"
+            [docker/ci/vhdl/Dockerfile]="VHDL image"           [.github/workflows/vhdl-image.yml]="VHDL image"
+            [docker/ci/asm/Dockerfile]="ASM image"             [.github/workflows/asm-image.yml]="ASM image"
+            [docker/base/ghdl/Dockerfile]="GHDL image"           [.github/workflows/ghdl-image.yml]="GHDL image"
+            [docker/base/gcc/Dockerfile]="GCC image"             [.github/workflows/gcc-image.yml]="GCC image"
+            [docker/base/picolibc/Dockerfile]="Picolibc image"   [.github/workflows/picolibc-image.yml]="Picolibc image"
+            [docker/base/spike/Dockerfile]="Spike image"         [.github/workflows/spike-image.yml]="Spike image"
             [.github/scripts/green-commit.sh]="Spike image|GCC image"
-            [Dockerfile.yosys]="Yosys image"         [.github/workflows/yosys-image.yml]="Yosys image"
-            [Dockerfile.gtkwave]="GTKWave image"     [.github/workflows/gtkwave-image.yml]="GTKWave image"
-            [Dockerfile.devtools]="Dev tools image"  [.github/workflows/devtools-image.yml]="Dev tools image"
-            [Dockerfile.sail-img]="Sail image"           [.github/workflows/sail-image.yml]="Sail image"
-            [Dockerfile.elf-img]="ELF image"             [.github/workflows/elf-image.yml]="ELF image"
+            [docker/base/yosys/Dockerfile]="Yosys image"         [.github/workflows/yosys-image.yml]="Yosys image"
+            [docker/base/gtkwave/Dockerfile]="GTKWave image"     [.github/workflows/gtkwave-image.yml]="GTKWave image"
+            [docker/dev-tools/Dockerfile]="Dev tools image"  [.github/workflows/devtools-image.yml]="Dev tools image"
+            [docker/base/sail/Dockerfile]="Sail image"           [.github/workflows/sail-image.yml]="Sail image"
+            [docker/ci/elf/Dockerfile]="ELF image"             [.github/workflows/elf-image.yml]="ELF image"
           )
           # the files of the push (a new branch has no "before": take the commit alone)
           if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then

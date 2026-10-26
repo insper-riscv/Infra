@@ -186,7 +186,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/base-picolibc
-      dockerfile: Dockerfile.picolibc
+      dockerfile: docker/base/picolibc/Dockerfile
       title: picolibc for the RISC-V GCC
       description: picolibc, the C library of the RISC-V GCC (rv32i, rv32i_zmmul and rv32im with ilp32, rv32imf/ilp32f and rv32imfd/ilp32d). Only the files it installs into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
       timeout-minutes: 60

@@ -1,7 +1,7 @@
 # Level 4 of the images, the final one: the ELF image plus GTKWave and the user dev, for a Dev
 # Container. GTKWave is copied from base-gtkwave. See docs/en/docker/dev-tools.md.
 #
-#   docker build -f Dockerfile.devtools -t dev_tools .
+#   docker build -f docker/dev-tools/Dockerfile -t dev_tools .
 #   docker run --rm -it -v "$PWD:/work" dev_tools
 
 ARG ELF_IMAGE=ghcr.io/insper-riscv/ci-elf:latest

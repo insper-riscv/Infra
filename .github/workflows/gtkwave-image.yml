@@ -125,7 +125,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/base-gtkwave
-      dockerfile: Dockerfile.gtkwave
+      dockerfile: docker/base/gtkwave/Dockerfile
       title: GTKWave (GTK 3)
       description: GTKWave, the waveform viewer, GTK 3 tree of the 3.3 maintenance branch (lts). Only the install directory, /opt/gtkwave.
       timeout-minutes: 150

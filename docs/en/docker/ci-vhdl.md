@@ -32,13 +32,13 @@ Ubuntu also provides `git`, `make`, `curl` and `ca-certificates` (the checkout o
 | `click` | 8.5.0, fixed | `CLICK_VERSION` is edited |
 | `z3`, `boolector` and the other Ubuntu packages | whatever Ubuntu 26.04 has when the image is built | the image is rebuilt for another reason |
 
-The image is rebuilt only when GHDL, Yosys, SymbiYosys or `uv` change. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, but cocotb and `click` do not follow it: they stay at the versions `Dockerfile.vhdl-img` fixes until someone edits the build argument and runs the workflow by hand with `force`. The Python, cocotb and `click` versions are in the long tag and in the labels of every image, and are not part of the decision to build.
+The image is rebuilt only when GHDL, Yosys, SymbiYosys or `uv` change. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, but cocotb and `click` do not follow it: they stay at the versions `docker/ci/vhdl/Dockerfile` fixes until someone edits the build argument and runs the workflow by hand with `force`. The Python, cocotb and `click` versions are in the long tag and in the labels of every image, and are not part of the decision to build.
 
 ## 2. Publication
 
 | Item | Value |
 | :--- | :--- |
-| Recipe | `Dockerfile.vhdl-img` |
+| Recipe | `docker/ci/vhdl/Dockerfile` |
 | Workflow | `VHDL image` |
 | Tags | `latest`, `sha-<Infra commit>`, `ghdl-<7>-yosys-<7>-sby-<7>-uv-<version>` and the same with `-python-<x.y.z>-cocotb-<version>-click-<version>` at the end |
 | Labels | `ghdl.commit`, `yosys.commit`, `sby.commit`, `uv.version`, `python.version`, `cocotb.version` and `click.version` |
@@ -58,7 +58,7 @@ Before publishing, the workflow checks that the commit each component left in th
 ## 4. Building locally
 
 ```bash
-docker build -f Dockerfile.vhdl-img -t ci-vhdl \
+docker build -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
   --build-arg GHDL_IMAGE=base-ghdl --build-arg YOSYS_IMAGE=base-yosys \
   --build-arg UV_VERSION="$(git ls-remote --tags --refs https://github.com/astral-sh/uv '0.*' | sed 's|.*refs/tags/||' | grep -E '^0\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)" .
 ```

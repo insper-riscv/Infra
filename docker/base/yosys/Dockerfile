@@ -5,7 +5,7 @@
 # The two repositories are released in step (Yosys v0.N and sby v0.N), so the image holds one of
 # each with the same version. The commits to build have no default:
 #
-#   docker build -f Dockerfile.yosys -t base-yosys \
+#   docker build -f docker/base/yosys/Dockerfile -t base-yosys \
 #     --build-arg YOSYS_COMMIT="$(git ls-remote https://github.com/YosysHQ/yosys 'refs/tags/v0.69^{}' | cut -f1)" \
 #     --build-arg SBY_COMMIT="$(git ls-remote https://github.com/YosysHQ/sby 'refs/tags/v0.69^{}' | cut -f1)" .
 #

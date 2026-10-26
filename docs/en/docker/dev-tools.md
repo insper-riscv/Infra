@@ -1,6 +1,6 @@
 # dev_tools
 
-`ghcr.io/<organization>/dev_tools` is the development environment for a Dev Container, and the last level of the images. It is [`ci-elf`](ci-elf.md) (and so the VHDL, assembly and ELF levels) plus what one needs to work inside it, and the user `dev`. The overview of the images is in [README.md](README.md). It is built from `Dockerfile.devtools` by the `Dev tools image` workflow and published for `linux/amd64` and `linux/arm64`.
+`ghcr.io/<organization>/dev_tools` is the development environment for a Dev Container, and the last level of the images. It is [`ci-elf`](ci-elf.md) (and so the VHDL, assembly and ELF levels) plus what one needs to work inside it, and the user `dev`. The overview of the images is in [README.md](README.md). It is built from `docker/dev-tools/Dockerfile` by the `Dev tools image` workflow and published for `linux/amd64` and `linux/arm64`.
 
 ## 1. What it adds to `ci-elf`
 
@@ -53,7 +53,7 @@ On a Docker daemon that remaps user namespaces (`userns-remap`), the host user a
 
 | Item | Value |
 | :--- | :--- |
-| Recipe | `Dockerfile.devtools` |
+| Recipe | `docker/dev-tools/Dockerfile` |
 | Workflow | `Dev tools image` |
 | Tags | `latest`, `sha-<Infra commit>` and `elf-<12 of the ci-elf digest>-gtkwave-<7>` |
 | Label | `gtkwave.commit` |
@@ -74,7 +74,7 @@ Before publishing, the workflow checks that the image runs as the user `dev` in 
 ## 5. Building locally
 
 ```bash
-docker build -f Dockerfile.devtools -t dev_tools \
+docker build -f docker/dev-tools/Dockerfile -t dev_tools \
   --build-arg ELF_IMAGE=ci-elf --build-arg GTKWAVE_IMAGE=base-gtkwave .
 ```
 

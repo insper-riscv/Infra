@@ -45,7 +45,7 @@ With the configuration `config/sail/sail-rv32-max` of ACT4 and only those two co
 
 | Item | Value |
 | :--- | :--- |
-| Recipe | `Dockerfile.elf-img` |
+| Recipe | `docker/ci/elf/Dockerfile` |
 | Workflow | `ELF image` |
 | Tags | `latest`, `sha-<Infra commit>` and `asm-<12 of the ci-asm digest>-sail-<7 of the Sail commit>-act4-<7 of the ACT4 commit>` |
 | Labels | `act4.commit` and `sail-riscv.commit` |
@@ -61,7 +61,7 @@ The ACT4 commit whose dependencies are installed is the `ACT4_COMMIT` of the `EL
 ## 4. Building locally
 
 ```bash
-docker build -f Dockerfile.elf-img -t ci-elf \
+docker build -f docker/ci/elf/Dockerfile -t ci-elf \
   --build-arg ASM_IMAGE=ci-asm --build-arg SAIL_IMAGE=base-sail \
   --build-arg ACT4_COMMIT=<commit of riscv/riscv-arch-test> .
 ```

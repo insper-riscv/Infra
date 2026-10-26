@@ -8,7 +8,7 @@ The project's Docker images hold what the RISC-V test flow needs. There are thre
 | CI | `ci-*` | the images a project's CI runs in; each is the one before it plus more tools, in levels |
 | Final | `dev_tools` | the last level, for the Dev Container |
 
-The `Dockerfile`s are at the root of this repository, and one workflow per image publishes them to the GitHub Container Registry, under `ghcr.io/<organization>/`. Every image is published for `linux/amd64` and `linux/arm64`, with the same versions of the same tools; GHDL has the LLVM backend on both, so a simulation behaves the same on a PC and on an ARM machine such as a Mac.
+The `Dockerfile`s are in the `docker` folder of this repository (`base/`, `ci/` and `dev-tools/`), and one workflow per image publishes them to the GitHub Container Registry, under `ghcr.io/<organization>/`. Every image is published for `linux/amd64` and `linux/arm64`, with the same versions of the same tools; GHDL has the LLVM backend on both, so a simulation behaves the same on a PC and on an ARM machine such as a Mac.
 
 ## 1. The levels
 

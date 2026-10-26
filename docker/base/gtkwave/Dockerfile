@@ -1,11 +1,11 @@
 # GTKWave, the waveform viewer, from the lts branch (the 3.3 maintenance line) of gtkwave/gtkwave, GTK 3 tree
 # (gtkwave3-gtk3): GTK 3 has a Wayland backend, so it runs on Wayland natively and on X11. Alone:
 # the published image holds just the install directory, and the dev tools image
-# (Dockerfile.devtools) copies it from there.
+# (docker/dev-tools/Dockerfile) copies it from there.
 #
 # The commit of gtkwave/gtkwave to build has no default (the head of the lts branch):
 #
-#   docker build -f Dockerfile.gtkwave -t base-gtkwave \
+#   docker build -f docker/base/gtkwave/Dockerfile -t base-gtkwave \
 #     --build-arg GTKWAVE_COMMIT="$(git ls-remote https://github.com/gtkwave/gtkwave refs/heads/lts | cut -f1)" .
 
 ARG BASE_IMAGE=ubuntu:26.04

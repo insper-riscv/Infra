@@ -14,7 +14,7 @@ The build downloads the tarball of the `riscv/sail-riscv` release for the build'
 
 | Item | Value |
 | :--- | :--- |
-| Recipe | `Dockerfile.sail-img` |
+| Recipe | `docker/base/sail/Dockerfile` |
 | Workflow | `Sail image` |
 | Tags | the commit of the release tag, and `latest` |
 | Labels | `sail-riscv.version` and `sail-riscv.commit` |
@@ -33,7 +33,7 @@ The workflow follows series 0 (`SERIES`), whose releases are named `0.N`. The we
 ## 4. Building locally
 
 ```bash
-docker build -f Dockerfile.sail-img -t base-sail \
+docker build -f docker/base/sail/Dockerfile -t base-sail \
   --build-arg SAIL_VERSION=0.16 \
   --build-arg SAIL_SHA256_AMD64=<digest of sail-riscv-Linux-x86_64.tar.gz> \
   --build-arg SAIL_SHA256_ARM64=<digest of sail-riscv-Linux-aarch64.tar.gz> .

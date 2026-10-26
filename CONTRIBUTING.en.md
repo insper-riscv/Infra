@@ -8,7 +8,7 @@ This document defines the mandatory coding, structural organization, documentati
 
 | Rule | Specification |
 | :--- | :--- |
-| Recipes | One image per tool, each in its own `Dockerfile.<tool>` |
+| Recipes | One image per tool, each in its own `docker/base/<tool>/Dockerfile`, `docker/ci/<level>/Dockerfile` or `docker/dev-tools/Dockerfile` |
 | Build | Multi-stage, discarding compilers and sources from the final image |
 | User | Unprivileged (non-root) final process with fixed UID/GID |
 | Versions | Pinned tool and base image versions; no floating tag such as `latest` in recipes |
@@ -34,7 +34,7 @@ Every `README`, `CONTRIBUTING`, and `AUTHORS` maintains mirrored versions in Por
 Any change to code, configuration, or documentation must pass all commands below without errors before submission:
 
 ```bash
-docker build -f Dockerfile.<recipe> -t <recipe> .  # Builds the image of the changed recipe
+docker build -f docker/<kind>/<recipe>/Dockerfile -t <recipe> .  # Builds the image of the changed recipe
 ```
 
 When adding, renaming, or removing any versioned file, immediately update:

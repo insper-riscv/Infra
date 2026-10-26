@@ -1,5 +1,5 @@
 # Level 3 of the images: what the ELF tests (the ACT4, riscv-arch-test, suite) need. The ASM image
-# (Dockerfile.asm-img, whose RISC-V GCC builds the ELFs) plus Sail (the
+# (docker/ci/asm/Dockerfile, whose RISC-V GCC builds the ELFs) plus Sail (the
 # model ACT4 runs to compute the expected result of each test), Ruby and Bundler (ACT4 reads its
 # configuration through the UDB Ruby gems), and the Ruby gems and Python packages of one commit of
 # ACT4, installed ahead of time so that running the suite needs no network.
@@ -7,7 +7,7 @@
 # The commit of riscv/riscv-arch-test whose dependencies are installed has no default; it is the
 # commit the project pins as a submodule:
 #
-#   docker build -f Dockerfile.elf-img -t ci-elf \
+#   docker build -f docker/ci/elf/Dockerfile -t ci-elf \
 #     --build-arg ACT4_COMMIT="$(git ls-remote https://github.com/riscv/riscv-arch-test refs/heads/act4 | cut -f1)" .
 
 ARG ASM_IMAGE=ghcr.io/insper-riscv/ci-asm:latest

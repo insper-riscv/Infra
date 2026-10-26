@@ -17,7 +17,7 @@ O GCC, a picolibc e o Spike já estão no `PATH`. Os executáveis do GCC RISC-V 
 
 | Item | Valor |
 | :--- | :--- |
-| Receita | `Dockerfile.asm-img` |
+| Receita | `docker/ci/asm/Dockerfile` |
 | Workflow | `ASM image` |
 | Tags | `latest`, `sha-<commit do Infra>` e `vhdl-<12 do digest>-gcc-<7>-picolibc-<7>-spike-<7>` |
 | Rótulos | `riscv-gnu-toolchain.commit`, `picolibc.commit` e `riscv-isa-sim.commit` |
@@ -36,7 +36,7 @@ Antes de publicar, o workflow confere que os commits deixados na imagem (os arqu
 ## 4. Construindo localmente
 
 ```bash
-docker build -f Dockerfile.asm-img -t ci-asm \
+docker build -f docker/ci/asm/Dockerfile -t ci-asm \
   --build-arg VHDL_IMAGE=ci-vhdl --build-arg GCC_IMAGE=base-gcc --build-arg SPIKE_IMAGE=base-spike .
 ```
 

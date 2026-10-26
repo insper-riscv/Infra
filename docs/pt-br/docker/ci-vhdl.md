@@ -32,13 +32,13 @@ Também vêm do Ubuntu `git`, `make`, `curl` e `ca-certificates` (o checkout de 
 | `click` | 8.5.0, fixo | `CLICK_VERSION` é editado |
 | `z3`, `boolector` e os demais pacotes do Ubuntu | o que o Ubuntu 26.04 tem quando a imagem é construída | a imagem é reconstruída por outro motivo |
 
-A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys ou o `uv` mudam. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `Dockerfile.vhdl-img` fixa até alguém editar o argumento de build e rodar o workflow à mão com `force`. As versões de Python, cocotb e `click` estão na tag longa e nos rótulos de toda imagem, e não entram na decisão de construir.
+A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys ou o `uv` mudam. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `force`. As versões de Python, cocotb e `click` estão na tag longa e nos rótulos de toda imagem, e não entram na decisão de construir.
 
 ## 2. Publicação
 
 | Item | Valor |
 | :--- | :--- |
-| Receita | `Dockerfile.vhdl-img` |
+| Receita | `docker/ci/vhdl/Dockerfile` |
 | Workflow | `VHDL image` |
 | Tags | `latest`, `sha-<commit do Infra>`, `ghdl-<7>-yosys-<7>-sby-<7>-uv-<versão>` e a mesma com `-python-<x.y.z>-cocotb-<versão>-click-<versão>` no final |
 | Rótulos | `ghdl.commit`, `yosys.commit`, `sby.commit`, `uv.version`, `python.version`, `cocotb.version` e `click.version` |
@@ -58,7 +58,7 @@ Antes de publicar, o workflow confere que o commit que cada componente deixou na
 ## 4. Construindo localmente
 
 ```bash
-docker build -f Dockerfile.vhdl-img -t ci-vhdl \
+docker build -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
   --build-arg GHDL_IMAGE=base-ghdl --build-arg YOSYS_IMAGE=base-yosys \
   --build-arg UV_VERSION="$(git ls-remote --tags --refs https://github.com/astral-sh/uv '0.*' | sed 's|.*refs/tags/||' | grep -E '^0\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)" .
 ```

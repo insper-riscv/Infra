@@ -142,7 +142,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/base-spike
-      dockerfile: Dockerfile.spike
+      dockerfile: docker/base/spike/Dockerfile
       title: Spike (RISC-V ISA simulator)
       description: Spike, the RISC-V reference simulator, with its debug module at 0x70000000. Only the install directory, /opt/riscv-foundation/spike.
       timeout-minutes: 150

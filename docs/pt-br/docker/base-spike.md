@@ -13,7 +13,7 @@
 
 | Item | Valor |
 | :--- | :--- |
-| Receita | `Dockerfile.spike` |
+| Receita | `docker/base/spike/Dockerfile` |
 | Workflow | `Spike image` |
 | Tags | `<commit>` e `latest` |
 | Rótulo | `riscv-isa-sim.commit` |
@@ -33,7 +33,7 @@ O Spike não tem release a seguir (a última, `v1.1.0`, é de 2021). O run agend
 ## 4. Construindo localmente
 
 ```bash
-docker build -f Dockerfile.spike -t base-spike \
+docker build -f docker/base/spike/Dockerfile -t base-spike \
   --build-arg RISCV_ISA_SIM_COMMIT="$(git ls-remote https://github.com/riscv-software-src/riscv-isa-sim HEAD | cut -f1)" .
 ```
 

@@ -4,7 +4,7 @@
 #
 # The commit of riscv-software-src/riscv-isa-sim to build has no default:
 #
-#   docker build -f Dockerfile.spike -t base-spike \
+#   docker build -f docker/base/spike/Dockerfile -t base-spike \
 #     --build-arg RISCV_ISA_SIM_COMMIT="$(git ls-remote https://github.com/riscv-software-src/riscv-isa-sim HEAD | cut -f1)" .
 
 ARG BASE_IMAGE=ubuntu:26.04

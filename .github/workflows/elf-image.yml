@@ -1,10 +1,10 @@
 name: ELF image
 
-# Builds level 3 of the images (Dockerfile.elf-img: the ASM image plus Sail, Ruby, Bundler, and the
+# Builds level 3 of the images (docker/ci/elf/Dockerfile: the ASM image plus Sail, Ruby, Bundler, and the
 # gems and Python packages of the commit of ACT4 set in ACT4_COMMIT) for linux/amd64 and
 # linux/arm64 and publishes it as ci-elf, tagged latest and with the Infra commit. It runs when
 # the ASM image or the Sail image workflow finishes (a new ASM image or a new Sail means a new
-# image; both run every day, so the image follows the latest of the two), and on demand. A change of Dockerfile.elf-img or of this workflow does not build
+# image; both run every day, so the image follows the latest of the two), and on demand. A change of docker/ci/elf/Dockerfile or of this workflow does not build
 # by itself: the Recipe changed workflow warns about it, and a run by hand rebuilds. The dev tools
 # image workflow builds on the image this one publishes.
 #
@@ -159,7 +159,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/ci-elf
-      dockerfile: Dockerfile.elf-img
+      dockerfile: docker/ci/elf/Dockerfile
       title: Insper RISC-V ELF tests
       description: The ASM image plus Sail, Ruby, Bundler and the dependencies of ACT4, to run the riscv-arch-test suite.
       timeout-minutes: 60

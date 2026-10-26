@@ -2,7 +2,7 @@
 # rv32imf/ilp32f and rv32imfd/ilp32d, alone: binutils, the compiler and libgcc, with no C library. base-picolibc is compiled with this compiler and added to the same prefix. See
 # docs/en/docker/base-gcc.md.
 #
-#   docker build -f Dockerfile.gcc -t base-gcc \
+#   docker build -f docker/base/gcc/Dockerfile -t base-gcc \
 #     --build-arg RISCV_GNU_TOOLCHAIN_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .
 
 ARG BASE_IMAGE=ubuntu:26.04

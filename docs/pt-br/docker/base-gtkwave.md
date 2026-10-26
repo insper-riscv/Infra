@@ -14,7 +14,7 @@ O GTKWave liga com o GTK 3, e a `dev_tools` instala as bibliotecas necessárias.
 
 | Item | Valor |
 | :--- | :--- |
-| Receita | `Dockerfile.gtkwave` |
+| Receita | `docker/base/gtkwave/Dockerfile` |
 | Workflow | `GTKWave image` |
 | Tags | `<commit>` e `latest` |
 | Rótulo | `gtkwave.commit` |
@@ -33,7 +33,7 @@ O workflow segue a branch `lts` (`BRANCH`) e constrói só se o commit da ponta 
 ## 4. Construindo localmente
 
 ```bash
-docker build -f Dockerfile.gtkwave -t base-gtkwave \
+docker build -f docker/base/gtkwave/Dockerfile -t base-gtkwave \
   --build-arg GTKWAVE_COMMIT="$(git ls-remote https://github.com/gtkwave/gtkwave refs/heads/lts | cut -f1)" .
 ```
 

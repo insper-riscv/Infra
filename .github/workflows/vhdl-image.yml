@@ -4,7 +4,7 @@ name: VHDL image
 # a VHDL test needs) for linux/amd64 and linux/arm64 from the latest base-ghdl and base-yosys
 # images, which the GHDL image and Yosys image workflows publish. It runs when one of them
 # finishes, every day at 03:00 UTC (the `uv` has no component image, so it is looked up here),
-# and on demand. A change of Dockerfile.vhdl-img or of this workflow does not assemble by
+# and on demand. A change of docker/ci/vhdl/Dockerfile or of this workflow does not assemble by
 # itself: the Recipe changed workflow warns about it, and a run by hand rebuilds. The ASM image
 # workflow builds on the image this one publishes.
 on:
@@ -116,21 +116,21 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Resolve the Python patch and read the fixed versions
-        # The Python of the image is the latest patch of the series in Dockerfile.vhdl-img that this
+        # The Python of the image is the latest patch of the series in docker/ci/vhdl/Dockerfile that this
         # uv knows, so a new uv brings a new patch with it; cocotb and click are the versions
-        # Dockerfile.vhdl-img fixes. They go in the tags and labels of the image, and not in the
+        # docker/ci/vhdl/Dockerfile fixes. They go in the tags and labels of the image, and not in the
         # combination that decides whether to build: a new uv is what makes a new image.
         # The same installer the image uses puts that uv on the runner to list the Pythons.
         id: python
         env:
           UV: ${{ steps.uv.outputs.version }}
         run: |
-          series=$(sed -n 's/^ARG PYTHON_VERSION=//p' Dockerfile.vhdl-img)
-          cocotb=$(sed -n 's/^ARG COCOTB_VERSION=//p' Dockerfile.vhdl-img)
-          click=$(sed -n 's/^ARG CLICK_VERSION=//p' Dockerfile.vhdl-img)
-          printf '%s' "$series" | grep -Eq '^[0-9]+\.[0-9]+$' || { echo "::error::no Python series in Dockerfile.vhdl-img: '$series'"; exit 1; }
+          series=$(sed -n 's/^ARG PYTHON_VERSION=//p' docker/ci/vhdl/Dockerfile)
+          cocotb=$(sed -n 's/^ARG COCOTB_VERSION=//p' docker/ci/vhdl/Dockerfile)
+          click=$(sed -n 's/^ARG CLICK_VERSION=//p' docker/ci/vhdl/Dockerfile)
+          printf '%s' "$series" | grep -Eq '^[0-9]+\.[0-9]+$' || { echo "::error::no Python series in docker/ci/vhdl/Dockerfile: '$series'"; exit 1; }
           for v in "$cocotb" "$click"; do
-            printf '%s' "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::not a version in Dockerfile.vhdl-img: '$v'"; exit 1; }
+            printf '%s' "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::not a version in docker/ci/vhdl/Dockerfile: '$v'"; exit 1; }
           done
           curl -fsSL "https://astral.sh/uv/$UV/install.sh" -o "$RUNNER_TEMP/uv-install.sh"
           UV_UNMANAGED_INSTALL="$RUNNER_TEMP/uv-bin" sh "$RUNNER_TEMP/uv-install.sh" > /dev/null
@@ -231,7 +231,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/ci-vhdl
-      dockerfile: Dockerfile.vhdl-img
+      dockerfile: docker/ci/vhdl/Dockerfile
       title: Insper RISC-V VHDL tests
       description: GHDL, Yosys with SymbiYosys, uv, Python and cocotb, for linux/amd64 and linux/arm64.
       timeout-minutes: 60

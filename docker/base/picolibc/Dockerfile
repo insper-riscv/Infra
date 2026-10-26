@@ -1,9 +1,9 @@
-# picolibc for the RISC-V GCC of Dockerfile.gcc (every variant of that GCC), alone. The
+# picolibc for the RISC-V GCC of docker/base/gcc/Dockerfile (every variant of that GCC), alone. The
 # published image holds just the files picolibc installs into that GCC's sysroot; ci-asm copies
 # them over the GCC's prefix. picolibc is compiled with the GCC of base-gcc, so the image carries
 # the commit of that GCC. See docs/en/docker/base-picolibc.md.
 #
-#   docker build -f Dockerfile.picolibc -t base-picolibc \
+#   docker build -f docker/base/picolibc/Dockerfile -t base-picolibc \
 #     --build-arg GCC_IMAGE=base-gcc \
 #     --build-arg PICOLIBC_COMMIT="$(git ls-remote https://github.com/picolibc/picolibc 'refs/tags/1.8.12^{}' | cut -f1)" \
 #     --build-arg GCC_COMMIT=<the riscv-gnu-toolchain.commit label of base-gcc> .

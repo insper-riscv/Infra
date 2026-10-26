@@ -129,7 +129,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/base-gcc
-      dockerfile: Dockerfile.gcc
+      dockerfile: docker/base/gcc/Dockerfile
       title: RISC-V GCC (rv32im)
       description: The RISC-V GCC for rv32im and ilp32, built from source, with no C library. Only the install directory, /opt/riscv-foundation/riscv32-elf.
       timeout-minutes: 360

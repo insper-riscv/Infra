@@ -8,7 +8,7 @@ Este documento define as regras obrigatórias de codificação, organização es
 
 | Regra | Especificação |
 | :--- | :--- |
-| Receitas | Uma imagem por ferramenta, cada uma em seu `Dockerfile.<ferramenta>` |
+| Receitas | Uma imagem por ferramenta, cada uma em seu `docker/base/<ferramenta>/Dockerfile`, `docker/ci/<nível>/Dockerfile` ou `docker/dev-tools/Dockerfile` |
 | Construção | Multi-stage, descartando compiladores e fontes da imagem final |
 | Usuário | Processo final sem privilégios (non-root) com UID/GID fixos |
 | Versões | Versões de ferramentas e imagens base fixadas; nenhuma tag flutuante como `latest` em receitas |
@@ -34,7 +34,7 @@ Todo `README` e todo `CONTRIBUTING` e `AUTHORS` mantêm versões espelhadas em p
 Qualquer alteração em código, configuração ou documentação deve passar sem erros pelos comandos abaixo antes do envio:
 
 ```bash
-docker build -f Dockerfile.<receita> -t <receita> .  # Constrói a imagem da receita alterada
+docker build -f docker/<tipo>/<receita>/Dockerfile -t <receita> .  # Constrói a imagem da receita alterada
 ```
 
 Ao adicionar, renomear ou remover qualquer arquivo versionado, atualize imediatamente:

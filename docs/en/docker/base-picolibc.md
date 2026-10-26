@@ -14,7 +14,7 @@ picolibc is compiled by a cross compiler, so the build uses the latest GCC image
 
 | Item | Value |
 | :--- | :--- |
-| Recipe | `Dockerfile.picolibc` |
+| Recipe | `docker/base/picolibc/Dockerfile` |
 | Workflow | `Picolibc image` |
 | Tags | `<picolibc commit>-<GCC commit>` and `latest` |
 | Labels | `picolibc.commit` and `riscv-gnu-toolchain.commit` |
@@ -33,7 +33,7 @@ The workflow follows series 1 (`SERIES`), so the scheduled run takes the latest 
 ## 4. Building locally
 
 ```bash
-docker build -f Dockerfile.picolibc -t base-picolibc \
+docker build -f docker/base/picolibc/Dockerfile -t base-picolibc \
   --build-arg GCC_IMAGE=base-gcc \
   --build-arg PICOLIBC_COMMIT="$(git ls-remote https://github.com/picolibc/picolibc 'refs/tags/1.8.12^{}' | cut -f1)" \
   --build-arg GCC_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .

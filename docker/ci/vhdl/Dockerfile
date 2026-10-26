@@ -1,7 +1,7 @@
 # Level 1 of the images: GHDL, Yosys with SymbiYosys, uv, and Python with cocotb, for linux/amd64
 # and linux/arm64. GHDL and Yosys are copied from base-ghdl and base-yosys. See docs/en/docker/ci-vhdl.md.
 #
-#   docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile.vhdl-img -t ci-vhdl \
+#   docker buildx build --platform linux/amd64,linux/arm64 -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 #     --build-arg UV_VERSION=<0.x.y> .
 
 ARG BASE_IMAGE=ubuntu:26.04

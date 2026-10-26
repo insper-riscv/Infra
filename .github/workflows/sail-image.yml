@@ -1,7 +1,7 @@
 name: Sail image
 
 # Builds the Sail RISC-V model (the executable `sail_riscv_sim` of a release of
-# riscv/sail-riscv, Dockerfile.sail-img) alone and publishes it as base-sail, tagged with the commit of
+# riscv/sail-riscv, docker/base/sail/Dockerfile) alone and publishes it as base-sail, tagged with the commit of
 # the release tag and as latest, for linux/amd64 and linux/arm64.
 #
 # - Run by hand to update Sail: it builds the release given, or the latest stable release of the
@@ -156,7 +156,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/base-sail
-      dockerfile: Dockerfile.sail-img
+      dockerfile: docker/base/sail/Dockerfile
       title: Sail RISC-V
       description: The Sail RISC-V model (sail_riscv_sim) of a release. Only the install directory, /opt/riscv-foundation/sail.
       timeout-minutes: 30

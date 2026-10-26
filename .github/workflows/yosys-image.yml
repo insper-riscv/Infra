@@ -150,7 +150,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/base-yosys
-      dockerfile: Dockerfile.yosys
+      dockerfile: docker/base/yosys/Dockerfile
       title: Yosys and SymbiYosys
       description: Yosys, the open synthesis framework, and SymbiYosys (sby), its formal verification front-end, built from source. Only the install directory, /opt/yosys.
       timeout-minutes: 120

@@ -16,7 +16,7 @@ Os solvers `z3` e `boolector` vêm do Ubuntu e são instalados na `ci-vhdl`, que
 
 | Item | Valor |
 | :--- | :--- |
-| Receita | `Dockerfile.yosys` |
+| Receita | `docker/base/yosys/Dockerfile` |
 | Workflow | `Yosys image` |
 | Tags | `<commit do Yosys>-<commit do sby>` e `latest` |
 | Rótulos | `yosys.commit` e `sby.commit` |
@@ -36,7 +36,7 @@ O workflow segue a série 0 (`SERIES`) e usa a release `v0.N` mais recente do Yo
 ## 4. Construindo localmente
 
 ```bash
-docker build -f Dockerfile.yosys -t base-yosys \
+docker build -f docker/base/yosys/Dockerfile -t base-yosys \
   --build-arg YOSYS_COMMIT="$(git ls-remote https://github.com/YosysHQ/yosys 'refs/tags/v0.70^{}' | cut -f1)" \
   --build-arg SBY_COMMIT="$(git ls-remote https://github.com/YosysHQ/sby 'refs/tags/v0.70^{}' | cut -f1)" .
 ```

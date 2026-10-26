@@ -13,7 +13,7 @@
 
 | Item | Value |
 | :--- | :--- |
-| Recipe | `Dockerfile.spike` |
+| Recipe | `docker/base/spike/Dockerfile` |
 | Workflow | `Spike image` |
 | Tags | `<commit>` and `latest` |
 | Label | `riscv-isa-sim.commit` |
@@ -33,7 +33,7 @@ Spike has no release to follow (the last, `v1.1.0`, is from 2021). The scheduled
 ## 4. Building locally
 
 ```bash
-docker build -f Dockerfile.spike -t base-spike \
+docker build -f docker/base/spike/Dockerfile -t base-spike \
   --build-arg RISCV_ISA_SIM_COMMIT="$(git ls-remote https://github.com/riscv-software-src/riscv-isa-sim HEAD | cut -f1)" .
 ```
 

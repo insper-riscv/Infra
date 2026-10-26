@@ -15,7 +15,7 @@ The LLVM backend runs on `amd64` and `arm64`, unlike `mcode`, which is x86 only;
 
 | Item | Value |
 | :--- | :--- |
-| Recipe | `Dockerfile.ghdl` |
+| Recipe | `docker/base/ghdl/Dockerfile` |
 | Workflow | `GHDL image` |
 | Tags | `<commit>` and `latest` |
 | Label | `ghdl.commit` |
@@ -34,7 +34,7 @@ The workflow follows series 6 of GHDL (`SERIES`), so a new series is chosen by e
 ## 4. Building locally
 
 ```bash
-docker build -f Dockerfile.ghdl -t base-ghdl \
+docker build -f docker/base/ghdl/Dockerfile -t base-ghdl \
   --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl 'refs/tags/v6.0.0^{}' | cut -f1)" .
 ```
 
