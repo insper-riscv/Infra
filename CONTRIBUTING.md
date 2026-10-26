@@ -34,7 +34,7 @@ Todo `README` e todo `CONTRIBUTING` e `AUTHORS` mantêm versões espelhadas em p
 Qualquer alteração em código, configuração ou documentação deve passar sem erros pelos comandos abaixo antes do envio:
 
 ```bash
-docker build -f Dockerfile.<receita> -t infra-<receita> .  # Constrói a imagem da receita alterada
+docker build -f Dockerfile.<receita> -t <receita> .  # Constrói a imagem da receita alterada
 ```
 
 Ao adicionar, renomear ou remover qualquer arquivo versionado, atualize imediatamente:

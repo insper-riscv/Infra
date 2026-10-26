@@ -34,7 +34,7 @@ Every `README`, `CONTRIBUTING`, and `AUTHORS` maintains mirrored versions in Por
 Any change to code, configuration, or documentation must pass all commands below without errors before submission:
 
 ```bash
-docker build -f Dockerfile.<receita> -t infra-<receita> .  # Builds the image of the changed recipe
+docker build -f Dockerfile.<recipe> -t <recipe> .  # Builds the image of the changed recipe
 ```
 
 When adding, renaming, or removing any versioned file, immediately update:
