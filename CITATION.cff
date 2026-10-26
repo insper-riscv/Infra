@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "Se você usar este software, cite-o com os metadados abaixo. / If you use this software, please cite it using the metadata below."
+type: software
+title: "Infra: imagens de toolchain do Capstone RISC-V"
+abstract: >-
+  Imagens de contêiner reproduzíveis com a toolchain do projeto (GCC RISC-V
+  com picolibc, Spike, GHDL, GTKWave, Yosys, uv), usadas pela integração
+  contínua dos demais repositórios. Desenvolvido no Capstone do Insper,
+  financiado pelo CTI Renato Archer.
+authors:
+  - family-names: Hix
+    given-names: Lucas
+    alias: Peng1104
+repository-code: "https://github.com/insper-riscv/Infra"
+url: "https://github.com/insper-riscv/Infra"
+license: Apache-2.0
+keywords:
+  - Docker
+  - toolchain
+  - RISC-V
+  - GHDL
+  - CI
