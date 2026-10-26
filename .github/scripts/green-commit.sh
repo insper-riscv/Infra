@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Prints the commit of riscv-isa-sim to build: the latest commit of its default branch on which the
-# upstream workflows we depend on succeeded. Spike has no recent release (the last is v1.1.0, from
-# 2021), and its branch moves every day, so the image takes a commit its own CI vouches for.
+# Prints the commit of an upstream repository to build: the latest commit of its branch on which the
+# upstream workflows we depend on succeeded. The projects that use it (Spike, the RISC-V GCC) have no
+# recent release and their branch moves every day, so the image takes a commit their own CI vouches
+# for.
 #
 # For each recent commit, newest first, every workflow in REQUIRED_WORKFLOWS is looked up on that
 # commit (the push run):
@@ -16,13 +17,14 @@
 # POLL_SECONDS) for up to WAIT_MINUTES, then settles for the newest green one it has. The commit is
 # the only thing written to stdout; the reasoning goes to stderr (and to the step summary).
 #
-# Environment: GH_TOKEN (the gh CLI), and optionally UPSTREAM_REPO, UPSTREAM_BRANCH,
-# REQUIRED_WORKFLOWS, WAIT_MINUTES, POLL_SECONDS, SETTLE_MINUTES and DEPTH.
+# Environment: GH_TOKEN (the gh CLI), UPSTREAM_REPO (owner/name) and REQUIRED_WORKFLOWS (the file
+# names, separated by spaces), which are required, and optionally UPSTREAM_BRANCH (master),
+# WAIT_MINUTES (60), POLL_SECONDS (60), SETTLE_MINUTES (10) and DEPTH (30).
 set -euo pipefail
 
-repo="${UPSTREAM_REPO:-riscv-software-src/riscv-isa-sim}"
+repo="${UPSTREAM_REPO:?UPSTREAM_REPO is required}"
 branch="${UPSTREAM_BRANCH:-master}"
-workflows="${REQUIRED_WORKFLOWS:-continuous-integration.yml debug-smoke.yml}"
+workflows="${REQUIRED_WORKFLOWS:?REQUIRED_WORKFLOWS is required}"
 wait_minutes="${WAIT_MINUTES:-60}"
 poll_seconds="${POLL_SECONDS:-60}"
 settle_minutes="${SETTLE_MINUTES:-10}"
@@ -87,7 +89,7 @@ log "$report"
 log "chosen: ${chosen:0:7}${waiting:+ (the newer commit $waiting did not finish in ${wait_minutes} minutes)}"
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
-    echo "### Spike commit"
+    echo "### Commit of $repo"
     echo "Required upstream workflows: \`$workflows\`"
     echo
     echo '```'; echo "$report"; echo '```'

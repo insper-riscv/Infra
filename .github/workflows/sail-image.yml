@@ -1,7 +1,7 @@
 name: Sail image
 
 # Builds the Sail RISC-V model (the executable `sail_riscv_sim` of a release of
-# riscv/sail-riscv, Dockerfile.sail) alone and publishes it as infra-sail, tagged with the commit of
+# riscv/sail-riscv, Dockerfile.sail-img) alone and publishes it as base-sail, tagged with the commit of
 # the release tag and as latest, for linux/amd64 and linux/arm64.
 #
 # - Run by hand to update Sail: it builds the release given, or the latest stable release of the
@@ -12,10 +12,10 @@ name: Sail image
 #   A change of Dockerfile or of this workflow does not build by itself: the Recipe changed
 #   workflow warns about it, and a run by hand with `force` rebuilds.
 #
-# The ACT image workflow then assembles a new image.
+# The ELF image workflow then assembles a new image.
 on:
   schedule:
-    - cron: "10 3 * * *"
+    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       confirm:
@@ -34,7 +34,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-sail
+  IMAGE: ghcr.io/${{ github.repository_owner }}/base-sail
   UPSTREAM: https://github.com/riscv/sail-riscv
   UPSTREAM_API: https://api.github.com/repos/riscv/sail-riscv
   LABEL: sail-riscv.commit
@@ -155,10 +155,10 @@ jobs:
       packages: write
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/infra-sail
-      dockerfile: Dockerfile.sail
+      image: ghcr.io/${{ github.repository_owner }}/base-sail
+      dockerfile: Dockerfile.sail-img
       title: Sail RISC-V
-      description: The Sail RISC-V model (sail_riscv_sim) of a release. Only the install directory, /opt/sail.
+      description: The Sail RISC-V model (sail_riscv_sim) of a release. Only the install directory, /opt/riscv-foundation/sail.
       timeout-minutes: 30
       build-args: |
         SAIL_VERSION=${{ needs.pin.outputs.version }}

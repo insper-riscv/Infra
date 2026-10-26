@@ -47,7 +47,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           busy=0
-          for workflow in ghdl-image.yml gcc-image.yml picolibc-image.yml spike-image.yml yosys-image.yml gtkwave-image.yml toolchain-image.yml devtools-image.yml; do
+          for workflow in ghdl-image.yml gcc-image.yml picolibc-image.yml spike-image.yml yosys-image.yml gtkwave-image.yml sail-image.yml vhdl-image.yml asm-image.yml elf-image.yml devtools-image.yml; do
             for status in queued in_progress; do
               count=$(gh run list -R "$REPO" --workflow "$workflow" --status "$status" --json databaseId --jq length)
               busy=$((busy + count))

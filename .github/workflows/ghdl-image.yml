@@ -1,7 +1,7 @@
 name: GHDL image
 
 # Builds GHDL with the LLVM backend (the mcode backend is x86 only, so the same recipe builds both
-# architectures) alone and publishes it as infra-ghdl for linux/amd64 and linux/arm64, tagged with
+# architectures) alone and publishes it as base-ghdl for linux/amd64 and linux/arm64, tagged with
 # the ghdl/ghdl commit and as latest.
 #
 # - Run by hand to update GHDL: it builds the commit given, or the commit of the latest release tag
@@ -12,7 +12,7 @@ name: GHDL image
 #   change that is not a new version does not rebuild an image for nothing: the Recipe
 #   changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
-# The Toolchain image workflow then assembles a new complete image.
+# The VHDL image workflow then assembles a new image.
 on:
   schedule:
     - cron: "0 3 * * *"
@@ -34,7 +34,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-ghdl
+  IMAGE: ghcr.io/${{ github.repository_owner }}/base-ghdl
   UPSTREAM: https://github.com/ghdl/ghdl
   LABEL: ghdl.commit
   # the major version of GHDL the image follows; a new series is chosen by editing this line
@@ -130,7 +130,7 @@ jobs:
       packages: write
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/infra-ghdl
+      image: ghcr.io/${{ github.repository_owner }}/base-ghdl
       dockerfile: Dockerfile.ghdl
       title: GHDL (LLVM backend)
       description: GHDL, the VHDL simulator, with the LLVM backend, built from source. Only the install directory, /opt/ghdl.

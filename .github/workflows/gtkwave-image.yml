@@ -1,7 +1,7 @@
 name: GTKWave image
 
 # Builds GTKWave (the 3.3 maintenance branch, GTK 3 tree) alone and publishes it as
-# infra-gtkwave, tagged with the gtkwave/gtkwave commit and as latest, for linux/amd64 and linux/arm64.
+# base-gtkwave, tagged with the gtkwave/gtkwave commit and as latest, for linux/amd64 and linux/arm64.
 #
 # - Run by hand to update GTKWave: it builds the commit given, or the head of the upstream's
 #   maintenance branch of the 3.3 line (BRANCH), unless that image already exists. The upstream has
@@ -35,7 +35,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
+  IMAGE: ghcr.io/${{ github.repository_owner }}/base-gtkwave
   UPSTREAM: https://github.com/gtkwave/gtkwave
   LABEL: gtkwave.commit
   # the upstream branch the image follows: the maintenance line of GTKWave 3.3 (master is the 4.0
@@ -124,7 +124,7 @@ jobs:
       packages: write
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
+      image: ghcr.io/${{ github.repository_owner }}/base-gtkwave
       dockerfile: Dockerfile.gtkwave
       title: GTKWave (GTK 3)
       description: GTKWave, the waveform viewer, GTK 3 tree of the 3.3 maintenance branch (lts). Only the install directory, /opt/gtkwave.

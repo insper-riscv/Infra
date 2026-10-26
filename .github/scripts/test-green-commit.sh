@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Tests of spike-green-commit.sh against canned answers of the GitHub API, so the choice of the
+# Tests of green-commit.sh against canned answers of the GitHub API, so the choice of the
 # commit (wait for a running one, skip a failed one, accept a re-run) is checked without the
-# network:  bash .github/scripts/test-spike-green-commit.sh
+# network:  bash .github/scripts/test-green-commit.sh
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-script="$here/spike-green-commit.sh"
+script="$here/green-commit.sh"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 mkdir "$tmp/bin"
 
@@ -45,7 +45,7 @@ run_case() {
   local name="$1" scen="$2" want="$3"; shift 3
   local out rc=0
   out=$(env PATH="$tmp/bin:$PATH" SCENARIO="$scen" POLL_SECONDS=0 SETTLE_MINUTES=10 \
-        REQUIRED_WORKFLOWS="ci.yml debug.yml" "$@" bash "$script" 2> "$scen/stderr") || rc=$?
+        UPSTREAM_REPO="owner/repo" REQUIRED_WORKFLOWS="ci.yml debug.yml" "$@" bash "$script" 2> "$scen/stderr") || rc=$?
   if [ "$want" = FAIL ]; then
     if [ "$rc" -ne 0 ]; then echo "ok    $name"; else echo "WRONG $name: wanted a failure, got $out"; fail=1; fi
   elif [ "$rc" -eq 0 ] && [ "$out" = "$want" ]; then echo "ok    $name"

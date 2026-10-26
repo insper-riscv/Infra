@@ -12,10 +12,9 @@ on:
   push:
     branches: [main]
     paths:
-      - Dockerfile
       - Dockerfile.*
       - .github/workflows/*-image.yml
-      - .github/scripts/spike-green-commit.sh
+      - .github/scripts/green-commit.sh
 
 permissions:
   contents: write
@@ -37,18 +36,18 @@ jobs:
         run: |
           # file -> workflow that builds the image (the name in Actions)
           declare -A image=(
-            [Dockerfile]="Toolchain image"
+            [Dockerfile.vhdl-img]="VHDL image"           [.github/workflows/vhdl-image.yml]="VHDL image"
+            [Dockerfile.asm-img]="ASM image"             [.github/workflows/asm-image.yml]="ASM image"
             [Dockerfile.ghdl]="GHDL image"           [.github/workflows/ghdl-image.yml]="GHDL image"
             [Dockerfile.gcc]="GCC image"             [.github/workflows/gcc-image.yml]="GCC image"
             [Dockerfile.picolibc]="Picolibc image"   [.github/workflows/picolibc-image.yml]="Picolibc image"
             [Dockerfile.spike]="Spike image"         [.github/workflows/spike-image.yml]="Spike image"
-            [.github/scripts/spike-green-commit.sh]="Spike image"
+            [.github/scripts/green-commit.sh]="Spike image|GCC image"
             [Dockerfile.yosys]="Yosys image"         [.github/workflows/yosys-image.yml]="Yosys image"
             [Dockerfile.gtkwave]="GTKWave image"     [.github/workflows/gtkwave-image.yml]="GTKWave image"
-            [.github/workflows/toolchain-image.yml]="Toolchain image"
             [Dockerfile.devtools]="Dev tools image"  [.github/workflows/devtools-image.yml]="Dev tools image"
-            [Dockerfile.sail]="Sail image"           [.github/workflows/sail-image.yml]="Sail image"
-            [Dockerfile.act]="ACT image"             [.github/workflows/act-image.yml]="ACT image"
+            [Dockerfile.sail-img]="Sail image"           [.github/workflows/sail-image.yml]="Sail image"
+            [Dockerfile.elf-img]="ELF image"             [.github/workflows/elf-image.yml]="ELF image"
           )
           # the files of the push (a new branch has no "before": take the commit alone)
           if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
@@ -62,13 +61,16 @@ jobs:
           while IFS= read -r f; do
             [ -n "$f" ] || continue
             if [ "$f" = ".github/workflows/build-image.yml" ]; then all=true; continue; fi
-            w="${image[$f]:-}"
-            [ -n "$w" ] || continue
-            [ -z "${seen[$w]:-}" ] || continue
-            seen[$w]=1; rows+="| $w | \`$f\` |"$'\n'
+            # a file can serve more than one image: the names are separated by |
+            IFS='|' read -ra ws <<< "${image[$f]:-}"
+            for w in "${ws[@]}"; do
+              [ -n "$w" ] || continue
+              [ -z "${seen[$w]:-}" ] || continue
+              seen[$w]=1; rows+="| $w | \`$f\` |"$'\n'
+            done
           done <<< "$files"
           if [ "$all" = true ]; then
-            for w in "GHDL image" "GCC image" "Picolibc image" "Spike image" "Yosys image" "GTKWave image" "Toolchain image" "Dev tools image" "Sail image" "ACT image"; do
+            for w in "GHDL image" "GCC image" "Picolibc image" "Spike image" "Yosys image" "GTKWave image" "VHDL image" "ASM image" "Sail image" "ELF image" "Dev tools image"; do
               [ -z "${seen[$w]:-}" ] || continue
               seen[$w]=1; rows+="| $w | \`.github/workflows/build-image.yml\` (shared by every image) |"$'\n'
             done
@@ -107,7 +109,7 @@ jobs:
           | :--- | :--- |
           $ROWS
 
-          The images that follow (the \`Toolchain image\`, then the \`Dev tools image\`) are assembled by themselves when a component finishes.
+          The images that follow (the \`VHDL image\`, \`ASM image\`, \`ELF image\` and \`Dev tools image\`, in that order) are assembled by themselves when a component finishes.
           EOT
           )
           body=$(printf '%s\n' "$body" | sed 's/^          //')

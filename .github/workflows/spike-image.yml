@@ -1,21 +1,21 @@
 name: Spike image
 
 # Builds Spike, with its debug module moved out of address 0, alone and
-# publishes it as infra-spike, tagged with the riscv-isa-sim commit and as
+# publishes it as base-spike, tagged with the riscv-isa-sim commit and as
 # latest.
 #
 # - Run by hand to update Spike: it builds the commit given, or the latest commit of the upstream
 #   default branch whose CI is green (waiting for a run that is still going), unless that image
 #   already exists. Spike has no recent release, so the latest commit that passed upstream's
 #   Continuous Integration and Debug Quick Test is what the image takes
-#   (.github/scripts/spike-green-commit.sh).
+#   (.github/scripts/green-commit.sh).
 # - Runs every day (schedule): it takes the latest commit of the upstream default branch whose CI
 #   is green and builds it only if that image does not exist yet.
 #   A change of Dockerfile or of this workflow does not build by itself, so a recipe
 #   change that is not a new version does not rebuild an image for nothing: the Recipe
 #   changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
-# The Toolchain image workflow then assembles a new complete image.
+# The ASM image workflow then assembles a new image.
 on:
   schedule:
     - cron: "0 3 * * *"
@@ -41,7 +41,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-spike
+  IMAGE: ghcr.io/${{ github.repository_owner }}/base-spike
   UPSTREAM: https://github.com/riscv-software-src/riscv-isa-sim
   LABEL: riscv-isa-sim.commit
 
@@ -89,7 +89,7 @@ jobs:
       - name: Test the choice of the commit
         # The selection (wait for a running commit, skip a failed one, accept a re-run) against
         # canned answers of the GitHub API: no network.
-        run: bash .github/scripts/test-spike-green-commit.sh
+        run: bash .github/scripts/test-green-commit.sh
 
       - name: Resolve the commit
         id: pin
@@ -106,7 +106,9 @@ jobs:
             else
               # the latest commit on which upstream's workflows succeeded; it waits for a run
               # that is still going and goes back past a commit that failed
-              .github/scripts/spike-green-commit.sh
+              UPSTREAM_REPO=riscv-software-src/riscv-isa-sim \
+                REQUIRED_WORKFLOWS="continuous-integration.yml debug-smoke.yml" \
+                .github/scripts/green-commit.sh
             fi
           }
 
@@ -139,7 +141,7 @@ jobs:
       packages: write
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/infra-spike
+      image: ghcr.io/${{ github.repository_owner }}/base-spike
       dockerfile: Dockerfile.spike
       title: Spike (RISC-V ISA simulator)
       description: Spike, the RISC-V reference simulator, with its debug module at 0x70000000. Only the install directory, /opt/riscv-foundation/spike.

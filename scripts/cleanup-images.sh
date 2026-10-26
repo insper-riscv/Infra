@@ -12,14 +12,14 @@
 # packages: write permission of a workflow in this repository).
 #
 #   scripts/cleanup-images.sh                          every package, only listing
-#   scripts/cleanup-images.sh infra-gcc dev_tools      only these, only listing
-#   scripts/cleanup-images.sh --delete infra-gcc       really deletes
+#   scripts/cleanup-images.sh base-gcc dev_tools      only these, only listing
+#   scripts/cleanup-images.sh --delete base-gcc       really deletes
 set -euo pipefail
 
 ORG="${ORG:-insper-riscv}"
 MIN_AGE_MINUTES="${MIN_AGE_MINUTES:-120}"
 CUTOFF=$(date -u -d "-${MIN_AGE_MINUTES} minutes" +%Y-%m-%dT%H:%M:%SZ)
-ALL_PACKAGES=(infra-ghdl infra-gcc infra-picolibc infra-spike infra-yosys infra-gtkwave infra-toolchain dev_tools)
+ALL_PACKAGES=(base-ghdl base-gcc base-picolibc base-spike base-yosys base-gtkwave base-sail ci-vhdl ci-asm ci-elf dev_tools)
 DELETE=false
 packages=()
 for arg in "$@"; do

@@ -1,19 +1,16 @@
-name: ACT image
+name: ELF image
 
-# Builds the environment to run the ACT4 (riscv-arch-test) suite (Dockerfile.act: the dev tools
-# image plus Sail, Ruby, Bundler, and the gems and Python packages of the commit of ACT4 set in
-# ACT4_COMMIT) for linux/amd64 and linux/arm64 and publishes it as act_tools, tagged latest and
-# with the Infra commit. It runs when the Dev tools image or the Sail image workflow finishes (a
-# new dev tools or a new Sail means a new image), every day at 04:30 UTC (after both are looked
-# up, as a check that the image follows the latest of the two), and on demand. A change of
-# Dockerfile.act or of this workflow does not build by itself: the Recipe changed workflow warns
-# about it, and a run by hand rebuilds.
+# Builds level 3 of the images (Dockerfile.elf-img: the ASM image plus Sail, Ruby, Bundler, and the
+# gems and Python packages of the commit of ACT4 set in ACT4_COMMIT) for linux/amd64 and
+# linux/arm64 and publishes it as ci-elf, tagged latest and with the Infra commit. It runs when
+# the ASM image or the Sail image workflow finishes (a new ASM image or a new Sail means a new
+# image; both run every day, so the image follows the latest of the two), and on demand. A change of Dockerfile.elf-img or of this workflow does not build
+# by itself: the Recipe changed workflow warns about it, and a run by hand rebuilds. The dev tools
+# image workflow builds on the image this one publishes.
 #
 # The commit of ACT4 is not looked up: it is the one the projects pin as a submodule, and it
 # changes on purpose, by editing ACT4_COMMIT here.
 on:
-  schedule:
-    - cron: "30 4 * * *"
   workflow_dispatch:
     inputs:
       confirm:
@@ -23,24 +20,24 @@ on:
         description: "riscv/riscv-arch-test commit whose dependencies go in the image (empty: ACT4_COMMIT of this workflow)"
         required: false
   workflow_run:
-    workflows: ["Dev tools image", "Sail image"]
+    workflows: ["ASM image", "Sail image"]
     types: [completed]
     branches: [main]
 
 concurrency:
-  group: act-image
+  group: elf-image
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/act_tools
-  DEVTOOLS_IMAGE: ghcr.io/${{ github.repository_owner }}/dev_tools
-  SAIL_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-sail
+  IMAGE: ghcr.io/${{ github.repository_owner }}/ci-elf
+  ASM_IMAGE: ghcr.io/${{ github.repository_owner }}/ci-asm
+  SAIL_IMAGE: ghcr.io/${{ github.repository_owner }}/base-sail
   # the commit of riscv/riscv-arch-test the projects pin; update it together with their submodule
   ACT4_COMMIT: 736d8ee1d64442449f3aa2c11cc93467cb66a4af
 
 jobs:
   pin:
-    # Only decides whether there is anything to assemble now, and which Sail and dev tools go in.
+    # Only decides whether there is anything to assemble now, and which Sail and ASM image go in.
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
@@ -50,7 +47,7 @@ jobs:
       packages: read
     outputs:
       skip: ${{ steps.skip.outputs.skip }}
-      devtools: ${{ steps.pins.outputs.devtools }}
+      asm: ${{ steps.pins.outputs.asm }}
       sail: ${{ steps.pins.outputs.sail }}
       act4: ${{ steps.pins.outputs.act4 }}
       short: ${{ steps.pins.outputs.short }}
@@ -80,7 +77,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read the dev tools and Sail pins from the latest images
+      - name: Read the ASM image digest and the Sail pin from the latest images
         id: pins
         env:
           EVENT: ${{ github.event_name }}
@@ -92,35 +89,35 @@ jobs:
               | jq -r --arg key "$2" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
           }
           sail=$(label "$SAIL_IMAGE:latest" sail-riscv.commit)
-          devtools=$(docker buildx imagetools inspect "$DEVTOOLS_IMAGE:latest" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          asm=$(docker buildx imagetools inspect "$ASM_IMAGE:latest" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
           act4="${INPUT_ACT4:-$ACT4_COMMIT}"
           if ! printf '%s' "$act4" | grep -Eq '^[0-9a-f]{40}$'; then
             echo "::error::not a full commit hash: $act4"
             exit 1
           fi
-          if [ -z "$sail" ] || [ -z "$devtools" ]; then
+          if [ -z "$sail" ] || [ -z "$asm" ]; then
             if [ "$EVENT" = "workflow_dispatch" ]; then
-              echo "::error::could not read the latest Sail and dev tools images; run the Sail image and Dev tools image workflows first"
+              echo "::error::could not read the latest Sail and ASM images; run the Sail image and ASM image workflows first"
               exit 1
             fi
             # A run can start before the images exist; their runs trigger this one when they finish.
-            echo "::notice::the Sail and dev tools images are not both published yet; their runs trigger this workflow when they finish."
+            echo "::notice::the Sail and ASM images are not both published yet; their runs trigger this workflow when they finish."
             echo "missing=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          devtools_short=$(printf '%s' "$devtools" | sed 's/^sha256://' | cut -c1-12)
+          asm_short=$(printf '%s' "$asm" | sed 's/^sha256://' | cut -c1-12)
           {
-            echo "devtools=$devtools"
+            echo "asm=$asm"
             echo "sail=$sail"
             echo "act4=$act4"
-            echo "short=devtools-${devtools_short}-sail-${sail:0:7}-act4-${act4:0:7}"
+            echo "short=asm-${asm_short}-sail-${sail:0:7}-act4-${act4:0:7}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Decide whether there is anything to assemble now
-        # Nothing to do when an image is not published yet, when a dev tools or Sail run is still
+        # Nothing to do when an image is not published yet, when an ASM image or Sail run is still
         # queued or going (its end triggers this workflow again, so the last one to finish does the
         # single assembly), or when a component workflow that found its image already published
-        # (it still ends successfully) triggered this run, or the schedule did, for a combination
+        # (it still ends successfully) triggered this run for a combination
         # that exists. A manual run never defers and always builds.
         id: skip
         env:
@@ -132,7 +129,7 @@ jobs:
         run: |
           pending=0
           if [ "$EVENT" != "workflow_dispatch" ]; then
-            for workflow in devtools-image.yml sail-image.yml; do
+            for workflow in asm-image.yml sail-image.yml; do
               for status in queued in_progress; do
                 # A workflow GitHub does not know yet makes this fail; count it as none.
                 count=$(gh run list -R "$REPO" --workflow "$workflow" --status "$status" --json databaseId --jq length 2>/dev/null || echo 0)
@@ -144,7 +141,7 @@ jobs:
           if [ "$MISSING" = "true" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "$pending" -gt 0 ]; then
-            echo "::notice::a Dev tools image or Sail image run is still going; it triggers this workflow when it finishes."
+            echo "::notice::an ASM image or Sail image run is still going; it triggers this workflow when it finishes."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "$EVENT" != "workflow_dispatch" ] && docker buildx imagetools inspect "$IMAGE:$COMBINATION" > /dev/null 2>&1; then
             echo "::notice::$IMAGE:$COMBINATION already exists; nothing to assemble."
@@ -161,14 +158,14 @@ jobs:
       packages: write
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/act_tools
-      dockerfile: Dockerfile.act
-      title: Insper RISC-V ACT tools
-      description: The dev tools image plus Sail, Ruby, Bundler and the dependencies of ACT4, to run the riscv-arch-test suite.
+      image: ghcr.io/${{ github.repository_owner }}/ci-elf
+      dockerfile: Dockerfile.elf-img
+      title: Insper RISC-V ELF tests
+      description: The ASM image plus Sail, Ruby, Bundler and the dependencies of ACT4, to run the riscv-arch-test suite.
       timeout-minutes: 60
       build-args: |
-        DEVTOOLS_IMAGE=ghcr.io/${{ github.repository_owner }}/dev_tools@${{ needs.pin.outputs.devtools }}
-        SAIL_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-sail:${{ needs.pin.outputs.sail }}
+        ASM_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-asm@${{ needs.pin.outputs.asm }}
+        SAIL_IMAGE=ghcr.io/${{ github.repository_owner }}/base-sail:${{ needs.pin.outputs.sail }}
         ACT4_COMMIT=${{ needs.pin.outputs.act4 }}
       labels: |
         act4.commit=${{ needs.pin.outputs.act4 }}
@@ -178,12 +175,10 @@ jobs:
         sha-${{ github.sha }}
         ${{ needs.pin.outputs.short }}
       check: |
-        test "$(id -un)" = dev
-        test "$(pwd)" = /work
         ruby --version
         bundle --version
         sail_riscv_sim --version
-        ! ldd /opt/sail/bin/sail_riscv_sim | grep "not found"
+        ! ldd /opt/riscv-foundation/sail/bin/sail_riscv_sim | grep "not found"
         ghdl --version | head -n 1
         riscv32-unknown-elf-gcc --version | head -n 1
         uv --version

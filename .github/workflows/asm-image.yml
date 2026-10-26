@@ -1,0 +1,186 @@
+name: ASM image
+
+# Assembles level 2 of the images (Dockerfile.asm-img: the VHDL image plus the RISC-V GCC, picolibc
+# and Spike) for linux/amd64 and linux/arm64 and publishes it as
+# ci-asm. It runs when the VHDL image, GCC image, Picolibc image or Spike image workflow finishes
+# (they run every day, so the image follows the latest of the four), and on demand. The picolibc
+# is the latest picolibc image, and this workflow assembles when that image was compiled with the
+# latest GCC image. A change of Dockerfile.asm-img or of this workflow does not assemble by itself: the Recipe changed
+# workflow warns about it, and a run by hand rebuilds. The ELF image workflow builds on the image
+# this one publishes.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
+        required: true
+  workflow_run:
+    workflows: ["VHDL image", "GCC image", "Picolibc image", "Spike image"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: asm-image
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/ci-asm
+  VHDL_IMAGE: ghcr.io/${{ github.repository_owner }}/ci-vhdl
+  GCC_IMAGE: ghcr.io/${{ github.repository_owner }}/base-gcc
+  PICOLIBC_IMAGE: ghcr.io/${{ github.repository_owner }}/base-picolibc
+  SPIKE_IMAGE: ghcr.io/${{ github.repository_owner }}/base-spike
+
+jobs:
+  pin:
+    # Only decides whether there is anything to assemble now, and which components go in.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    outputs:
+      skip: ${{ steps.skip.outputs.skip }}
+      vhdl: ${{ steps.pins.outputs.vhdl }}
+      gcc: ${{ steps.pins.outputs.gcc }}
+      picolibc: ${{ steps.pins.outputs.picolibc }}
+      spike: ${{ steps.pins.outputs.spike }}
+      short: ${{ steps.pins.outputs.short }}
+
+    steps:
+      - name: Authorize manual run
+        # Only applies to workflow_dispatch: repo write access already gates who can trigger this,
+        # but on a repo shared with people who shouldn't publish the image, this adds a second
+        # check: only someone who separately knows IMAGE_PUBLISH_SECRET can run it. A workflow_run
+        # skips this: branch protection on main is the gate for that path instead, and a
+        # workflow_run follows a run that was already authorized.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          SECRET: ${{ secrets.IMAGE_PUBLISH_SECRET }}
+        run: |
+          if [ "$CONFIRM" != "$SECRET" ]; then
+            echo "::error::confirmation does not match IMAGE_PUBLISH_SECRET, refusing to publish the image"
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read the VHDL image digest and the component commits from the latest images
+        id: pins
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          # The images are manifests of two architectures that carry the same commits.
+          label() {
+            docker buildx imagetools inspect "$1" --format '{{json .Image}}' 2>/dev/null \
+              | jq -r --arg key "$2" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
+          }
+          vhdl=$(docker buildx imagetools inspect "$VHDL_IMAGE:latest" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          gcc=$(label "$GCC_IMAGE:latest" riscv-gnu-toolchain.commit)
+          # the latest picolibc image and the GCC it was compiled with: that must be the latest GCC
+          # image, or the picolibc build for it is still to come
+          picolibc=$(label "$PICOLIBC_IMAGE:latest" picolibc.commit)
+          picolibc_gcc=$(label "$PICOLIBC_IMAGE:latest" riscv-gnu-toolchain.commit)
+          spike=$(label "$SPIKE_IMAGE:latest" riscv-isa-sim.commit)
+          if [ -z "$vhdl" ] || [ -z "$gcc" ] || [ -z "$picolibc" ] || [ "$picolibc_gcc" != "$gcc" ] || [ -z "$spike" ]; then
+            if [ "$EVENT" = "workflow_dispatch" ]; then
+              echo "::error::could not read the latest VHDL, GCC, picolibc and Spike images, or the picolibc image was not compiled with the latest GCC; run the VHDL image, GCC image, Picolibc image and Spike image workflows first"
+              exit 1
+            fi
+            # A run can start before the images exist; their runs trigger this one when they finish.
+            echo "::notice::the VHDL, GCC, picolibc and Spike images are not all published yet (or the picolibc image was not compiled with the latest GCC); their runs trigger this workflow when they finish."
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          vhdl_short=$(printf '%s' "$vhdl" | sed 's/^sha256://' | cut -c1-12)
+          {
+            echo "vhdl=$vhdl"
+            echo "gcc=$gcc"
+            echo "picolibc=$picolibc"
+            echo "spike=$spike"
+            echo "short=vhdl-${vhdl_short}-gcc-${gcc:0:7}-picolibc-${picolibc:0:7}-spike-${spike:0:7}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether there is anything to assemble now
+        # Nothing to do when an image is not published yet, when a VHDL, GCC, picolibc or Spike run
+        # is still queued or going (its end triggers this workflow again, so the last one to finish
+        # does the single assembly), or when a component workflow that found its image already
+        # published (it still ends successfully) triggered this run for a
+        # combination that exists. A manual run never defers and always builds.
+        id: skip
+        env:
+          EVENT: ${{ github.event_name }}
+          MISSING: ${{ steps.pins.outputs.missing }}
+          COMBINATION: ${{ steps.pins.outputs.short }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          pending=0
+          if [ "$EVENT" != "workflow_dispatch" ]; then
+            for workflow in vhdl-image.yml gcc-image.yml picolibc-image.yml spike-image.yml; do
+              for status in queued in_progress; do
+                # A workflow GitHub does not know yet makes this fail; count it as none.
+                count=$(gh run list -R "$REPO" --workflow "$workflow" --status "$status" --json databaseId --jq length 2>/dev/null || echo 0)
+                pending=$((pending + count))
+              done
+            done
+          fi
+
+          if [ "$MISSING" = "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$pending" -gt 0 ]; then
+            echo "::notice::a VHDL, GCC, picolibc or Spike image run is still going; it triggers this workflow when it finishes."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" != "workflow_dispatch" ] && docker buildx imagetools inspect "$IMAGE:$COMBINATION" > /dev/null 2>&1; then
+            echo "::notice::$IMAGE:$COMBINATION already exists; nothing to assemble."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  image:
+    # linux/amd64 and linux/arm64, each assembled on a runner of its own architecture, then one
+    # manifest (build-image.yml).
+    needs: pin
+    if: needs.pin.outputs.skip != 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/ci-asm
+      dockerfile: Dockerfile.asm-img
+      title: Insper RISC-V ASM tests
+      description: The VHDL image plus the RISC-V GCC, picolibc and Spike, for linux/amd64 and linux/arm64.
+      timeout-minutes: 30
+      build-args: |
+        VHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-vhdl@${{ needs.pin.outputs.vhdl }}
+        GCC_IMAGE=ghcr.io/${{ github.repository_owner }}/base-gcc:${{ needs.pin.outputs.gcc }}
+        PICOLIBC_IMAGE=ghcr.io/${{ github.repository_owner }}/base-picolibc:${{ needs.pin.outputs.picolibc }}-${{ needs.pin.outputs.gcc }}
+        SPIKE_IMAGE=ghcr.io/${{ github.repository_owner }}/base-spike:${{ needs.pin.outputs.spike }}
+      labels: |
+        riscv-gnu-toolchain.commit=${{ needs.pin.outputs.gcc }}
+        picolibc.commit=${{ needs.pin.outputs.picolibc }}
+        riscv-isa-sim.commit=${{ needs.pin.outputs.spike }}
+      tags: |
+        latest
+        sha-${{ github.sha }}
+        ${{ needs.pin.outputs.short }}
+      check: |
+        expect() { if [ "$2" = "$3" ]; then echo "ok    $1 $3"; else echo "WRONG $1: expected $2, found $3"; exit 1; fi; }
+        expect gcc      "${{ needs.pin.outputs.gcc }}"                  "$(cat /opt/riscv-foundation/riscv32-elf/.tag)"
+        expect picolibc "${{ needs.pin.outputs.picolibc }}"             "$(cat /opt/riscv-foundation/riscv32-elf/.picolibc.tag)"
+        expect spike    "${{ needs.pin.outputs.spike }}-debug-start"    "$(cat /opt/riscv-foundation/spike/.tag)"
+        ghdl --version | head -n 1
+        riscv32-unknown-elf-gcc --version | head -n 1
+        riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null
+        test "$(riscv32-unknown-elf-gcc -print-multi-lib | wc -l)" = 5
+        out=$(spike --isa=rv32i -m0x0:0x10000 --pc=0 --disable-dtb /dev/null 2>&1 || true)
+        if echo "$out" | grep -q overlap; then echo "Spike still places its debug module at address 0"; exit 1; fi
+        python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"
