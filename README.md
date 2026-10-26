@@ -11,6 +11,9 @@ como único requisito na máquina.
 
 ## Docs
 
+- [AUTHORS.md](AUTHORS.md): autores com commits no repositório, com nome e conta do GitHub.
+- [CONTRIBUTING.md](CONTRIBUTING.md): regras obrigatórias de contribuição e verificação antes de abrir Pull Request.
+- [CITATION.cff](CITATION.cff): metadados para citação do software.
 - [QUARTUS_INSTALL.md](docs/pt-br/QUARTUS_INSTALL.md): instalar o Quartus Prime Lite
   globalmente numa workstation (pré-requisito do runner).
 - [RUNNER_SETUP.md](docs/pt-br/RUNNER_SETUP.md): configurar um runner self-hosted do
