@@ -47,6 +47,8 @@ jobs:
             [Dockerfile.gtkwave]="GTKWave image"     [.github/workflows/gtkwave-image.yml]="GTKWave image"
             [.github/workflows/toolchain-image.yml]="Toolchain image"
             [Dockerfile.devtools]="Dev tools image"  [.github/workflows/devtools-image.yml]="Dev tools image"
+            [Dockerfile.sail]="Sail image"           [.github/workflows/sail-image.yml]="Sail image"
+            [Dockerfile.act]="ACT image"             [.github/workflows/act-image.yml]="ACT image"
           )
           # the files of the push (a new branch has no "before": take the commit alone)
           if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
@@ -66,7 +68,7 @@ jobs:
             seen[$w]=1; rows+="| $w | \`$f\` |"$'\n'
           done <<< "$files"
           if [ "$all" = true ]; then
-            for w in "GHDL image" "GCC image" "Picolibc image" "Spike image" "Yosys image" "GTKWave image" "Toolchain image" "Dev tools image"; do
+            for w in "GHDL image" "GCC image" "Picolibc image" "Spike image" "Yosys image" "GTKWave image" "Toolchain image" "Dev tools image" "Sail image" "ACT image"; do
               [ -z "${seen[$w]:-}" ] || continue
               seen[$w]=1; rows+="| $w | \`.github/workflows/build-image.yml\` (shared by every image) |"$'\n'
             done
