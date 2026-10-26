@@ -16,7 +16,7 @@ The three cache directories can be written by any user of the container.
 
 ## 2. Running the ACT4 suite
 
-Clone ACT4 at the commit your project pins, then run the container with the clone as the working directory:
+Clone ACT4 at the commit in the label `act4.commit` of the image, then run the container with the clone as the working directory:
 
 ```bash
 docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/tmp -e UV_LINK_MODE=copy \
@@ -51,13 +51,13 @@ With the configuration `config/sail/sail-rv32-max` of ACT4 and only those two co
 | Labels | `act4.commit` and `sail-riscv.commit` |
 | Schedule | in the same run as `ci-asm`, right after it: every day, 03:00 UTC, and when `Sail image` finishes |
 
-The ACT4 commit whose dependencies are installed is the `ACT4_COMMIT` of the `CI images` workflow, which changes by editing it, or by the `act4_commit` field of a manual run. The projects that use ACT4 pin it as a submodule, and the two commits must move together.
+The ACT4 commit whose dependencies are installed is the latest commit of the `act4` branch of `riscv/riscv-arch-test` on which its `ACT Regression` workflow succeeded, looked up on every run, so the image follows the suite and a new commit makes a new tag. The commit is accepted only if the Sail of the image is the version it requires. When it is not, the run keeps the ACT4 commit of the published `ci-elf` and warns, and it fails if that commit does not match the Sail either. A project that uses ACT4 as a submodule takes the commit from the label `act4.commit`.
 
 | Manual run field | Meaning |
 | :--- | :--- |
 | `confirm` | the value of the `IMAGE_PUBLISH_SECRET` secret |
 | `from_level` | the level to rebuild from (`vhdl`, `asm`, `elf` or `devtools`): it and the ones above it are rebuilt, the ones below are reused |
-| `act4_commit` | the `riscv/riscv-arch-test` commit; empty, the `ACT4_COMMIT` of the workflow |
+| `act4_commit` | the `riscv/riscv-arch-test` commit; empty, the latest green commit of the `act4` branch. The run fails if the Sail of the image is not the version that commit requires |
 
 ## 4. Building locally
 

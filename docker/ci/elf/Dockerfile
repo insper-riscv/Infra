@@ -4,8 +4,8 @@
 # configuration through the UDB Ruby gems), and the Ruby gems and Python packages of one commit of
 # ACT4, installed ahead of time so that running the suite needs no network.
 #
-# The commit of riscv/riscv-arch-test whose dependencies are installed has no default; it is the
-# commit the project pins as a submodule:
+# The commit of riscv/riscv-arch-test whose dependencies are installed has no default; the CI images
+# workflow passes the latest commit of the act4 branch whose upstream CI is green:
 #
 #   docker build -f docker/ci/elf/Dockerfile -t ci-elf \
 #     --build-arg ACT4_COMMIT="$(git ls-remote https://github.com/riscv/riscv-arch-test refs/heads/act4 | cut -f1)" .

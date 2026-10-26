@@ -17,8 +17,10 @@ name: CI images
 # of this workflow does not assemble by itself: the Recipe changed workflow warns about it, and a
 # run by hand rebuilds.
 #
-# The commit of ACT4 is not looked up: it is the one the projects pin as a submodule, and it
-# changes on purpose, by editing ACT4_COMMIT here.
+# The commit of ACT4 (riscv/riscv-arch-test) that the ELF image prepares is the latest commit of its
+# `act4` branch on which the upstream regression workflow succeeded (green-commit.sh), as long as the
+# Sail of the image is the version that commit requires. The projects update their submodule to
+# the `act4.commit` label of the ci-elf image.
 on:
   schedule:
     - cron: "0 3 * * *"
@@ -41,7 +43,7 @@ on:
         description: "uv version to put in the VHDL image (empty: the latest stable release of the series set in UV_SERIES)"
         required: false
       act4_commit:
-        description: "riscv/riscv-arch-test commit whose dependencies go in the ELF image (empty: ACT4_COMMIT of this workflow)"
+        description: "riscv/riscv-arch-test commit whose dependencies go in the ELF image (empty: the latest commit of the act4 branch whose upstream CI is green)"
         required: false
   workflow_run:
     workflows: ["GHDL image", "Yosys image", "GCC image", "Picolibc image", "Spike image", "Sail image"]
@@ -57,15 +59,17 @@ env:
   # the major version of uv the image follows (0.x.y: the minor and the patch move to the latest
   # release); a new major is chosen by editing this line
   UV_SERIES: "0"
-  # the commit of riscv/riscv-arch-test the projects pin; update it together with their submodule
-  ACT4_COMMIT: 736d8ee1d64442449f3aa2c11cc93467cb66a4af
+  # the upstream branch and workflow whose success vouches for a commit of ACT4
+  ACT4_REPO: riscv/riscv-arch-test
+  ACT4_BRANCH: act4
+  ACT4_WORKFLOWS: regress.yml
 
 jobs:
   pin:
     # Only decides whether there is anything to assemble now, and which components go in.
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     permissions:
       actions: read
       contents: read
@@ -81,7 +85,7 @@ jobs:
       spike: ${{ steps.pins.outputs.spike }}
       sail: ${{ steps.pins.outputs.sail }}
       gtkwave: ${{ steps.pins.outputs.gtkwave }}
-      act4: ${{ steps.pins.outputs.act4 }}
+      act4: ${{ steps.act4.outputs.commit }}
       uv: ${{ steps.uv.outputs.version }}
       python: ${{ steps.python.outputs.python }}
       cocotb: ${{ steps.python.outputs.cocotb }}
@@ -199,7 +203,6 @@ jobs:
         id: pins
         env:
           EVENT: ${{ github.event_name }}
-          INPUT_ACT4: ${{ inputs.act4_commit }}
           UV: ${{ steps.uv.outputs.version }}
           PYTHON: ${{ steps.python.outputs.python }}
           COCOTB: ${{ steps.python.outputs.cocotb }}
@@ -220,14 +223,10 @@ jobs:
           picolibc_gcc=$(label "$OWNER/base-picolibc:latest" riscv-gnu-toolchain.commit)
           spike=$(label "$OWNER/base-spike:latest" riscv-isa-sim.commit)
           sail=$(label "$OWNER/base-sail:latest" sail-riscv.commit)
+          sail_version=$(label "$OWNER/base-sail:latest" sail-riscv.version)
           gtkwave=$(label "$OWNER/base-gtkwave:latest" gtkwave.commit)
-          act4="${INPUT_ACT4:-$ACT4_COMMIT}"
-          if ! printf '%s' "$act4" | grep -Eq '^[0-9a-f]{40}$'; then
-            echo "::error::not a full commit hash: $act4"
-            exit 1
-          fi
           if [ -z "$ghdl" ] || [ -z "$yosys" ] || [ -z "$sby" ] || [ -z "$gcc" ] || [ -z "$picolibc" ] \
-             || [ "$picolibc_gcc" != "$gcc" ] || [ -z "$spike" ] || [ -z "$sail" ] || [ -z "$gtkwave" ]; then
+             || [ "$picolibc_gcc" != "$gcc" ] || [ -z "$spike" ] || [ -z "$sail" ] || [ -z "$sail_version" ] || [ -z "$gtkwave" ]; then
             if [ "$EVENT" = "workflow_dispatch" ]; then
               echo "::error::could not read the latest GHDL, Yosys, GCC, picolibc, Spike, Sail and GTKWave images, or the picolibc image was not compiled with the latest GCC; run the workflows of those images first"
               exit 1
@@ -245,13 +244,69 @@ jobs:
             echo "picolibc=$picolibc"
             echo "spike=$spike"
             echo "sail=$sail"
+            echo "sail_version=$sail_version"
             echo "gtkwave=$gtkwave"
-            echo "act4=$act4"
           } >> "$GITHUB_OUTPUT"
           # short names what decides whether to build; full adds the versions that follow from the uv
           short="ghdl-${ghdl:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-uv-${UV}"
           echo "vhdl_short=$short" >> "$GITHUB_OUTPUT"
           echo "vhdl_full=$short-python-${PYTHON}-cocotb-${COCOTB}-click-${CLICK}" >> "$GITHUB_OUTPUT"
+
+      - name: Choose the commit of ACT4
+        # A manual run takes the commit it is given and fails if the Sail of the image is not the
+        # version that commit requires. The others take the latest green commit of the branch; if
+        # its Sail version is not the one of the image (ACT4 moved to a Sail that is not published
+        # yet), they keep the commit of the ELF image published, with a warning, so that the ELF
+        # image never gets an ACT4 its Sail cannot run.
+        if: steps.pins.outputs.missing != 'true'
+        id: act4
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_ACT4: ${{ inputs.act4_commit }}
+          SAIL_VERSION: ${{ steps.pins.outputs.sail_version }}
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_REPO: ${{ env.ACT4_REPO }}
+          UPSTREAM_BRANCH: ${{ env.ACT4_BRANCH }}
+          REQUIRED_WORKFLOWS: ${{ env.ACT4_WORKFLOWS }}
+          # a newer commit still running is waited for a few minutes only; then the newest green one is taken
+          WAIT_MINUTES: "5"
+        run: |
+          # The Sail version a commit of ACT4 requires, from its own source.
+          required_sail() {
+            curl -fsSL "https://raw.githubusercontent.com/$ACT4_REPO/$1/framework/src/act/config.py" \
+              | sed -n 's/^REQUIRED_SAIL_VERSION *= *"\(.*\)".*/\1/p'
+          }
+          full_hash() { printf '%s' "$1" | grep -Eq '^[0-9a-f]{40}$'; }
+
+          if [ -n "${INPUT_ACT4:-}" ]; then
+            full_hash "$INPUT_ACT4" || { echo "::error::not a full commit hash: $INPUT_ACT4"; exit 1; }
+            required=$(required_sail "$INPUT_ACT4")
+            if [ "$required" != "$SAIL_VERSION" ]; then
+              echo "::error::ACT4 $INPUT_ACT4 requires Sail '$required' and the image has Sail $SAIL_VERSION"
+              exit 1
+            fi
+            echo "commit=$INPUT_ACT4" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          green=$(bash .github/scripts/green-commit.sh)
+          full_hash "$green" || { echo "::error::green-commit.sh did not print a commit: '$green'"; exit 1; }
+          required=$(required_sail "$green")
+          if [ "$required" = "$SAIL_VERSION" ]; then
+            echo "ACT4 $green (Sail $SAIL_VERSION)"
+            echo "commit=$green" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          published=$(docker buildx imagetools inspect "$OWNER/ci-elf:latest" --format '{{json .Image}}' 2>/dev/null \
+                      | jq -r '."linux/amd64".config.Labels["act4.commit"] // empty' 2>/dev/null || true)
+          if full_hash "$published" && [ "$(required_sail "$published")" = "$SAIL_VERSION" ]; then
+            echo "::warning::ACT4 $green requires Sail '$required' and the image has Sail $SAIL_VERSION; keeping ACT4 $published, the one of the published ci-elf."
+            echo "commit=$published" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::error::ACT4 $green requires Sail '$required', the image has Sail $SAIL_VERSION, and the published ci-elf has no ACT4 commit that matches it"
+          exit 1
 
       - name: Decide whether there is anything to assemble now
         # Nothing to do when a component is not published yet, or when a component run is still
