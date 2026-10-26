@@ -98,6 +98,36 @@ Precisa estar em `/usr/share/applications/`, não em
 desktop-file-validate /usr/share/applications/quartus-lite.desktop
 ```
 
+## 7. Usar o Quartus a partir de um contêiner
+
+As imagens de CI não trazem o Quartus. Elas têm a biblioteca de sistema de que as ferramentas de linha de comando dele dependem (`libglib2.0-0t64`), então a instalação do host pode ser montada num contêiner e executada lá.
+
+O Quartus do host (aqui `/opt/altera_lite/25.1std`) é montado somente para leitura e colocado no `PATH` dentro do container. O USB-Blaster é alcançado pelo servidor JTAG (`jtagd`) do host, que o container enxerga ao compartilhar a rede do host:
+
+```bash
+docker run --rm --network host --user "$(id -u):$(id -g)" -e HOME=/tmp/h \
+  -v "$PWD:/workspace" -v /opt/altera_lite:/opt/altera_lite:ro \
+  ghcr.io/insper-riscv/ci-asm:latest bash -c '
+    export PATH=/opt/altera_lite/25.1std/quartus/bin:$PATH
+    jtagconfig
+    cd platforms/sdram-bringup/quartus && quartus_sh --flow compile sdram_bringup'
+```
+
+| Opção | Para que serve |
+| :--- | :--- |
+| `-v /opt/altera_lite:/opt/altera_lite:ro` | a instalação do Quartus, somente leitura; a imagem não traz nenhuma |
+| `--network host` | o `jtagd` escuta em `localhost:1309` do host, e o programador e o `quartus_stp` do container se conectam a ele ali |
+| `--user "$(id -u):$(id -g)"` e `-e HOME=/tmp/h` | os arquivos que o build escreve pertencem ao usuário que chamou, e o Quartus tem um home gravável |
+
+O `jtagd` precisa estar rodando no host, e ele pode parar sozinho entre dois usos. Rode o `jtagconfig` no host logo antes do container: ele inicia o `jtagd` se nenhum estiver rodando. Sem um `jtagd` no host, o container inicia um próprio, que não enxerga o USB, e o `jtagconfig` dentro do container imprime:
+
+```text
+1) USB-Blaster variant [3-5]
+  Unable to lock chain - Bad port name
+```
+
+Com o `jtagd` do host rodando, o mesmo comando imprime o cabo e o chip (`USB-Blaster [3-5]`, `02B050DD 5CE(BA4|FA4)` na DE0-CV). Num daemon do Docker com remapeamento de usuários (user namespace), o `--network host` é recusado a menos que a execução também use `--userns=host`.
+
 ---
 
 Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](../../LICENSE).

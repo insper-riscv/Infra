@@ -1,22 +1,19 @@
 name: Dev tools image
 
-# Builds the development environment image (Dockerfile.devtools: the complete toolchain image plus
-# GTKWave, the user dev and the build tools; Python comes from the toolchain image) for linux/amd64 and linux/arm64 and
-# publishes it as dev_tools, tagged latest and with the Infra commit. It runs when the Toolchain
-# image or the GTKWave image workflow finishes (a new toolchain or a new GTKWave means a new
-# image), every day at 03:30 UTC (after both are looked up, as a check that the image follows the
-# latest of the two), and on demand. A change of Dockerfile.devtools or of this workflow does not
+# Builds level 4 of the images, the final one (docker/dev-tools/Dockerfile: the ELF image, that is every level
+# below it, plus GTKWave, the user dev and the build tools; Python comes from the VHDL image) for linux/amd64 and linux/arm64 and
+# publishes it as dev_tools, tagged latest and with the Infra commit. It runs when the ELF
+# image or the GTKWave image workflow finishes (a new ELF image or a new GTKWave means a new
+# image; both run every day, so the image follows the latest of the two), and on demand. A change of docker/dev-tools/Dockerfile or of this workflow does not
 # build by itself: the Recipe changed workflow warns about it, and a run by hand rebuilds.
 on:
-  schedule:
-    - cron: "30 3 * * *"
   workflow_dispatch:
     inputs:
       confirm:
         description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
         required: true
   workflow_run:
-    workflows: ["Toolchain image", "GTKWave image"]
+    workflows: ["ELF image", "GTKWave image"]
     types: [completed]
     branches: [main]
 
@@ -26,8 +23,8 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/dev_tools
-  TOOLCHAIN_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-toolchain
-  GTKWAVE_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gtkwave
+  ELF_IMAGE: ghcr.io/${{ github.repository_owner }}/ci-elf
+  GTKWAVE_IMAGE: ghcr.io/${{ github.repository_owner }}/base-gtkwave
 
 jobs:
   pin:
@@ -42,6 +39,7 @@ jobs:
     outputs:
       skip: ${{ steps.skip.outputs.skip }}
       gtkwave: ${{ steps.pins.outputs.gtkwave }}
+      elf: ${{ steps.pins.outputs.elf }}
       short: ${{ steps.pins.outputs.short }}
 
     steps:
@@ -69,7 +67,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read the toolchain and GTKWave commits from the latest images
+      - name: Read the ELF image digest and the GTKWave commit from the latest images
         id: pins
         env:
           EVENT: ${{ github.event_name }}
@@ -80,32 +78,31 @@ jobs:
               | jq -r --arg key "$2" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
           }
           gtkwave=$(label "$GTKWAVE_IMAGE:latest" gtkwave.commit)
-          ghdl=$(label "$TOOLCHAIN_IMAGE:latest" ghdl.commit)
-          gcc=$(label "$TOOLCHAIN_IMAGE:latest" riscv-gnu-toolchain.commit)
-          spike=$(label "$TOOLCHAIN_IMAGE:latest" riscv-isa-sim.commit)
-          if [ -z "$gtkwave" ] || [ -z "$ghdl" ] || [ -z "$gcc" ] || [ -z "$spike" ]; then
+          elf=$(docker buildx imagetools inspect "$ELF_IMAGE:latest" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+          if [ -z "$gtkwave" ] || [ -z "$elf" ]; then
             if [ "$EVENT" = "workflow_dispatch" ]; then
-              echo "::error::could not read the commits from the latest GTKWave and toolchain images; run the GTKWave image and Toolchain image workflows first"
+              echo "::error::could not read the latest GTKWave and ELF images; run the GTKWave image and ELF image workflows first"
               exit 1
             fi
-            # A run can start before the images exist (the merge that adds this workflow also adds
-            # the GTKWave one); their runs trigger this one when they finish.
-            echo "::notice::the GTKWave and toolchain images are not both published yet; their runs trigger this workflow when they finish."
+            # A run can start before the images exist; their runs trigger this one when they finish.
+            echo "::notice::the GTKWave and ELF images are not both published yet; their runs trigger this workflow when they finish."
             echo "missing=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "gtkwave=$gtkwave" >> "$GITHUB_OUTPUT"
-          # The combination also names the toolchain image itself (the start of its digest): the
-          # commits of the components can stay the same while the toolchain changes (the Ubuntu
-          # base, uv, Python), and that is a new combination.
-          toolchain=$(docker buildx imagetools inspect "$TOOLCHAIN_IMAGE:latest" --format '{{.Manifest.Digest}}' | sed 's/^sha256://' | cut -c1-12)
-          echo "short=ghdl-${ghdl:0:7}-gcc-${gcc:0:7}-spike-${spike:0:7}-gtkwave-${gtkwave:0:7}-toolchain-${toolchain}" >> "$GITHUB_OUTPUT"
+          # The combination names the ELF image itself (the start of its digest): it carries every
+          # lower level, so any of them changing is a new combination.
+          elf_short=$(printf '%s' "$elf" | sed 's/^sha256://' | cut -c1-12)
+          {
+            echo "gtkwave=$gtkwave"
+            echo "elf=$elf"
+            echo "short=elf-${elf_short}-gtkwave-${gtkwave:0:7}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Decide whether there is anything to assemble now
-        # Nothing to do when an image is not published yet, when a GTKWave or toolchain run is
+        # Nothing to do when an image is not published yet, when a GTKWave or ELF image run is
         # still queued or going (its end triggers this workflow again, so the last one to finish
         # does the single assembly), or when a component workflow that found its image already
-        # published (it still ends successfully) triggered this run, or the schedule did, for a
+        # published (it still ends successfully) triggered this run for a
         # combination that exists. A manual run never defers and always builds.
         id: skip
         env:
@@ -117,7 +114,7 @@ jobs:
         run: |
           pending=0
           if [ "$EVENT" != "workflow_dispatch" ]; then
-            for workflow in gtkwave-image.yml toolchain-image.yml; do
+            for workflow in gtkwave-image.yml elf-image.yml; do
               for status in queued in_progress; do
                 # A workflow GitHub does not know yet makes this fail; count it as none.
                 count=$(gh run list -R "$REPO" --workflow "$workflow" --status "$status" --json databaseId --jq length 2>/dev/null || echo 0)
@@ -129,7 +126,7 @@ jobs:
           if [ "$MISSING" = "true" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "$pending" -gt 0 ]; then
-            echo "::notice::a GTKWave image or Toolchain image run is still going; it triggers this workflow when it finishes."
+            echo "::notice::a GTKWave image or ELF image run is still going; it triggers this workflow when it finishes."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "$EVENT" != "workflow_dispatch" ] && docker buildx imagetools inspect "$IMAGE:$COMBINATION" > /dev/null 2>&1; then
             echo "::notice::$IMAGE:$COMBINATION already exists; nothing to assemble."
@@ -147,13 +144,13 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       image: ghcr.io/${{ github.repository_owner }}/dev_tools
-      dockerfile: Dockerfile.devtools
+      dockerfile: docker/dev-tools/Dockerfile
       title: Insper RISC-V dev tools
-      description: The toolchain image plus GTKWave, the build tools and the user dev, for a Dev Container.
+      description: Every level of the images (VHDL, ASM, ELF) plus GTKWave, the build tools and the user dev, for a Dev Container.
       timeout-minutes: 60
       build-args: |
-        TOOLCHAIN_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-toolchain:latest
-        GTKWAVE_IMAGE=ghcr.io/${{ github.repository_owner }}/infra-gtkwave:${{ needs.pin.outputs.gtkwave }}
+        ELF_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-elf@${{ needs.pin.outputs.elf }}
+        GTKWAVE_IMAGE=ghcr.io/${{ github.repository_owner }}/base-gtkwave:${{ needs.pin.outputs.gtkwave }}
       labels: |
         gtkwave.commit=${{ needs.pin.outputs.gtkwave }}
       tags: |
@@ -164,6 +161,8 @@ jobs:
         test "$(id -un)" = dev
         test "$(pwd)" = /work
         ghdl --version | head -n 1
+        sail_riscv_sim --version
+        ruby --version
         riscv32-unknown-elf-gcc --version | head -n 1
         uv --version
         python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"

@@ -95,6 +95,36 @@ It needs to live in `/usr/share/applications/`, not
 desktop-file-validate /usr/share/applications/quartus-lite.desktop
 ```
 
+## 7. Using Quartus from a container
+
+The CI images do not include Quartus. They have the system library the command-line tools of Quartus link against (`libglib2.0-0t64`), so the installation on the host can be mounted into a container and run there.
+
+The Quartus of the host (here `/opt/altera_lite/25.1std`) is mounted read-only and put on the `PATH` inside the container. The USB-Blaster is reached through the JTAG server (`jtagd`) of the host, which the container sees by sharing the host network:
+
+```bash
+docker run --rm --network host --user "$(id -u):$(id -g)" -e HOME=/tmp/h \
+  -v "$PWD:/workspace" -v /opt/altera_lite:/opt/altera_lite:ro \
+  ghcr.io/insper-riscv/ci-asm:latest bash -c '
+    export PATH=/opt/altera_lite/25.1std/quartus/bin:$PATH
+    jtagconfig
+    cd platforms/sdram-bringup/quartus && quartus_sh --flow compile sdram_bringup'
+```
+
+| Option | Why |
+| :--- | :--- |
+| `-v /opt/altera_lite:/opt/altera_lite:ro` | the Quartus installation, read-only; the image carries none |
+| `--network host` | `jtagd` listens on `localhost:1309` of the host, and the programmer and `quartus_stp` of the container connect to it there |
+| `--user "$(id -u):$(id -g)"` and `-e HOME=/tmp/h` | the files the build writes belong to the invoking user, and Quartus has a writable home |
+
+`jtagd` must be running on the host, and it can stop on its own between two uses. Run `jtagconfig` on the host right before the container: it starts `jtagd` if none is running. Without a `jtagd` on the host, the container starts one of its own, which cannot see the USB, and `jtagconfig` inside the container prints:
+
+```text
+1) USB-Blaster variant [3-5]
+  Unable to lock chain - Bad port name
+```
+
+With the host `jtagd` running, the same command prints the cable and the chip (`USB-Blaster [3-5]`, `02B050DD 5CE(BA4|FA4)` on the DE0-CV). On a Docker daemon with user-namespace remapping, `--network host` is refused unless the run also has `--userns=host`.
+
 ---
 
 Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).

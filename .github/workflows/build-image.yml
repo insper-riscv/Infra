@@ -8,7 +8,7 @@ on:
   workflow_call:
     inputs:
       image:
-        description: "Image name without a tag, e.g. ghcr.io/insper-riscv/infra-gcc"
+        description: "Image name without a tag, e.g. ghcr.io/insper-riscv/base-gcc"
         required: true
         type: string
       dockerfile:

@@ -1,29 +1,27 @@
 name: Picolibc image
 
-# Builds picolibc for the RISC-V GCC of the GCC image (rv32im/ilp32, one library variant), alone,
-# and publishes it as infra-picolibc for linux/amd64 and linux/arm64, tagged with the picolibc
+# Builds picolibc for the RISC-V GCC of the GCC image (every variant of that GCC), alone,
+# and publishes it as base-picolibc for linux/amd64 and linux/arm64, tagged with the picolibc
 # commit and the commit of the GCC it was compiled with, and as latest.
 #
-# picolibc is compiled by the cross compiler, so it is built with the GCC of the latest GCC image
-# (the one before the GCC that will be built from this picolibc). The GCC image takes this image as
-# the picolibc to build against and runs only the second stage of riscv-gnu-toolchain, so a new
-# picolibc gets a new GCC build that starts there: it is not a new GCC compilation from the first
-# stage.
+# picolibc is compiled by the cross compiler, so it is built with the GCC of the latest GCC image.
+# The GCC image does not depend on this one, so a new GCC makes a new picolibc build and a new
+# picolibc never makes a new GCC build.
 #
 # - Run by hand to update picolibc: it builds the commit given, or the commit of the latest release
 #   tag of the series set in SERIES (1.x.y), with the GCC the latest GCC image holds, unless that
 #   image already exists.
-# - Runs every day (schedule): it takes the commit of the latest release tag of the series set in
-#   SERIES and builds it only if the image for it and for the latest GCC does not exist yet.
+# - Runs every day (schedule) and when the GCC image workflow finishes: it takes the commit of the
+#   latest release tag of the series set in SERIES and builds it only if the image for it and for
+#   the latest GCC does not exist yet. The schedule waits for a GCC image run that is going.
 #   A change of Dockerfile or of this workflow does not build by itself, so a recipe
 #   change that is not a new version does not rebuild an image for nothing: the Recipe
 #   changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
-# The GCC image workflow then builds the GCC against it, and the Toolchain image workflow
-# assembles a new complete image.
+# The ASM image workflow then assembles a new image.
 on:
   schedule:
-    - cron: "0 3 * * *"
+    - cron: "10 3 * * *"
   workflow_dispatch:
     inputs:
       confirm:
@@ -36,14 +34,18 @@ on:
         description: "Rebuild and republish even if the image for that commit and GCC already exists"
         type: boolean
         default: false
+  workflow_run:
+    workflows: ["GCC image"]
+    types: [completed]
+    branches: [main]
 
 concurrency:
   group: picolibc-image
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-picolibc
-  GCC_IMAGE: ghcr.io/${{ github.repository_owner }}/infra-gcc
+  IMAGE: ghcr.io/${{ github.repository_owner }}/base-picolibc
+  GCC_IMAGE: ghcr.io/${{ github.repository_owner }}/base-gcc
   UPSTREAM: https://github.com/picolibc/picolibc
   # the major version of picolibc the image follows (1.x.y: the minor and the patch move to the
   # latest release); a new major is chosen by editing this line
@@ -53,9 +55,11 @@ jobs:
   pin:
     # Only decides what to build: the published image, tagged by the two commits, is what a later
     # run checks to skip the build.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
+      actions: read
       contents: read
       packages: read
     outputs:
@@ -71,7 +75,7 @@ jobs:
         # shouldn't publish the image, this adds a second check: only
         # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
         # scheduled run skips this: branch protection on main is the gate for
-        # that path instead.
+        # that path instead, and a workflow_run follows a run that was already authorized.
         if: github.event_name == 'workflow_dispatch'
         env:
           CONFIRM: ${{ inputs.confirm }}
@@ -92,8 +96,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Wait for a GCC image run that is going
+        # picolibc is compiled with the latest GCC image. While one is being built a scheduled run
+        # would use the old one, and the end of the GCC run triggers this workflow again with the
+        # new one. A manual run never defers.
+        id: defer
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          pending=0
+          for status in queued in_progress; do
+            count=$(gh run list -R "$REPO" --workflow gcc-image.yml --status "$status" --json databaseId --jq length 2>/dev/null || echo 0)
+            pending=$((pending + count))
+          done
+          if [ "$pending" -gt 0 ]; then
+            echo "::notice::a GCC image run is still going; its end triggers this workflow."
+            echo "defer=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Resolve the commits
         id: pin
+        if: steps.defer.outputs.defer != 'true'
         env:
           EVENT: ${{ github.event_name }}
           INPUT_COMMIT: ${{ inputs.commit }}
@@ -116,15 +141,18 @@ jobs:
             git ls-remote "$UPSTREAM" "refs/tags/${tag}" "refs/tags/${tag}^{}" | tail -n 1 | cut -f1
           }
 
-          # the GCC that compiles it: the latest GCC image, by the tag that holds its commit and the
-          # picolibc it was built against (a GCC image from before that tag has just the commit)
+          # the GCC that compiles it: the latest GCC image, by the tag that holds its commit
           gcc=$(label "$GCC_IMAGE:latest" riscv-gnu-toolchain.commit)
           if [ -z "$gcc" ]; then
-            echo "::error::could not read the commit of the latest GCC image; run the GCC image workflow first"
-            exit 1
+            if [ "$EVENT" = "workflow_dispatch" ]; then
+              echo "::error::could not read the commit of the latest GCC image; run the GCC image workflow first"
+              exit 1
+            fi
+            echo "::notice::the GCC image is not published yet; its run triggers this workflow when it finishes."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          gcc_picolibc=$(label "$GCC_IMAGE:latest" picolibc.commit)
-          gcc_image="$GCC_IMAGE:$gcc${gcc_picolibc:+-$gcc_picolibc}"
+          gcc_image="$GCC_IMAGE:$gcc"
           echo "gcc=$gcc" >> "$GITHUB_OUTPUT"
           echo "gcc_image=$gcc_image" >> "$GITHUB_OUTPUT"
 
@@ -157,10 +185,10 @@ jobs:
       packages: write
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/infra-picolibc
-      dockerfile: Dockerfile.picolibc
+      image: ghcr.io/${{ github.repository_owner }}/base-picolibc
+      dockerfile: docker/base/picolibc/Dockerfile
       title: picolibc for the RISC-V GCC
-      description: picolibc, the C library of the RISC-V GCC (rv32im, ilp32, one library variant). Only the files it installs into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
+      description: picolibc, the C library of the RISC-V GCC (rv32i, rv32i_zmmul and rv32im with ilp32, rv32imf/ilp32f and rv32imfd/ilp32d). Only the files it installs into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
       timeout-minutes: 60
       build-args: |
         GCC_IMAGE=${{ needs.pin.outputs.gcc_image }}

@@ -1,0 +1,173 @@
+name: Sail image
+
+# Builds the Sail RISC-V model (the executable `sail_riscv_sim` of a release of
+# riscv/sail-riscv, docker/base/sail/Dockerfile) alone and publishes it as base-sail, tagged with the commit of
+# the release tag and as latest, for linux/amd64 and linux/arm64.
+#
+# - Run by hand to update Sail: it builds the release given, or the latest stable release of the
+#   series set in SERIES, unless that image already exists.
+# - Runs every day (schedule): it takes the latest stable release of the series set in SERIES and
+#   builds it only if that image does not exist yet. The weekly pre-releases of the upstream
+#   are not stable releases and never enter.
+#   A change of Dockerfile or of this workflow does not build by itself: the Recipe changed
+#   workflow warns about it, and a run by hand with `force` rebuilds.
+#
+# The ELF image workflow then assembles a new image.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
+        required: true
+      version:
+        description: "Release of riscv/sail-riscv to build (empty: the latest stable release of the series)"
+        required: false
+      force:
+        description: "Rebuild and republish even if the image for that release already exists"
+        type: boolean
+        default: false
+
+concurrency:
+  group: sail-image
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/base-sail
+  UPSTREAM: https://github.com/riscv/sail-riscv
+  UPSTREAM_API: https://api.github.com/repos/riscv/sail-riscv
+  LABEL: sail-riscv.commit
+  # the series of Sail the image follows (0.N); a new series is chosen by editing this line
+  SERIES: "0"
+
+jobs:
+  pin:
+    # Only decides what to build: the published image, tagged by commit, is what a later run
+    # checks to skip the build.
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      version: ${{ steps.pin.outputs.version }}
+      commit: ${{ steps.pin.outputs.commit }}
+      sha_amd64: ${{ steps.pin.outputs.sha_amd64 }}
+      sha_arm64: ${{ steps.pin.outputs.sha_arm64 }}
+      build: ${{ steps.pin.outputs.build }}
+
+    steps:
+      - name: Authorize manual run
+        # Only applies to workflow_dispatch: repo write access already gates
+        # who can trigger this, but on a repo shared with people who
+        # shouldn't publish the image, this adds a second check: only
+        # someone who separately knows IMAGE_PUBLISH_SECRET can run it. A
+        # scheduled run skips this: branch protection on main is the gate for
+        # that path instead.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          SECRET: ${{ secrets.IMAGE_PUBLISH_SECRET }}
+        run: |
+          if [ "$CONFIRM" != "$SECRET" ]; then
+            echo "::error::confirmation does not match IMAGE_PUBLISH_SECRET, refusing to publish the image"
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve the release
+        id: pin
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_FORCE: ${{ inputs.force }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          latest_release() {
+            # the latest stable release tag of the series SERIES (0.N); the upstream's weekly
+            # pre-releases are named by date and never match
+            tag=$(git ls-remote --tags --refs "$UPSTREAM" | sed 's|.*refs/tags/||' \
+                  | grep -E "^${SERIES}\.[0-9]+$" | sort -V | tail -n 1)
+            if [ -z "$tag" ]; then
+              echo "::error::no release of the series ${SERIES} in $UPSTREAM" >&2
+              return 1
+            fi
+            echo "$tag"
+          }
+
+          version="${INPUT_VERSION:-}"
+          if [ -z "$version" ]; then
+            version=$(latest_release)
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+$'; then
+            echo "::error::not a Sail release: $version"
+            exit 1
+          fi
+
+          # an annotated tag has a second line, peeled to the commit (^{}); a lightweight one is the commit
+          commit=$(git ls-remote "$UPSTREAM" "refs/tags/${version}" "refs/tags/${version}^{}" | tail -n 1 | cut -f1)
+          if ! printf '%s' "$commit" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::could not find the commit of the release $version: $commit"
+            exit 1
+          fi
+
+          # GitHub publishes the SHA-256 of each asset of a release; the build checks the download against it
+          release=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+                         "$UPSTREAM_API/releases/tags/$version")
+          digest() { jq -r --arg name "$1" '.assets[] | select(.name == $name) | .digest // empty' <<< "$release"; }
+          sha_amd64=$(digest sail-riscv-Linux-x86_64.tar.gz)
+          sha_arm64=$(digest sail-riscv-Linux-aarch64.tar.gz)
+          for sum in "$sha_amd64" "$sha_arm64"; do
+            if ! printf '%s' "$sum" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+              echo "::error::the release $version does not publish the digest of its Linux tarballs: '$sum'"
+              exit 1
+            fi
+          done
+          {
+            echo "version=$version"
+            echo "commit=$commit"
+            echo "sha_amd64=$sha_amd64"
+            echo "sha_arm64=$sha_arm64"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$INPUT_FORCE" != "true" ] && docker buildx imagetools inspect "$IMAGE:$commit" > /dev/null 2>&1; then
+            echo "::notice::$IMAGE:$commit already exists; nothing to build (run again with force to rebuild)."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Building $version ($commit)."
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  image:
+    # linux/amd64 and linux/arm64, each built on a runner of its own architecture, then one
+    # manifest (build-image.yml).
+    needs: pin
+    if: needs.pin.outputs.build == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/base-sail
+      dockerfile: docker/base/sail/Dockerfile
+      title: Sail RISC-V
+      description: The Sail RISC-V model (sail_riscv_sim) of a release. Only the install directory, /opt/riscv-foundation/sail.
+      timeout-minutes: 30
+      build-args: |
+        SAIL_VERSION=${{ needs.pin.outputs.version }}
+        SAIL_COMMIT=${{ needs.pin.outputs.commit }}
+        SAIL_SHA256_AMD64=${{ needs.pin.outputs.sha_amd64 }}
+        SAIL_SHA256_ARM64=${{ needs.pin.outputs.sha_arm64 }}
+      labels: |
+        sail-riscv.version=${{ needs.pin.outputs.version }}
+        sail-riscv.commit=${{ needs.pin.outputs.commit }}
+      tags: |
+        ${{ needs.pin.outputs.commit }}
+        latest

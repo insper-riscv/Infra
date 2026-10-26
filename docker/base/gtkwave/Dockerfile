@@ -1,0 +1,49 @@
+# GTKWave, the waveform viewer, from the lts branch (the 3.3 maintenance line) of gtkwave/gtkwave, GTK 3 tree
+# (gtkwave3-gtk3): GTK 3 has a Wayland backend, so it runs on Wayland natively and on X11. Alone:
+# the published image holds just the install directory, and the dev tools image
+# (docker/dev-tools/Dockerfile) copies it from there.
+#
+# The commit of gtkwave/gtkwave to build has no default (the head of the lts branch):
+#
+#   docker build -f docker/base/gtkwave/Dockerfile -t base-gtkwave \
+#     --build-arg GTKWAVE_COMMIT="$(git ls-remote https://github.com/gtkwave/gtkwave refs/heads/lts | cut -f1)" .
+
+ARG BASE_IMAGE=ubuntu:26.04
+
+FROM ${BASE_IMAGE} AS build
+ARG GTKWAVE_COMMIT
+
+RUN test -n "${GTKWAVE_COMMIT}" \
+ || { echo "pass --build-arg GTKWAVE_COMMIT=<commit>"; exit 1; }
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      build-essential git ca-certificates pkg-config gperf flex \
+      libgtk-3-dev libbz2-dev liblzma-dev libjudy-dev zlib1g-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN git init /src \
+ && git -C /src fetch --depth 1 https://github.com/gtkwave/gtkwave "${GTKWAVE_COMMIT}" \
+ && git -C /src checkout FETCH_HEAD
+
+# Tcl is not needed to view a waveform, and the MIME database is updated by the image that
+# installs it. The code of this line is old C: a current GCC (14 and later) rejects, by default,
+# the callback signatures it uses, so those diagnostics stay warnings, as they were for the
+# compilers it was written for.
+RUN cd /src/gtkwave3-gtk3 \
+ && CFLAGS="-O2 -std=gnu17 -Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration -Wno-error=int-conversion" \
+    ./configure --prefix=/opt/gtkwave --enable-gtk3 --disable-tcl --disable-mime-update \
+ && make -j"$(nproc)" \
+ && make install \
+ && echo "${GTKWAVE_COMMIT}" > /opt/gtkwave/.tag \
+ && rm -rf /src
+
+# Fail the build, before anything is published, if the binary lacks a library it needs at run
+# time that this image does not install.
+RUN ls /opt/gtkwave/bin && ! ldd /opt/gtkwave/bin/gtkwave | grep "not found"
+
+
+FROM scratch
+ARG GTKWAVE_COMMIT
+LABEL gtkwave.commit="${GTKWAVE_COMMIT}"
+COPY --from=build /opt/gtkwave /opt/gtkwave

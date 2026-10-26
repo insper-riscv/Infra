@@ -1,6 +1,6 @@
 name: Yosys image
 
-# Builds Yosys and SymbiYosys (sby) from source, alone, and publishes them as infra-yosys for
+# Builds Yosys and SymbiYosys (sby) from source, alone, and publishes them as base-yosys for
 # linux/amd64 and linux/arm64, tagged with the two commits and as latest.
 #
 # The two projects are released in step (Yosys v0.N and sby v0.N), so the image holds one of each
@@ -14,7 +14,7 @@ name: Yosys image
 #   change that is not a new version does not rebuild an image for nothing: the Recipe
 #   changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
-# The Toolchain image workflow then assembles a new complete image.
+# The VHDL image workflow then assembles a new image.
 on:
   schedule:
     - cron: "0 3 * * *"
@@ -39,7 +39,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/infra-yosys
+  IMAGE: ghcr.io/${{ github.repository_owner }}/base-yosys
   YOSYS_UPSTREAM: https://github.com/YosysHQ/yosys
   SBY_UPSTREAM: https://github.com/YosysHQ/sby
   # the major version the image follows (0.N: the minor moves to the latest release); a new major is
@@ -149,8 +149,8 @@ jobs:
       packages: write
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/infra-yosys
-      dockerfile: Dockerfile.yosys
+      image: ghcr.io/${{ github.repository_owner }}/base-yosys
+      dockerfile: docker/base/yosys/Dockerfile
       title: Yosys and SymbiYosys
       description: Yosys, the open synthesis framework, and SymbiYosys (sby), its formal verification front-end, built from source. Only the install directory, /opt/yosys.
       timeout-minutes: 120
