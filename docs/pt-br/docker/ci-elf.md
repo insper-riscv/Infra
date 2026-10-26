@@ -46,16 +46,17 @@ Com a configuração `config/sail/sail-rv32-max` do ACT4, trocando apenas os doi
 | Item | Valor |
 | :--- | :--- |
 | Receita | `docker/ci/elf/Dockerfile` |
-| Workflow | `ELF image` |
+| Workflow | `CI images`, job `elf` |
 | Tags | `latest`, `sha-<commit do Infra>` e `asm-<12 do digest da ci-asm>-sail-<7 do commit do Sail>-act4-<7 do commit do ACT4>` |
 | Rótulos | `act4.commit` e `sail-riscv.commit` |
-| Agenda | quando `ASM image` ou `Sail image` termina |
+| Agenda | no mesmo run da `ci-asm`, logo depois dela: todo dia, 03:00 UTC, e quando `Sail image` termina |
 
-O commit do ACT4 cujas dependências são instaladas é o `ACT4_COMMIT` do workflow `ELF image`, que muda editando-o, ou pelo campo `act4_commit` de uma execução manual. O ACT4 é fixado como submódulo nos projetos que o usam, e os dois commits devem andar juntos.
+O commit do ACT4 cujas dependências são instaladas é o `ACT4_COMMIT` do workflow `CI images`, que muda editando-o, ou pelo campo `act4_commit` de uma execução manual. O ACT4 é fixado como submódulo nos projetos que o usam, e os dois commits devem andar juntos.
 
 | Campo (execução manual) | Significado |
 | :--- | :--- |
 | `confirm` | o valor do secret `IMAGE_PUBLISH_SECRET` |
+| `from_level` | o nível a partir do qual reconstruir (`vhdl`, `asm`, `elf` ou `devtools`): ele e os de cima são reconstruídos, os de baixo são reaproveitados |
 | `act4_commit` | o commit do `riscv/riscv-arch-test`; vazio, o `ACT4_COMMIT` do workflow |
 
 ## 4. Construindo localmente

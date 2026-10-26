@@ -15,7 +15,7 @@ name: Spike image
 #   change that is not a new version does not rebuild an image for nothing: the Recipe
 #   changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
-# The ASM image workflow then assembles a new image.
+# The CI images workflow then assembles a new image.
 on:
   schedule:
     - cron: "0 3 * * *"

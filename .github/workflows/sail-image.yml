@@ -12,7 +12,7 @@ name: Sail image
 #   A change of Dockerfile or of this workflow does not build by itself: the Recipe changed
 #   workflow warns about it, and a run by hand with `force` rebuilds.
 #
-# The ELF image workflow then assembles a new image.
+# The CI images workflow then assembles a new image.
 on:
   schedule:
     - cron: "0 3 * * *"

@@ -45,6 +45,10 @@ on:
         required: false
         type: number
         default: 120
+    outputs:
+      digest:
+        description: "Digest of the published manifest, the one the first tag points to"
+        value: ${{ jobs.publish.outputs.digest }}
 
 jobs:
   build:
@@ -143,6 +147,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.manifest.outputs.digest }}
 
     steps:
       - uses: actions/download-artifact@v8
@@ -160,6 +166,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: One manifest for both architectures
+        id: manifest
         env:
           IMAGE: ${{ inputs.image }}
           TAGS: ${{ inputs.tags }}
@@ -174,3 +181,4 @@ jobs:
           done
           docker buildx imagetools create "${args[@]}" "${refs[@]}"
           docker buildx imagetools inspect "$IMAGE:$(head -n 1 <<< "$TAGS")"
+          echo "digest=$(docker buildx imagetools inspect "$IMAGE:$(head -n 1 <<< "$TAGS")" --format '{{.Manifest.Digest}}')" >> "$GITHUB_OUTPUT"

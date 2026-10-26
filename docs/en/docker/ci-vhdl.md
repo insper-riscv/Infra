@@ -32,17 +32,17 @@ Ubuntu also provides `git`, `make`, `curl` and `ca-certificates` (the checkout o
 | `click` | 8.5.0, fixed | `CLICK_VERSION` is edited |
 | `z3`, `boolector` and the other Ubuntu packages | whatever Ubuntu 26.04 has when the image is built | the image is rebuilt for another reason |
 
-The image is rebuilt only when GHDL, Yosys, SymbiYosys or `uv` change. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, but cocotb and `click` do not follow it: they stay at the versions `docker/ci/vhdl/Dockerfile` fixes until someone edits the build argument and runs the workflow by hand with `force`. The Python, cocotb and `click` versions are in the long tag and in the labels of every image, and are not part of the decision to build.
+The image is rebuilt only when GHDL, Yosys, SymbiYosys or `uv` change. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, but cocotb and `click` do not follow it: they stay at the versions `docker/ci/vhdl/Dockerfile` fixes until someone edits the build argument and runs the workflow by hand with `from_level` set to `vhdl`. The Python, cocotb and `click` versions are in the long tag and in the labels of every image, and are not part of the decision to build.
 
 ## 2. Publication
 
 | Item | Value |
 | :--- | :--- |
 | Recipe | `docker/ci/vhdl/Dockerfile` |
-| Workflow | `VHDL image` |
+| Workflow | `CI images`, job `vhdl` |
 | Tags | `latest`, `sha-<Infra commit>`, `ghdl-<7>-yosys-<7>-sby-<7>-uv-<version>` and the same with `-python-<x.y.z>-cocotb-<version>-click-<version>` at the end |
 | Labels | `ghdl.commit`, `yosys.commit`, `sby.commit`, `uv.version`, `python.version`, `cocotb.version` and `click.version` |
-| Schedule | every day, 03:00 UTC, and when `GHDL image` or `Yosys image` finishes |
+| Schedule | every day, 03:00 UTC, and when `GHDL image` or `Yosys image` finishes (the first level of `CI images`) |
 
 `uv` is the one component with no image of ours. Every run takes the latest stable release of the series set in `UV_SERIES` (`0`), or the `uv_version` field of a manual run. The version goes into the combination tag, so a run for a version that is already published assembles nothing, and a new `uv` is picked up by the first run after its release.
 
@@ -53,6 +53,7 @@ Before publishing, the workflow checks that the commit each component left in th
 | Field | Meaning |
 | :--- | :--- |
 | `confirm` | the value of the `IMAGE_PUBLISH_SECRET` secret |
+| `from_level` | the level to rebuild from (`vhdl`, `asm`, `elf` or `devtools`): it and the ones above it are rebuilt, the ones below are reused |
 | `uv_version` | the `uv` version; empty, the latest stable one of the series |
 
 ## 4. Building locally

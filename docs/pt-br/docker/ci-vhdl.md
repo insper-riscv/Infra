@@ -32,17 +32,17 @@ Também vêm do Ubuntu `git`, `make`, `curl` e `ca-certificates` (o checkout de 
 | `click` | 8.5.0, fixo | `CLICK_VERSION` é editado |
 | `z3`, `boolector` e os demais pacotes do Ubuntu | o que o Ubuntu 26.04 tem quando a imagem é construída | a imagem é reconstruída por outro motivo |
 
-A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys ou o `uv` mudam. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `force`. As versões de Python, cocotb e `click` estão na tag longa e nos rótulos de toda imagem, e não entram na decisão de construir.
+A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys ou o `uv` mudam. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `from_level` em `vhdl`. As versões de Python, cocotb e `click` estão na tag longa e nos rótulos de toda imagem, e não entram na decisão de construir.
 
 ## 2. Publicação
 
 | Item | Valor |
 | :--- | :--- |
 | Receita | `docker/ci/vhdl/Dockerfile` |
-| Workflow | `VHDL image` |
+| Workflow | `CI images`, job `vhdl` |
 | Tags | `latest`, `sha-<commit do Infra>`, `ghdl-<7>-yosys-<7>-sby-<7>-uv-<versão>` e a mesma com `-python-<x.y.z>-cocotb-<versão>-click-<versão>` no final |
 | Rótulos | `ghdl.commit`, `yosys.commit`, `sby.commit`, `uv.version`, `python.version`, `cocotb.version` e `click.version` |
-| Agenda | todo dia, 03:00 UTC, e quando `GHDL image` ou `Yosys image` termina |
+| Agenda | todo dia, 03:00 UTC, e quando `GHDL image` ou `Yosys image` termina (o primeiro nível do `CI images`) |
 
 O `uv` é o único componente sem imagem nossa. Todo run usa a release estável mais recente da série definida em `UV_SERIES` (`0`), ou o campo `uv_version` de um run manual. A versão entra na tag de combinação, então um run para uma versão já publicada não monta nada, e um `uv` novo é pego pelo primeiro run depois do lançamento.
 
@@ -53,6 +53,7 @@ Antes de publicar, o workflow confere que o commit que cada componente deixou na
 | Campo | Significado |
 | :--- | :--- |
 | `confirm` | o valor do secret `IMAGE_PUBLISH_SECRET` |
+| `from_level` | o nível a partir do qual reconstruir (`vhdl`, `asm`, `elf` ou `devtools`): ele e os de cima são reconstruídos, os de baixo são reaproveitados |
 | `uv_version` | a versão do `uv`; vazio, a estável mais recente da série |
 
 ## 4. Construindo localmente
