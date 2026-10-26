@@ -109,11 +109,9 @@ arquivo `.tag` dentro dele guarda o hash do commit do
 que gerou o conteúdo; é esse arquivo que decide se o cache está atualizado.
 
 Quem cria e mantém esse diretório muda conforme a máquina. Numa workstation
-com o runner self-hosted do GitHub Actions já configurado (ver
-[RUNNER_SETUP.md](RUNNER_SETUP.md), Fase 1), o cache é compartilhado por
-todos os usuários e repositórios que passam por esse runner, e o próprio
-usuário `runner` precisa conseguir atualizá-lo sozinho, sem `sudo`
-disponível dentro de um job. Numa máquina de teste, sem esse usuário, o
+que tem o usuário `runner` (ver [RUNNER_SETUP.md](../RUNNER_SETUP.md),
+seção 3), o cache é compartilhado pelos usuários da máquina e pertence ao
+`runner`, então pode ser atualizado sem `sudo`. Numa máquina de teste, sem esse usuário, o
 caminho continua sendo `/opt/riscv-foundation`, só que criado e mantido de
 outro jeito (seção 2.2).
 
@@ -263,4 +261,4 @@ novo; os já existentes continuam apontando para o mesmo caminho.
 
 ---
 
-Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](../../LICENSE).
+Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](../../../LICENSE).

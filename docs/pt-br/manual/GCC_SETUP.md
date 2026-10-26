@@ -28,7 +28,7 @@ RHEL-like (`dnf`/`yum`). O build gera estes binários (todos com o prefixo
 | `gdb-add-index` | Gera um índice de símbolos para o `gdb` carregar mais rápido |
 | `gstack` | Imprime o stack trace de um processo em execução, via `gdb` |
 | `run` | Único binário nativo do host (não RISC-V) da lista: roda um binário RISC-V compilado sob um simulador, repassando a I/O de semihosting da picolibc |
-| picolibc (`libc.a` + headers) | Biblioteca C para bare-metal, compilada para `rv32im`: cobre `printf`, `scanf`, `malloc` e `free` sem depender de um sistema operacional |
+| picolibc (`libc.a` + headers) | Biblioteca C para bare-metal, compilada para cada variante da seção 3.1: cobre `printf`, `scanf`, `malloc` e `free` sem depender de um sistema operacional |
 
 ## 1. Dependências
 
@@ -102,11 +102,9 @@ arquivo `.tag` dentro dele guarda o hash do commit do
 que gerou o conteúdo; é esse arquivo que decide se o cache está atualizado.
 
 Quem cria e mantém esse diretório muda conforme a máquina. Numa workstation
-com o runner self-hosted do GitHub Actions já configurado (ver
-[RUNNER_SETUP.md](RUNNER_SETUP.md), Fase 1), o cache é compartilhado por
-todos os usuários e repositórios que passam por esse runner, e o próprio
-usuário `runner` precisa conseguir atualizá-lo sozinho, sem `sudo`
-disponível dentro de um job. Numa máquina de teste, sem esse usuário, o
+que tem o usuário `runner` (ver [RUNNER_SETUP.md](../RUNNER_SETUP.md),
+seção 3), o cache é compartilhado pelos usuários da máquina e pertence ao
+`runner`, então pode ser atualizado sem `sudo`. Numa máquina de teste, sem esse usuário, o
 caminho continua sendo `/opt/riscv-foundation`, só que criado e mantido de
 outro jeito (seção 2.2).
 
@@ -178,17 +176,34 @@ de 2,9 GB e fica em disco permanentemente em `SRC_DIR`.
 
 ## 3. Compilar e instalar no cache
 
-Rode como o mesmo dono da seção 2.3. Com `SRC_DIR` já atualizado, este passo
-confere se o cache precisa ser atualizado e, se sim, compila e instala:
+### 3.1. Variantes
+
+O build gera uma biblioteca para cada uma destas variantes. Uma biblioteca feita para menos extensões roda num
+núcleo com mais extensões, e o contrário não vale; o compilador pega a maior variante que seja subconjunto do
+`-march` informado.
+
+| `-march` | `-mabi` | Multiplicação e divisão inteiras | Ponto flutuante |
+| :--- | :--- | :--- | :--- |
+| `rv32i` | `ilp32` | em software | em software |
+| `rv32i_zmmul` | `ilp32` | multiplicação em hardware, divisão em software | em software |
+| `rv32im` (o padrão) | `ilp32` | em hardware | em software |
+| `rv32imf` | `ilp32f` | em hardware | precisão simples em hardware |
+| `rv32imfd` | `ilp32d` | em hardware | precisão simples e dupla em hardware |
+
+### 3.2. Build
+
+Rode com o mesmo dono da seção 2.3. Com o `SRC_DIR` já atualizado, este passo confere se o cache precisa de
+atualização e, se precisar, compila e instala:
 
 ```bash
 set -euo pipefail
 CACHE_DIR=/opt/riscv-foundation/riscv32-elf
 SRC_DIR=/opt/riscv-foundation/riscv-gnu-toolchain
+MULTILIB="rv32i-ilp32--;rv32i_zmmul-ilp32--;rv32im-ilp32--;rv32imf-ilp32f--;rv32imfd-ilp32d--"
 COMMIT=$(git -C "$SRC_DIR" rev-parse HEAD)
 
 if [ "$(cat "$CACHE_DIR/.tag" 2>/dev/null)" = "$COMMIT" ]; then
-  echo "O cache já está em $COMMIT, nada a fazer"
+  echo "Cache is already at $COMMIT, nothing to do"
   exit 0
 fi
 
@@ -197,57 +212,116 @@ trap "rm -rf \"$BUILD_DIR\"" EXIT
 cd "$BUILD_DIR"
 
 rm -rf "$CACHE_DIR" && mkdir -p "$CACHE_DIR"
+
+# binutils and GDB, with the Makefile of riscv-gnu-toolchain
 "$SRC_DIR/configure" --prefix="$CACHE_DIR" --with-arch=rv32im --enable-picolibc
-make -j"$(nproc)"
+make -j"$(nproc)" stamps/build-binutils-picolibc stamps/build-gdb-picolibc
+
+# the compiler, and libgcc for every variant
+mkdir gcc && cd gcc
+"$SRC_DIR/gcc/configure" --target=riscv32-unknown-elf --prefix="$CACHE_DIR" \
+  --disable-shared --disable-threads --with-system-zlib --enable-tls \
+  --with-newlib --with-picolibc --with-sysroot="$CACHE_DIR/riscv32-unknown-elf" \
+  --disable-libmudflap --disable-libssp --disable-libquadmath --disable-libgomp \
+  --disable-nls --disable-tm-clone-registry --src="$SRC_DIR/gcc" \
+  --with-multilib-generator="$MULTILIB" \
+  --with-arch=rv32im --with-abi=ilp32 --with-isa-spec=20191213 \
+  --enable-languages=c,c++ \
+  CFLAGS_FOR_TARGET="-Os -mcmodel=medlow" CXXFLAGS_FOR_TARGET="-Os -mcmodel=medlow"
+make -j"$(nproc)" all-gcc
+make install-gcc
+make -j"$(nproc)" all-target-libgcc
+make install-target-libgcc
+cd ..
+
+# picolibc, compiled with that compiler for every variant
+export PATH="$CACHE_DIR/bin:$PATH"
+tool=riscv32-unknown-elf
+cat > cross.txt <<EOF
+[binaries]
+c = ['$tool-gcc', '-nostdlib']
+cpp = ['$tool-g++', '-nostdlib']
+ar = '$tool-ar'
+as = '$tool-as'
+nm = '$tool-nm'
+strip = '$tool-strip'
+[host_machine]
+system = 'unknown'
+cpu_family = 'riscv32'
+cpu = 'riscv32'
+endian = 'little'
+[properties]
+c_args = ['-msave-restore', '-fno-common', '-mcmodel=medlow']
+cpp_args = ['-msave-restore', '-fno-common', '-mcmodel=medlow']
+skip_sanity_check = true
+EOF
+meson setup picolibc "$SRC_DIR/picolibc" --cross-file cross.txt --buildtype=minsize \
+  --prefix="$CACHE_DIR/$tool" -Dincludedir=include -Dlibdir=lib \
+  -Dsysroot-install=true -Dsystem-libc=true -Dtests=false
+ninja -C picolibc install
+
 echo "$COMMIT" > "$CACHE_DIR/.tag"
 ```
 
-O `./configure` recebe `--with-arch=rv32im`, que faz o próprio script
-derivar `--with-abi=ilp32` (soft-float) e o prefixo `riscv32-unknown-elf-`
-dos binários, e `--enable-picolibc`, que faz o `make` sozinho compilar
-binutils, GCC (em dois estágios) e a picolibc para esse alvo, sem multilib.
+O script tem quatro etapas.
 
-| Flag | Efeito |
+| Etapa | O que faz |
 | :--- | :--- |
-| `--prefix` no próprio cache | O `make` já instala no prefixo durante o build; não existe um `make install` separado |
-| `--with-arch=rv32im` | Faz o `./configure` derivar `--with-abi=ilp32` e o prefixo `riscv32-unknown-elf-`; sem ele o alvo padrão é RV64GC (`riscv64-unknown-elf-*`) |
-| `--enable-picolibc`, sem `--enable-multilib` | picolibc só compila uma variante por build; o `--enable-multilib` do toolchain é rejeitado junto com ela |
+| binutils e GDB | O Makefile do riscv-gnu-toolchain os compila e instala para o alvo `riscv32-unknown-elf`; `--with-arch=rv32im` faz ele derivar esse alvo e o ABI `ilp32`, e sem ele o alvo padrão é RV64GC (`riscv64-unknown-elf-*`) |
+| compilador | O `gcc/configure` é executado diretamente, porque a regra da picolibc do Makefile desliga o multilib; `--with-multilib-generator` recebe as variantes como `<arch>-<abi>--` separadas por `;` e implica multilib, e `--with-arch`/`--with-abi` definem a variante padrão |
+| `libgcc` | Compilada com o compilador da etapa anterior, uma vez para cada variante |
+| picolibc | Compilada pelo `meson` com esse compilador; ele lê as variantes do compilador e constrói uma biblioteca para cada uma, instalando-as no sysroot |
 
-- O build roda fora da árvore do source, em `/var/tmp`: isso permite
-  reconfigurar/recompilar sem sujar o `SRC_DIR`; `/tmp` costuma ser tmpfs,
-  pequeno demais para árvore de build.
-- O `.tag` é gravado por último: um build interrompido deixa o cache sem
-  `.tag`, então a próxima execução recompila em vez de confiar num cache
-  incompleto.
+- O build roda fora da árvore do source, em `/var/tmp`: isso permite reconfigurar/recompilar sem sujar o
+  `SRC_DIR`; `/tmp` costuma ser tmpfs, pequeno demais para árvore de build.
+- O `.tag` é gravado por último: um build interrompido deixa o cache sem `.tag`, então a próxima execução
+  recompila em vez de confiar num cache incompleto.
+- O `-mcmodel=medlow` do `CFLAGS_FOR_TARGET` é o modelo de código do compilador e da picolibc; os dois
+  precisam usar o mesmo.
 
-O build acrescenta a árvore de compilação, apagada ao final em `/var/tmp`.
-Levou por volta de dez minutos numa máquina com 22 núcleos. Para adotar uma
-release nova do riscv-gnu-toolchain, rode de novo os comandos das seções
-2.3 e 3.
+O build acrescenta a árvore de compilação, apagada ao final em `/var/tmp`. Para adotar uma release nova do
+riscv-gnu-toolchain, rode de novo os comandos das seções 2.3 e 3.2.
+
+### 3.3. Reduzir o tamanho (opcional)
+
+Os programas do host na instalação (compilador, linker e o resto) carregam seus símbolos, que são a maior parte
+do tamanho. Removê-los leva a instalação de cerca de 2,5 GB para menos de 0,5 GB e não muda o que o toolchain
+produz:
+
+```bash
+CACHE_DIR=/opt/riscv-foundation/riscv32-elf
+find "$CACHE_DIR/bin" "$CACHE_DIR/libexec" "$CACHE_DIR/riscv32-unknown-elf/bin" -type f -perm /111 \
+  -exec sh -c 'for f; do [ "$(head -c 4 "$f" | tail -c 3)" = ELF ] && strip --strip-unneeded "$f"; done; true' sh {} +
+```
 
 ## 4. Verificar
 
 ```bash
-cat /opt/riscv-foundation/riscv32-elf/.tag
-/opt/riscv-foundation/riscv32-elf/bin/riscv32-unknown-elf-gcc --version
-/opt/riscv-foundation/riscv32-elf/bin/riscv32-unknown-elf-gcc -print-multi-lib
+CACHE=/opt/riscv-foundation/riscv32-elf
+cat "$CACHE/.tag"
+"$CACHE/bin/riscv32-unknown-elf-gcc" --version
+"$CACHE/bin/riscv32-unknown-elf-gcc" -print-multi-lib
 ```
 
-A última linha deve imprimir só `.;` (uma variante, a raiz), confirmando que
-não há multilib. Para conferir que nenhum código da picolibc usa instruções
-que o core RV32IM não implementa (CSR, atômicas), o `objdump` do próprio
-toolchain lê o `crt0.o` (o runtime de inicialização) e a `libc.a`:
+O último comando deve imprimir cinco linhas, uma para cada variante da seção 3.1 (o padrão é a raiz, `.`).
+Para ver qual biblioteca um `-march` pega:
 
 ```bash
-CACHE=/opt/riscv-foundation/riscv32-elf
+"$CACHE/bin/riscv32-unknown-elf-gcc" -march=rv32i -mabi=ilp32 --specs=picolibc.specs -print-file-name=libc.a
+```
+
+Para conferir que nenhum código da picolibc da variante padrão usa instruções que o core RV32IM não implementa
+(CSR, atômicas), o `objdump` do próprio toolchain lê o `crt0.o` (o runtime de inicialização) e a `libc.a`:
+
+```bash
 "$CACHE/bin/riscv32-unknown-elf-objdump" -d "$CACHE/riscv32-unknown-elf/lib/crt0.o" \
   | grep -E 'csrr|csrw|lr\.w|sc\.w|amo'
 "$CACHE/bin/riscv32-unknown-elf-objdump" -d "$CACHE/riscv32-unknown-elf/lib/libc.a" \
   | grep -E 'csrr|csrw|lr\.w|sc\.w|amo'
 ```
 
-As duas buscas não devem retornar nada: nem o Zicsr nem a extensão A
-(atômicas) são exigidos por um `rv32im` puro.
+Nenhuma das duas buscas deve retornar nada: um `rv32im` simples não exige nem o Zicsr nem a extensão A
+(atômicas).
 
 ## 5. PATH global
 
@@ -277,4 +351,4 @@ novo; os já existentes continuam apontando para o mesmo caminho.
 
 ---
 
-Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](../../LICENSE).
+Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](../../../LICENSE).

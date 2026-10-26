@@ -111,11 +111,10 @@ that produced its contents; that is the file that decides whether the
 cache is up to date.
 
 Who creates and maintains this directory changes depending on the
-machine. On a workstation with the self-hosted GitHub Actions runner
-already configured (see [RUNNER_SETUP.md](RUNNER_SETUP.md), Phase 1), the
-cache is shared by every user and repository that goes through that
-runner, and the `runner` user itself needs to be able to update it alone,
-with no `sudo` available inside a job. On a test machine, without that
+machine. On a workstation that has the `runner` user (see
+[RUNNER_SETUP.md](../RUNNER_SETUP.md), section 3), the cache is shared by
+the users of the machine and belongs to `runner`, so it can be updated
+without `sudo`. On a test machine, without that
 user, the path is still `/opt/riscv-foundation`, just created and
 maintained a different way (section 2.2).
 
@@ -267,4 +266,4 @@ the existing ones keep pointing to the same path.
 
 ---
 
-Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../LICENSE).
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../../LICENSE).
