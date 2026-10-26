@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-#
 # GHDL with the LLVM backend, built from source, alone. The same recipe builds linux/amd64 and
 # linux/arm64 (the mcode backend of the ghdl/ghdl images is x86 only), so the complete image runs
 # the same GHDL on every machine. The published image holds just the install directory, and the
@@ -7,7 +5,7 @@
 #
 # The commit of ghdl/ghdl to build has no default:
 #
-#   docker build -f Dockerfile.ghdl -t infra-ghdl \
+#   docker build -f Dockerfile.ghdl -t base-ghdl \
 #     --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl refs/tags/v6.0.0 refs/tags/v6.0.0^{} | tail -n 1 | cut -f1)" .
 
 ARG BASE_IMAGE=ubuntu:26.04

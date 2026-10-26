@@ -1,14 +1,12 @@
-# syntax=docker/dockerfile:1
-#
 # Sail RISC-V, the formal model of the RISC-V ISA, alone: the executable `sail_riscv_sim` of a
 # release of riscv/sail-riscv. The ACT4 test generator runs it to compute the expected result of
 # every test. The published image holds just the install directory, and the ACT4 image
-# (Dockerfile.act) copies it from there.
+# (Dockerfile.elf-img) copies it from there.
 #
 # The release and the SHA-256 of its two tarballs have no default (GitHub publishes the
 # digest of each asset of a release):
 #
-#   docker build -f Dockerfile.sail -t infra-sail \
+#   docker build -f Dockerfile.sail-img -t base-sail \
 #     --build-arg SAIL_VERSION=0.16 \
 #     --build-arg SAIL_SHA256_AMD64=<digest of sail-riscv-Linux-x86_64.tar.gz> \
 #     --build-arg SAIL_SHA256_ARM64=<digest of sail-riscv-Linux-aarch64.tar.gz> .
@@ -38,15 +36,15 @@ RUN case "${TARGETARCH}" in \
  && curl -fsSL -o /tmp/sail.tar.gz \
       "https://github.com/riscv/sail-riscv/releases/download/${SAIL_VERSION}/${asset}" \
  && echo "${sum#sha256:}  /tmp/sail.tar.gz" | sha256sum -c - \
- && mkdir -p /opt/sail \
- && tar -xzf /tmp/sail.tar.gz -C /opt/sail --strip-components=1 \
+ && mkdir -p /opt/riscv-foundation/sail \
+ && tar -xzf /tmp/sail.tar.gz -C /opt/riscv-foundation/sail --strip-components=1 \
  && rm /tmp/sail.tar.gz \
- && echo "${SAIL_VERSION}" > /opt/sail/.tag
+ && echo "${SAIL_VERSION}" > /opt/riscv-foundation/sail/.tag
 
 # Fail the build, before anything is published, if the binary does not run or lacks a library
 # that this image does not install.
-RUN /opt/sail/bin/sail_riscv_sim --version \
- && ! ldd /opt/sail/bin/sail_riscv_sim | grep "not found"
+RUN /opt/riscv-foundation/sail/bin/sail_riscv_sim --version \
+ && ! ldd /opt/riscv-foundation/sail/bin/sail_riscv_sim | grep "not found"
 
 
 FROM scratch
@@ -54,4 +52,4 @@ ARG SAIL_VERSION
 ARG SAIL_COMMIT
 LABEL sail-riscv.version="${SAIL_VERSION}" \
       sail-riscv.commit="${SAIL_COMMIT}"
-COPY --from=build /opt/sail /opt/sail
+COPY --from=build /opt/riscv-foundation/sail /opt/riscv-foundation/sail

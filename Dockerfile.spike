@@ -1,12 +1,10 @@
-# syntax=docker/dockerfile:1
-#
-# Spike with its debug module moved out of address 0 (docs/en/SPIKE_SETUP.md,
+# Spike with its debug module moved out of address 0 (docs/en/manual/SPIKE_SETUP.md,
 # sections 1 to 3), alone. The published image holds just the install
 # directory, and the complete image (Dockerfile) copies it from there.
 #
 # The commit of riscv-software-src/riscv-isa-sim to build has no default:
 #
-#   docker build -f Dockerfile.spike -t infra-spike \
+#   docker build -f Dockerfile.spike -t base-spike \
 #     --build-arg RISCV_ISA_SIM_COMMIT="$(git ls-remote https://github.com/riscv-software-src/riscv-isa-sim HEAD | cut -f1)" .
 
 ARG BASE_IMAGE=ubuntu:26.04

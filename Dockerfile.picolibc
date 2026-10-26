@@ -1,22 +1,15 @@
-# syntax=docker/dockerfile:1
+# picolibc for the RISC-V GCC of Dockerfile.gcc (every variant of that GCC), alone. The
+# published image holds just the files picolibc installs into that GCC's sysroot; ci-asm copies
+# them over the GCC's prefix. picolibc is compiled with the GCC of base-gcc, so the image carries
+# the commit of that GCC. See docs/en/docker/base-picolibc.md.
 #
-# picolibc for the RISC-V GCC of Dockerfile.gcc (rv32im/ilp32, one library variant), alone. The
-# published image holds just the files picolibc installs into the sysroot of that GCC, and
-# Dockerfile.gcc starts from them: it installs them before the second stage of the GCC build, so
-# the GCC is built against this picolibc without compiling a first compiler for it.
-#
-# picolibc is compiled by the cross compiler, so the image is built from a GCC image (the one
-# published before the GCC that will be built from this picolibc) and carries the commit of that
-# GCC. The recipe is the one riscv-gnu-toolchain runs for picolibc (meson, a cross file, minimum
-# size, installed into the sysroot).
-#
-# The commit of picolibc to build has no default:
-#
-#   docker build -f Dockerfile.picolibc -t infra-picolibc \
-#     --build-arg PICOLIBC_COMMIT="$(git ls-remote https://github.com/picolibc/picolibc 'refs/tags/1.8.12^{}' | cut -f1)" .
+#   docker build -f Dockerfile.picolibc -t base-picolibc \
+#     --build-arg GCC_IMAGE=base-gcc \
+#     --build-arg PICOLIBC_COMMIT="$(git ls-remote https://github.com/picolibc/picolibc 'refs/tags/1.8.12^{}' | cut -f1)" \
+#     --build-arg GCC_COMMIT=<the riscv-gnu-toolchain.commit label of base-gcc> .
 
 ARG BASE_IMAGE=ubuntu:26.04
-ARG GCC_IMAGE=ghcr.io/insper-riscv/infra-gcc:latest
+ARG GCC_IMAGE=ghcr.io/insper-riscv/base-gcc:latest
 
 FROM ${GCC_IMAGE} AS gcc
 
@@ -26,8 +19,8 @@ ARG PICOLIBC_COMMIT
 RUN test -n "${PICOLIBC_COMMIT}" \
  || { echo "pass --build-arg PICOLIBC_COMMIT=<commit>"; exit 1; }
 
-# meson and ninja build picolibc; a host C compiler is what meson looks for even in a cross
-# build; libmpc3 and libmpfr6 are what cc1 of the RISC-V GCC links against.
+# meson and ninja build picolibc, with a host C compiler that meson looks for even in a cross build;
+# libmpc3 and libmpfr6 are what cc1 of the RISC-V GCC links against.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates git python3 meson ninja-build build-essential libmpc3 libmpfr6 \
@@ -75,16 +68,17 @@ RUN set -e; \
     DESTDIR=/out ninja -C /build/out install; \
     echo "${PICOLIBC_COMMIT}" > /out$prefix/.picolibc.tag
 
-# Fail the build, before anything is published, if the GCC cannot use what was built: a program
-# links against it with picolibc.specs and the library reports the version that was asked for.
+# Fail the build, before anything is published, if the GCC cannot use what was built: for each
+# variant a program compiles against it with picolibc.specs and the library reports its version.
 RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     cp -r /out/opt/riscv-foundation/riscv32-elf/. /opt/riscv-foundation/riscv32-elf/; \
     export PATH=/opt/riscv-foundation/riscv32-elf/bin:$PATH; \
     printf '%s\n' '#include <picolibc.h>' '#include <stdio.h>' \
       'int main(void) { printf("%s\n", __PICOLIBC_VERSION__); return 0; }' > t.c; \
-    riscv32-unknown-elf-gcc -march=rv32im -mabi=ilp32 --specs=picolibc.specs -T/dev/null -c t.c -o t.o; \
-    riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; \
-    test "$(riscv32-unknown-elf-gcc -print-multi-lib)" = ".;"; \
+    for v in "-march=rv32i -mabi=ilp32" "-march=rv32i_zmmul -mabi=ilp32" "-march=rv32im -mabi=ilp32" "-march=rv32imf -mabi=ilp32f" "-march=rv32imfd -mabi=ilp32d"; do \
+      riscv32-unknown-elf-gcc $v --specs=picolibc.specs -T/dev/null -c t.c -o t.o; \
+      test -s "$(riscv32-unknown-elf-gcc $v --specs=picolibc.specs -print-file-name=libc.a)"; \
+    done; \
     grep -h "__PICOLIBC_VERSION__" /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h | head -n 1; \
     cd /; rm -rf "$d"
 

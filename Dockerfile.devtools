@@ -1,24 +1,15 @@
-# syntax=docker/dockerfile:1
-#
-# The development environment of the Insper RISC-V project, for a Dev Container: the complete
-# toolchain image (GHDL, the RISC-V GCC with picolibc, Spike and uv) plus GTKWave (copied from its
-# own image: the 3.3 lts branch, GTK 3 tree, so it runs on Wayland and on X11) and
-# what one needs to work inside it, and the user `dev`. Python 3.14 and cocotb 2.1.0 come from the
-# toolchain image; a project installs its other dependencies with `uv sync`, and the image has no
-# pip.
+# Level 4 of the images, the final one: the ELF image plus GTKWave and the user dev, for a Dev
+# Container. GTKWave is copied from base-gtkwave. See docs/en/docker/dev-tools.md.
 #
 #   docker build -f Dockerfile.devtools -t dev_tools .
 #   docker run --rm -it -v "$PWD:/work" dev_tools
-#
-# GTKWave needs a display: for Wayland pass the compositor socket and WAYLAND_DISPLAY (docs/en/
-# DEVTOOLS_IMAGE.md).
 
-ARG TOOLCHAIN_IMAGE=ghcr.io/insper-riscv/infra-toolchain:latest
-ARG GTKWAVE_IMAGE=ghcr.io/insper-riscv/infra-gtkwave:latest
+ARG ELF_IMAGE=ghcr.io/insper-riscv/ci-elf:latest
+ARG GTKWAVE_IMAGE=ghcr.io/insper-riscv/base-gtkwave:latest
 
 FROM ${GTKWAVE_IMAGE} AS gtkwave
 
-FROM ${TOOLCHAIN_IMAGE}
+FROM ${ELF_IMAGE}
 
 # build-essential and pkg-config for the projects that compile C; gnat is the Ada runtime GHDL's
 # own builds and some libraries need. The rest are what GTKWave links against and uses at run time
