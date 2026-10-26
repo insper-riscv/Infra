@@ -1,83 +1,125 @@
-# Configurando um runner self-hosted (guia passo a passo)
+# Configurando um runner self-hosted
 
-Cobre uma workstation com acesso a hardware FPGA (Quartus + JTAG). `/opt`
-em si é padrão do FHS (Filesystem Hierarchy Standard) para software
-instalado manualmente/add-on, fora do gerenciador de pacotes da distro; os
-nomes das subpastas abaixo dele (`actions-runner`, `altera_lite`,
-`riscv-foundation`) são uma convenção sugerida. Ajuste conforme o setup da
-sua máquina.
+Uma workstation com uma placa FPGA e um USB-Blaster, registrada como runner self-hosted do GitHub Actions. Os jobs que tocam na placa rodam num contêiner Docker, uma imagem de CI do projeto, que recebe o Quartus do host montado somente para leitura e alcança a placa pelo servidor JTAG (`jtagd`) do host. O host, portanto, tem o Quartus, o Docker, o `jtagd` e o runner, e nenhuma das ferramentas das imagens de CI (GHDL, o GCC RISC-V, o Spike e o resto).
 
-## Visão geral
+| Componente | Onde | Papel |
+| :--- | :--- | :--- |
+| Programa do runner | `/opt/actions-runner`, usuário `runner` | recebe os jobs do GitHub |
+| Docker | host | roda o contêiner de cada job |
+| Imagem de CI | contêiner | as ferramentas dos testes, das [imagens Docker](docker/README.md) |
+| Quartus | `/opt/altera_lite` no host, somente leitura no contêiner | compila e programa a placa |
+| `jtagd` | host, porta 1309 | o servidor JTAG que é dono do USB-Blaster |
 
+`/opt` é o lugar padrão (FHS, Filesystem Hierarchy Standard) para software instalado à mão, fora do gerenciador de pacotes da distro; os nomes abaixo dele são uma convenção, ajuste-os à máquina.
+
+## 1. Requisitos
+
+| Requisito | Como |
+| :--- | :--- |
+| Quartus Prime Lite em `/opt/altera_lite` | [QUARTUS_INSTALL.md](QUARTUS_INSTALL.md) |
+| Docker Engine | o [guia de instalação](https://docs.docker.com/engine/install/) da distro |
+| Acesso ao GitHub e ao `ghcr.io` | HTTPS de saída |
+| Um usuário com `sudo` | para rodar os passos abaixo |
+
+## 2. Permissão para o USB-Blaster
+
+A regra de `udev` de que o Quartus precisa para um processo abrir o USB-Blaster sem ser root. Crie `/etc/udev/rules.d/92-usbblaster.rules`:
+
+```text
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6001", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6002", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6003", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6010", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6810", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6020", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6022", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6024", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6025", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6026", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="602C", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="602D", GROUP="plugdev", MODE="0660"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="602E", GROUP="plugdev", MODE="0660"
 ```
-/opt/actions-runner/      home do usuário de serviço "runner" (o runner do GitHub Actions em si)
-/opt/altera_lite/         instalação real do Quartus, direto em /opt (pré-requisito, ver QUARTUS_INSTALL.md)
-/opt/riscv-foundation/    cache compartilhado do que é compilado localmente para RISC-V (GCC, Spike)
+
+Depois recarregue as regras e conecte o cabo de novo:
+
+```bash
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+lsusb -d 09fb:     # lista o USB-Blaster
 ```
 
-## Pré-requisito: Instalar o Quartus Prime Lite
+`09fb` é o id de fabricante da Altera, e `GROUP="plugdev", MODE="0660"` deixa os membros do grupo `plugdev` abrirem o dispositivo, e mais ninguém. Um usuário que rode o `jtagconfig` à mão na máquina também precisa estar no `plugdev`.
 
-O Quartus precisa estar instalado direto em `/opt/altera_lite` antes de
-seguir as fases abaixo: download, modo GUI/CLI, PATH global e atalho
-`.desktop` estão em [QUARTUS_INSTALL.md](QUARTUS_INSTALL.md).
+## 3. Usuário de serviço dedicado
 
-## Fase 1: Usuário de serviço dedicado
-
-O runner roda como um usuário de sistema **sem senha, sem sudo próprio, sem estar
-no grupo do usuário admin**: isolamento deliberado.
+O runner roda como um usuário de sistema **sem senha, sem sudo próprio e fora do grupo do usuário admin**, o que o isola do resto da máquina. O grupo `docker` permite que ele inicie os contêineres dos jobs, e o `plugdev` permite que o `jtagd` dele abra o USB-Blaster.
 
 ```bash
 sudo useradd -r -m -d /opt/actions-runner -s /usr/sbin/nologin runner
 sudo passwd -l runner              # sem login por senha; só via sudo/systemd
-sudo usermod -aG plugdev runner    # acesso ao USB-Blaster (defesa em profundidade)
-sudo usermod -aG docker runner     # roda a imagem de toolchain (veja a nota abaixo)
+sudo usermod -aG docker runner     # inicia os contêineres dos jobs
+sudo usermod -aG plugdev runner    # abre o USB-Blaster (seção 2)
 ```
 
-O workflow da placa real compila as ROMs de teste e seus goldens dentro da
-[imagem de toolchain](TOOLCHAIN_IMAGE.md), então o Docker precisa estar
-instalado e o usuário `runner` precisa poder usá-lo. Fazer parte do grupo
-`docker` equivale a ser root na máquina, o que contraria o isolamento acima;
-onde isso não for aceitável, dê ao `runner` um Docker rootless próprio em vez
-do grupo.
+Ser membro do grupo `docker` equivale a ser root na máquina, o que contraria o isolamento acima. Onde isso não for aceitável, dê ao `runner` um Docker rootless próprio em vez do grupo.
 
-- `-r` → UID/GID na faixa de sistema (normalmente abaixo de `1000`), escolhidos
-  automaticamente entre os que já estão livres na máquina onde o comando roda.
-- `-m -d /opt/actions-runner` → cria o home já no lugar certo, dono `runner:runner`.
-- `-s /usr/sbin/nologin` → proposital: `runner` não deveria ter shell
-  interativo de login algum, o que reduz a superfície de ataque de uma
-  conta de serviço sem perda de funcionalidade. Detalhes de quais comandos
-  isso afeta logo abaixo.
+- `-r` cria o usuário com UID/GID na faixa de sistema, escolhidos entre os que estiverem livres na máquina.
+- `-m -d /opt/actions-runner` cria o home já no lugar certo, com dono `runner:runner`.
+- `-s /usr/sbin/nologin` deixa a conta sem shell interativo.
 
-Por causa do `nologin`, `sudo -iu runner ...` e `sudo su - runner` falham:
-todos os comandos deste guia usam `sudo -u runner bash -lc '...'` (sem
-`-i`) em vez disso.
+Por causa do `nologin`, `sudo -iu runner ...` e `sudo su - runner` falham; todo comando deste guia usa `sudo -u runner bash -lc '...'`, sem `-i`.
 
-**Verifique, posteriormente, se a conta ficou configurada corretamente**:
-o `-d` acima só garante o `HOME` certo no momento da criação. Se a conta
-`runner` for recriada depois por outro caminho (outro script de
-provisionamento, ou um `useradd runner` repetido sem quem o rodar saber
-dessa convenção), o `/etc/passwd` passa a registrar `HOME=/home/runner`
-(diretório que nunca existiu) em vez de `/opt/actions-runner`, o que
-quebra silenciosamente
-qualquer ferramenta que dependa de `$HOME` quando rodada manualmente via
-`sudo -u runner`: por exemplo, o `uv` (ver [SPIKE_SETUP.md](SPIKE_SETUP.md))
-falha com `Failed to initialize cache at /home/runner/.cache/uv: Permission denied` porque tenta criar cache num diretório inexistente/sem dono certo.
+Confira que o home registrado para a conta é `/opt/actions-runner`, que é o que o `-d` define na criação:
 
-Verificar:
 ```bash
-getent passwd runner   # confira o 6º campo (home)
+getent passwd runner   # o 6º campo é o home
+sudo usermod -d /opt/actions-runner runner   # só se aparecer outro valor
 ```
 
-Se estiver errado, corrigir:
+## 4. Servidor JTAG no host
+
+O contêiner alcança a placa por um `jtagd` que roda no host e escuta em `localhost:1309`. Um serviço do systemd o mantém de pé e o inicia de novo se ele morrer:
+
 ```bash
-sudo usermod -d /opt/actions-runner runner
+sudo tee /etc/systemd/system/jtagd.service <<'UNIT'
+[Unit]
+Description=Quartus JTAG server (jtagd)
+After=network.target
+
+[Service]
+Type=simple
+User=runner
+ExecStart=/opt/altera_lite/25.1std/quartus/bin/jtagd --foreground --no-config
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now jtagd
 ```
 
-## Fase 2: Registrar o runner no GitHub
+| Opção | Efeito |
+| :--- | :--- |
+| `--foreground` | mantém o `jtagd` como o processo que o systemd supervisiona, em vez de ir para segundo plano |
+| `--no-config` | inicia com a configuração padrão e não grava arquivo de configuração; o USB-Blaster é detectado automaticamente |
 
-**Onde pegar o token/URL**: no repo (ou na org, se for um runner de nível de
-organização) → **Settings → Actions → Runners → New runner**. O token expira em
-~1h, precisa copiar na hora.
+Confira que ele escuta e responde:
+
+```bash
+sudo systemctl status jtagd --no-pager   # active (running)
+ss -ltn | grep ':1309 '                  # escutando na porta 1309
+jtagconfig                               # com a placa conectada, imprime o cabo e o chip
+```
+
+Sem placa conectada, o `jtagconfig` imprime `No JTAG hardware available`. O comportamento do próprio hardware, como o número da porta USB mudar ou uma cadeia JTAG que só um power cycle resolve, está no [HARDWARE_PROGRAMMING.md](https://github.com/insper-riscv/TopLevel/blob/main/docs/HARDWARE_PROGRAMMING.md) do TopLevel.
+
+## 5. Registrar o runner no GitHub
+
+**Onde pegar o token e a URL**: no repo (ou na org, para um runner de org) → **Settings → Actions → Runners → New runner**. O token expira em cerca de uma hora, então copie-o logo.
 
 ```bash
 sudo -u runner HOME=/opt/actions-runner bash -lc '
@@ -89,51 +131,29 @@ sudo -u runner HOME=/opt/actions-runner bash -lc '
 '
 ```
 
-- `sudo -u runner ... bash -lc` (sem `-i`) e `HOME=/opt/actions-runner`
-  explícito: ver Fase 1 (por que evitar `-i` com `nologin`, e por que
-  passar `HOME=` mesmo quando a conta já está correta).
-- **Se o token der erro de permissão do tipo "refusing to allow a Personal Access
-  Token to create or update workflow ... without `workflow` scope"**: o token
-  (fine-grained PAT) precisa da permissão **"Workflows"** habilitada (Read and
-  write); é diferente de "Contents"/"Actions", e precisa ser adicionada
-  explicitamente na tela de edição do token.
+O `HOME=/opt/actions-runner` é passado explicitamente para que o registro não dependa do home gravado na conta.
 
-### Segurança: runner de nível de organização
+### 5.1. Runner de org
 
-Se o runner for registrado na ORG (não num repo específico), ele fica disponível
-para **qualquer repo** que o *runner group* dele permitir: por padrão isso costuma
-ser "All repositories", o que expõe essa máquina a repos públicos da mesma org.
+Um runner registrado na org fica disponível para **qualquer repo** que o *runner group* dele permita, e por padrão esse grupo é "All repositories", o que expõe a máquina aos repos públicos da org.
 
-**Obrigatório**: Org Settings → Actions → Runner groups → grupo onde esse runner
-caiu → **Repository access → Selected repositories → só os repos que precisam
-mesmo tocar hardware**. Sem isso, qualquer repo público da org alcança essa
-máquina através do mesmo runner.
+- **Obrigatório**: Org Settings → Actions → Runner groups → o grupo do runner → **Repository access → Selected repositories** → só os repos que precisam do hardware.
+- **O grupo precisa se chamar `FPGA`**, e não "Default".
+- No registro, o `config.sh` sem `--runnergroup` pergunta qual grupo usar: escolha ou crie o `FPGA`.
+- Um runner já registrado no grupo errado é movido em Org Settings → Actions → Runner groups → `FPGA` → **Runners → Add runner**.
 
-**O grupo tem que se chamar `FPGA`** (não o default "Default", nem
-qualquer outro nome como "Workstation - FPGA"): é esse o grupo que os
-workflows deste projeto esperam poder alcançar.
+Um runner no grupo errado não dá erro: o job que precisa dele fica em "Queued" sem nenhuma mensagem.
 
-- **No registro** (`config.sh` sem `--runnergroup`): o CLI pergunta em
-  qual grupo colocar o runner; escolha ou crie o grupo `FPGA` ali.
-- **Se o runner já foi registrado num grupo errado**: mova-o em Org
-  Settings → Actions → Runner groups → `FPGA` → **Runners → Add runner**,
-  ou mude o grupo dele pela própria página do grupo em que está.
+## 6. Serviço systemd do runner
 
-Um runner no grupo errado não dá erro claro: o job de um workflow que
-precisa dele simplesmente fica preso em "Queued" para sempre, sem nenhuma
-mensagem explicando por quê.
-
-## Fase 3: Serviço systemd (autorun, sobrevive a reboot)
-
-O script `svc.sh` que vem no pacote do runner assume que o próprio usuário do
-serviço tem sudo (ele chama `sudo systemctl` internamente); como `runner` não
-tem, a unit é escrita direto:
+O script `svc.sh` do pacote do runner supõe que o usuário de serviço tem sudo, o que o `runner` não tem, então a unit é escrita direto. Ela sobe depois do Docker e do `jtagd`:
 
 ```bash
 sudo tee /etc/systemd/system/gh-actions-runner.service <<'UNIT'
 [Unit]
 Description=GitHub Actions self-hosted runner (FPGA workstation)
-After=network.target
+After=network.target docker.service jtagd.service
+Wants=docker.service jtagd.service
 
 [Service]
 Type=simple
@@ -149,83 +169,55 @@ UNIT
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now gh-actions-runner
-sudo systemctl status gh-actions-runner --no-pager   # deve mostrar "active (running)"
+sudo systemctl status gh-actions-runner --no-pager   # active (running)
 ```
 
-## Fase 4 (opcional): Cache compartilhado para GCC e Spike (`/opt/riscv-foundation`)
+## 7. Reiniciando o servidor JTAG
 
-O workflow da placa real não usa esse cache: o GCC e o Spike dele vêm da
-imagem de toolchain, e da máquina só se usam o Quartus e o cabo JTAG. O cache
-é para quem chama o GCC ou o Spike direto na workstation, fora da imagem. Sem
-ele, cada uma dessas execuções teria que recompilá-los do zero; com ele, o
-build só confere se o commit já compilado é o mesmo e recompila só quando não
-é. Criar o diretório, clonar o código-fonte, compilar e colocar no `PATH`
-global são passos específicos de cada toolchain:
+Um `jtagd` em mau estado, por exemplo por uma sessão que não terminou, pode fazer o `jtagconfig` relatar uma cadeia quebrada, e reiniciá-lo resolve esse caso. Uma cadeia quebrada pela própria placa precisa de um power cycle dela, que nenhum restart resolve.
 
-- GCC RISC-V: [GCC_SETUP.md](GCC_SETUP.md).
-- Spike: [SPIKE_SETUP.md](SPIKE_SETUP.md).
-
-Para outro usuário (não precisa ser admin) também poder criar arquivos
-nesse cache sem `sudo` toda vez, basta colocar ele no grupo `runner`: isso
-não dá nenhum privilégio além do acesso a `/opt/riscv-foundation`, e não
-garante escrita em arquivos que já existam com dono/permissão diferentes
-(depende do modo de cada arquivo individual):
+Como o `jtagd` roda como o usuário `runner` (seção 4), o runner o encerra com `killall jtagd`, sem `sudo` e sem regra no sudoers, e o systemd o inicia de novo depois dos 5 segundos do `RestartSec`. Um job pode checar a cadeia antes de usar a placa, reiniciar o `jtagd` uma vez e checar de novo antes de falhar:
 
 ```bash
-sudo usermod -aG runner <usuario>
+killall jtagd
+sleep 6          # os 5 segundos do RestartSec mais a subida
+jtagconfig
 ```
 
-**Nota**: mudança de grupo só vale numa sessão de shell nova. Para usar na sessão
-atual sem deslogar: `sg runner -c "<comando>"`.
+Só os passos que rodam no host conseguem fazer isso: um passo dentro do contêiner não compartilha os processos do host.
 
-## Fase 5 (opcional, no GitHub): Secret para confirmar acionamento manual
+## 8. O que o contêiner de um job precisa
 
-Diferente das outras fases, isto se configura por repositório nas
-configurações do GitHub, não na máquina: precisa ser repetido em cada repo
-que usar esse runner para hardware real, e é opcional dependendo do modelo
-de confiança do time.
+Um job que toca na placa roda numa imagem de CI e precisa dar ao contêiner o que está abaixo. O comando completo, com o erro que aparece quando o `jtagd` não está rodando no host, está na seção 7 do [QUARTUS_INSTALL.md](QUARTUS_INSTALL.md).
 
-Além do controle de acesso do repo (Fase 2), um segundo portão para disparo manual
-via `workflow_dispatch`: útil se algum dia mais gente tiver acesso de escrita ao
-repo sem dever poder acionar hardware físico.
+| Necessidade | Como |
+| :--- | :--- |
+| Quartus | montar `/opt/altera_lite` somente para leitura no mesmo caminho e pôr `/opt/altera_lite/25.1std/quartus/bin` no `PATH` |
+| O `jtagd` do host | compartilhar a rede do host (`--network host`), para que `localhost:1309` seja o servidor da seção 4 |
+| Arquivos com o dono do usuário que invoca | `--user "$(id -u):$(id -g)"` e um `HOME` gravável, por exemplo `-e HOME=/tmp/h` |
+| Um daemon do Docker que remapeia usuários | acrescentar `--userns=host`, que o daemon exige junto com `--network host` |
 
-- Repo → **Settings → Secrets and variables → Actions → New repository secret**
-- Nome: `FPGA_RUN_SECRET`, valor: qualquer frase (ex: `openssl rand -hex 32`)
-- No workflow, um `workflow_dispatch.inputs.confirm` comparado contra esse secret
-  antes de qualquer passo que toque a placa (ver `real.yml` do projeto).
+A imagem não precisa de Quartus próprio: ela traz a biblioteca de sistema de que as ferramentas de linha de comando do Quartus dependem.
 
-## Fase 6: Permissão para o runner resetar o JTAG
+## 9. Secret para confirmar execuções manuais (opcional)
 
-O workflow de hardware real do projeto (exemplo: `real.yml` em
-[insper-riscv/Testes](https://github.com/insper-riscv/Testes)) tipicamente
-checa `jtagconfig` antes de compilar e, se a chain estiver presa, tenta um
-`killall jtagd` com recheck automático antes de falhar com uma mensagem clara
-pedindo intervenção manual. Isso precisa de sudo sem senha só para esse
-comando exato:
+Ao contrário das seções anteriores, esta é configurada por repositório no GitHub, e é opcional conforme o modelo de confiança do time. Além do controle de acesso do repo, é um segundo portão para execuções iniciadas à mão com `workflow_dispatch`, útil se mais gente ganhar acesso de escrita ao repo sem dever disparar o hardware físico.
 
-```bash
-echo 'runner ALL=(root) NOPASSWD: /usr/bin/killall jtagd' | \
-  sudo tee /etc/sudoers.d/runner-jtagd
-```
+- Repo → **Settings → Secrets and variables → Actions → New repository secret**.
+- Nome `FPGA_RUN_SECRET`, com qualquer frase como valor (por exemplo `openssl rand -hex 32`).
+- O workflow compara uma entrada `confirm` com esse secret antes de qualquer passo que toque na placa.
 
-Pegadinhas de hardware JTAG (porta USB mudando de número, autosuspend
-derrubando a conexão, "chain broken" que só resolve com power-cycle) são
-comportamento do hardware em si, não conteúdo de setup do runner: exemplo
-documentado em
-[HARDWARE_PROGRAMMING.md do insper-riscv/Testes](https://github.com/insper-riscv/Testes/blob/main/docs/HARDWARE_PROGRAMMING.md).
+## 10. Checklist final
 
-## Checklist final
-
-- [ ] `sudo systemctl status gh-actions-runner` → `active (running)`
-- [ ] Runner aparece **Idle** em Settings → Actions → Runners, com as labels certas
-- [ ] Runner group restrito a **Selected repositories** (não "All repositories")
-- [ ] Quartus no `PATH` global: `which quartus_pgm` e `quartus_pgm --version`
-- [ ] A imagem de toolchain roda como `runner`: `sudo -u runner docker run --rm
-  ghcr.io/insper-riscv/infra-toolchain:latest riscv32-unknown-elf-gcc --version`
-- [ ] Só se o cache compartilhado da fase 4 estiver em uso: `which
-  riscv32-unknown-elf-gcc` e `which spike`
-- [ ] `jtagconfig` lê o device ID da placa sem erro
-- [ ] Secret de confirmação manual configurado, se aplicável
+- [ ] `sudo systemctl status jtagd gh-actions-runner` mostra os dois `active (running)`
+- [ ] `ss -ltn | grep ':1309 '` mostra o `jtagd` escutando
+- [ ] `jtagconfig` imprime o cabo e o chip da placa
+- [ ] `sudo -u runner killall jtagd` e, 6 segundos depois, `ss -ltn | grep ':1309 '` mostra o servidor de novo
+- [ ] O runner aparece como **Idle** em Settings → Actions → Runners, com os labels certos
+- [ ] O runner group está restrito a **Selected repositories**, e não a "All repositories"
+- [ ] O Docker funciona como `runner`: `sudo -u runner docker run --rm ghcr.io/insper-riscv/ci-asm:latest riscv32-unknown-elf-gcc --version`
+- [ ] O Quartus roda no contêiner, com as opções da seção 8: `quartus_pgm --version` imprime a versão
+- [ ] O secret de confirmação manual está configurado, se aplicável
 
 ---
 
