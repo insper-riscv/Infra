@@ -1,6 +1,6 @@
 # dev_tools
 
-`ghcr.io/<organização>/dev_tools` é o ambiente de desenvolvimento para um Dev Container: o último nível das imagens, a [`ci-elf`](ci-elf.md) (e portanto os níveis VHDL, assembly e ELF) mais o que se precisa para trabalhar dentro dela, e o usuário `dev`. A visão geral das imagens está em [README.md](README.md). Ela é construída a partir do `docker/dev-tools/Dockerfile` pelo workflow `Dev tools image` e publicada para `linux/amd64` e `linux/arm64`.
+`ghcr.io/<organização>/dev_tools` é o ambiente de desenvolvimento para um Dev Container: o último nível das imagens, a [`ci-elf`](ci-elf.md) (e portanto os níveis VHDL, assembly e ELF) mais o que se precisa para trabalhar dentro dela, e o usuário `dev`. A visão geral das imagens está em [README.md](README.md). Ela é construída a partir do `docker/dev-tools/Dockerfile` pelo workflow `CI images` e publicada para `linux/amd64` e `linux/arm64`.
 
 ## 1. O que ela soma à ci-elf
 
@@ -54,14 +54,14 @@ Num daemon do Docker que remapeia user namespaces (`userns-remap`), o usuário d
 | Item | Valor |
 | :--- | :--- |
 | Receita | `docker/dev-tools/Dockerfile` |
-| Workflow | `Dev tools image` |
+| Workflow | `CI images`, job `devtools` |
 | Tags | `latest`, `sha-<commit do Infra>` e `elf-<12 do digest da ci-elf>-gtkwave-<7>` |
 | Rótulo | `gtkwave.commit` |
-| Agenda | quando `ELF image` ou `GTKWave image` termina |
+| Agenda | no mesmo run da `ci-elf`, logo depois dela; um GTKWave novo entra no run das 03:00 UTC |
 
 A imagem é montada a partir da `ci-elf` mais recente e da `base-gtkwave` mais recente, então uma versão nova de qualquer uma gera uma imagem nova. A tag longa nomeia o digest da `ci-elf` porque qualquer nível abaixo dela pode mudar sem que o commit do GTKWave mude, e uma combinação que já tem imagem não é construída de novo. As regras que toda imagem montada segue, como esperar o que ela copia e um workflow em andamento, estão na seção 4 da [visão geral das imagens](README.md).
 
-O GTKWave vem da [`base-gtkwave`](base-gtkwave.md); para atualizá-lo, rode o workflow `GTKWave image`, e a `dev_tools` é reconstruída quando esse run termina.
+O GTKWave vem da [`base-gtkwave`](base-gtkwave.md); um run do workflow `GTKWave image` não dispara o `CI images`, e a `dev_tools` pega o GTKWave novo no próximo run do `CI images`, às 03:00 UTC ou à mão com `from_level` em `devtools`.
 
 Antes de publicar, o workflow confere que a imagem roda como o usuário `dev` em `/work`, que o GHDL, o Sail, o Ruby, o GCC RISC-V, o `uv`, o Python com cocotb e uma compilação nativa funcionam, e que o GTKWave tem todas as suas bibliotecas.
 
@@ -70,6 +70,7 @@ Antes de publicar, o workflow confere que a imagem roda como o usuário `dev` em
 | Campo | Significado |
 | :--- | :--- |
 | `confirm` | o valor do secret `IMAGE_PUBLISH_SECRET` |
+| `from_level` | o nível a partir do qual reconstruir (`vhdl`, `asm`, `elf` ou `devtools`): ele e os de cima são reconstruídos, os de baixo são reaproveitados |
 
 ## 5. Construindo localmente
 

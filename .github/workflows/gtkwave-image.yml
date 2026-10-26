@@ -13,7 +13,8 @@ name: GTKWave image
 #   change that is not a new version does not rebuild an image for nothing: the Recipe
 #   changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
-# The Dev tools image workflow then assembles a new image.
+# The CI images workflow takes it at its next run (every day at 03:00 UTC), which assembles the
+# Dev tools image with it.
 on:
   schedule:
     - cron: "0 3 * * *"

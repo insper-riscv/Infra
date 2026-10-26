@@ -18,10 +18,10 @@ O GCC, a picolibc e o Spike já estão no `PATH`. Os executáveis do GCC RISC-V 
 | Item | Valor |
 | :--- | :--- |
 | Receita | `docker/ci/asm/Dockerfile` |
-| Workflow | `ASM image` |
+| Workflow | `CI images`, job `asm` |
 | Tags | `latest`, `sha-<commit do Infra>` e `vhdl-<12 do digest>-gcc-<7>-picolibc-<7>-spike-<7>` |
 | Rótulos | `riscv-gnu-toolchain.commit`, `picolibc.commit` e `riscv-isa-sim.commit` |
-| Agenda | quando `VHDL image`, `GCC image` ou `Spike image` termina |
+| Agenda | no mesmo run da `ci-vhdl`, logo depois dela: todo dia, 03:00 UTC, e quando `GCC image`, `Picolibc image` ou `Spike image` termina |
 
 A picolibc é a `base-picolibc` mais recente. O workflow só monta quando essa imagem de picolibc foi compilada com a `base-gcc` mais recente; se uma `GCC image` ou uma `Picolibc image` está em execução, ele espera.
 
@@ -32,6 +32,7 @@ Antes de publicar, o workflow confere que os commits deixados na imagem (os arqu
 | Campo | Significado |
 | :--- | :--- |
 | `confirm` | o valor do secret `IMAGE_PUBLISH_SECRET` |
+| `from_level` | o nível a partir do qual reconstruir (`vhdl`, `asm`, `elf` ou `devtools`): ele e os de cima são reconstruídos, os de baixo são reaproveitados |
 
 ## 4. Construindo localmente
 

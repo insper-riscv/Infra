@@ -15,7 +15,7 @@ name: GCC image
 #   change that is not a new version does not rebuild an image for nothing: the Recipe
 #   changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
-# The Picolibc image workflow then builds picolibc with it, and the ASM image workflow assembles a
+# The Picolibc image workflow then builds picolibc with it, and the CI images workflow assembles a
 # new image.
 on:
   schedule:

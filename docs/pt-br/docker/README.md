@@ -93,7 +93,7 @@ Para um resultado reproduzível, use a tag `sha-<commit>` da publicação deseja
 
 ## 4. Atualização automática
 
-Cada imagem base tem um workflow que roda todo dia (UTC), sem campo a preencher. A `VHDL image` roda também todo dia, para consultar o `uv`, que não tem imagem base. As outras imagens montadas (`ci-asm`, `ci-elf` e `dev_tools`) não têm agenda própria; elas rodam quando os workflows em que se apoiam terminam, e uma imagem base que não acha novidade ainda termina com sucesso, então a cadeia chega a elas todo dia.
+Cada imagem base tem um workflow que roda todo dia (UTC), sem campo a preencher. As quatro imagens montadas (`ci-vhdl`, `ci-asm`, `ci-elf` e `dev_tools`) são construídas por um workflow só, o `CI images`, cujos jobs rodam um depois do outro, do nível 1 ao 4. Ele roda todo dia, o que também consulta o `uv` (que não tem imagem base) e pega o GTKWave mais recente, e quando uma imagem base que ele usa termina. Uma imagem base que não acha novidade ainda termina com sucesso, então o workflow roda todo dia depois das bases.
 
 | Workflow | Quando | O que observa |
 | :--- | :--- | :--- |
@@ -104,27 +104,24 @@ Cada imagem base tem um workflow que roda todo dia (UTC), sem campo a preencher.
 | `Spike image` | todo dia, 03:00 | o commit mais recente do upstream com CI verde (pode esperar até 60 minutos por um CI em andamento) |
 | `GCC image` | todo dia, 03:00 | o commit mais recente do `riscv-gnu-toolchain` cujo `Build` passou |
 | `Sail image` | todo dia, 03:00 | a release `0.N` estável mais recente |
-| `VHDL image` | todo dia, 03:00, e quando `GHDL image` ou `Yosys image` termina | o `uv` mais recente da série 0 e a combinação GHDL e Yosys |
-| `ASM image` | quando `VHDL image`, `GCC image`, `Picolibc image` ou `Spike image` termina | a `ci-vhdl`, o GCC, a picolibc compilada com ele e o Spike |
-| `ELF image` | quando `ASM image` ou `Sail image` termina | a `ci-asm` e o Sail |
-| `Dev tools image` | quando `ELF image` ou `GTKWave image` termina | a `ci-elf` e o GTKWave |
+| `CI images` | todo dia, 03:00, e quando `GHDL image`, `Yosys image`, `GCC image`, `Picolibc image`, `Spike image` ou `Sail image` termina | o `uv` mais recente da série 0, as seis bases acima, o GTKWave e, em cada nível, a imagem do nível abaixo |
 
 Um run constrói **só se a imagem para aquela versão ainda não existir**; sem novidade, termina em segundos com um aviso.
 
-As regras que valem para toda imagem montada (`ci-*` e `dev_tools`):
+As regras que valem para as imagens montadas (`ci-*` e `dev_tools`), que o `CI images` aplica em cada nível:
 
-1. Ela lê o digest da imagem `latest` do nível abaixo e os commits nos rótulos dos componentes que copia.
-2. Se algum desses ainda não foi publicado, termina com um aviso, sem falhar, e roda quando eles terminarem. Um run manual sem eles falha, com uma mensagem que aponta os workflows a rodar antes.
+1. Ele lê os commits nos rótulos dos componentes que copia e, em cada nível, o digest da imagem do nível abaixo (a que acabou de ser construída no run, ou a publicada para a combinação).
+2. Se algum componente ainda não foi publicado, termina com um aviso, sem falhar, e roda quando eles terminarem. Um run manual sem eles falha, com uma mensagem que aponta os workflows a rodar antes.
 3. Se um workflow de que ela depende está na fila ou em execução, ela pula com um aviso, e o fim desse run a dispara de novo; o último a terminar faz a única montagem. Um run manual nunca adia.
-4. Publica só para uma combinação que ainda não existe.
+4. Cada nível publica só para uma combinação que ainda não existe. Um nível pulado por esse motivo não impede o seguinte, porque a imagem abaixo dele pode ter mudado; um nível que falha impede os de cima.
 
-**Mudar um `Dockerfile` ou um workflow não constrói nada.** Uma imagem é construída quando uma versão muda, não quando a receita muda, para que uma mudança de receita sem versão nova não reconstrua para nada imagens que levam até uma hora. Quando uma receita muda na `main`, o workflow `Recipe changed` lista as imagens afetadas, e a reconstrução é um run manual com `force`.
+**Mudar um `Dockerfile` ou um workflow não constrói nada.** Uma imagem é construída quando uma versão muda, não quando a receita muda, para que uma mudança de receita sem versão nova não reconstrua para nada imagens que levam até uma hora. Quando uma receita muda na `main`, o workflow `Recipe changed` lista as imagens afetadas, e a reconstrução é um run manual (`force` num componente, `from_level` no `CI images`).
 
 Cada arquitetura é construída num runner próprio (`ubuntu-26.04` para `linux/amd64` e `ubuntu-24.04-arm` para `linux/arm64`), porque os builds do GCC e do GHDL levam horas sob emulação. Um job final junta as duas imagens num manifesto único com as tags, e `docker pull` entrega a cada máquina a sua.
 
 ### 4.1. Execução manual
 
-Todo workflow de imagem pode ser disparado em **Actions → Run workflow**. O campo `confirm` é obrigatório (ver a seção 5). Os componentes têm ainda `commit` (vazio: o mais recente) e `force` (reconstrói e republica mesmo que a imagem daquele commit já exista); os campos específicos estão no arquivo de cada imagem.
+Todo workflow de imagem pode ser disparado em **Actions → Run workflow**. O campo `confirm` é obrigatório (ver a seção 5). Os componentes têm ainda `commit` (vazio: o mais recente) e `force` (reconstrói e republica mesmo que a imagem daquele commit já exista). O `CI images` tem `from_level` no lugar de `force`: reconstrói esse nível e os de cima, seja o que estiver publicado; os demais campos estão no arquivo de cada imagem.
 
 ## 5. Publicação e segurança
 

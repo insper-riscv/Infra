@@ -1,0 +1,588 @@
+name: CI images
+
+# Assembles the four levels of the images that sit on the component images, in order, for
+# linux/amd64 and linux/arm64:
+#   1. ci-vhdl (docker/ci/vhdl/Dockerfile): GHDL, Yosys with SymbiYosys, uv, Python and cocotb;
+#   2. ci-asm (docker/ci/asm/Dockerfile): level 1 plus the RISC-V GCC, picolibc and Spike;
+#   3. ci-elf (docker/ci/elf/Dockerfile): level 2 plus Sail, Ruby and the dependencies of ACT4;
+#   4. dev_tools (docker/dev-tools/Dockerfile): level 3 plus GTKWave and the user dev.
+# The levels are jobs of this one workflow, ordered by `needs`, because a chain of workflows
+# started by workflow_run stops at three levels. A level is assembled when the tag of its
+# combination of components is not published yet; one that is published is skipped, and the level
+# above it still runs, because the image below it may have changed.
+#
+# It runs when the GHDL, Yosys, GCC, Picolibc, Spike or Sail image workflow finishes, every day at
+# 03:00 UTC (the `uv` has no component image, so it is looked up here, and the GTKWave image is
+# picked up here too), and on demand. A change of a Dockerfile in docker/ci or docker/dev-tools or
+# of this workflow does not assemble by itself: the Recipe changed workflow warns about it, and a
+# run by hand rebuilds.
+#
+# The commit of ACT4 is not looked up: it is the one the projects pin as a submodule, and it
+# changes on purpose, by editing ACT4_COMMIT here.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
+        required: true
+      from_level:
+        description: "Level to rebuild from, whatever is published: it and the ones above it are rebuilt, the ones below are reused (and built if missing)"
+        required: true
+        type: choice
+        default: vhdl
+        options:
+          - vhdl
+          - asm
+          - elf
+          - devtools
+      uv_version:
+        description: "uv version to put in the VHDL image (empty: the latest stable release of the series set in UV_SERIES)"
+        required: false
+      act4_commit:
+        description: "riscv/riscv-arch-test commit whose dependencies go in the ELF image (empty: ACT4_COMMIT of this workflow)"
+        required: false
+  workflow_run:
+    workflows: ["GHDL image", "Yosys image", "GCC image", "Picolibc image", "Spike image", "Sail image"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: ci-images
+  cancel-in-progress: false
+
+env:
+  OWNER: ghcr.io/${{ github.repository_owner }}
+  # the major version of uv the image follows (0.x.y: the minor and the patch move to the latest
+  # release); a new major is chosen by editing this line
+  UV_SERIES: "0"
+  # the commit of riscv/riscv-arch-test the projects pin; update it together with their submodule
+  ACT4_COMMIT: 736d8ee1d64442449f3aa2c11cc93467cb66a4af
+
+jobs:
+  pin:
+    # Only decides whether there is anything to assemble now, and which components go in.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    outputs:
+      skip: ${{ steps.skip.outputs.skip }}
+      from: ${{ steps.from.outputs.from }}
+      ghdl: ${{ steps.pins.outputs.ghdl }}
+      yosys: ${{ steps.pins.outputs.yosys }}
+      sby: ${{ steps.pins.outputs.sby }}
+      gcc: ${{ steps.pins.outputs.gcc }}
+      picolibc: ${{ steps.pins.outputs.picolibc }}
+      spike: ${{ steps.pins.outputs.spike }}
+      sail: ${{ steps.pins.outputs.sail }}
+      gtkwave: ${{ steps.pins.outputs.gtkwave }}
+      act4: ${{ steps.pins.outputs.act4 }}
+      uv: ${{ steps.uv.outputs.version }}
+      python: ${{ steps.python.outputs.python }}
+      cocotb: ${{ steps.python.outputs.cocotb }}
+      click: ${{ steps.python.outputs.click }}
+      vhdl_short: ${{ steps.pins.outputs.vhdl_short }}
+      vhdl_full: ${{ steps.pins.outputs.vhdl_full }}
+      vhdl_build: ${{ steps.skip.outputs.vhdl_build }}
+
+    steps:
+      - name: Authorize manual run
+        # Only applies to workflow_dispatch: repo write access already gates who can trigger this,
+        # but on a repo shared with people who shouldn't publish the image, this adds a second
+        # check: only someone who separately knows IMAGE_PUBLISH_SECRET can run it. A scheduled
+        # run skips this: branch protection on main is the gate for that path instead, and a
+        # workflow_run follows a run that was already authorized.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          SECRET: ${{ secrets.IMAGE_PUBLISH_SECRET }}
+        run: |
+          if [ "$CONFIRM" != "$SECRET" ]; then
+            echo "::error::confirmation does not match IMAGE_PUBLISH_SECRET, refusing to publish the image"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Number of the first level to rebuild
+        # A level rebuilds when its number is at least this one, or when its combination is not
+        # published. Only a manual run forces; the others use 5, which no level reaches.
+        id: from
+        env:
+          EVENT: ${{ github.event_name }}
+          FROM_LEVEL: ${{ inputs.from_level }}
+        run: |
+          from=5
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            case "$FROM_LEVEL" in
+              vhdl) from=1 ;; asm) from=2 ;; elf) from=3 ;; devtools) from=4 ;;
+              *) echo "::error::not a level: $FROM_LEVEL"; exit 1 ;;
+            esac
+          fi
+          echo "from=$from" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve the uv version
+        # Every run takes the version given (a manual run), or the latest stable release of the
+        # series set in UV_SERIES. The version is in the tag of the combination, so a run for a
+        # version that is already published assembles nothing; and a new uv is picked up by the
+        # first run after it is released, whether that is the schedule or the end of a component.
+        id: uv
+        env:
+          INPUT_UV: ${{ inputs.uv_version }}
+        run: |
+          version="${INPUT_UV:-}"
+          if [ -z "$version" ]; then
+            version=$(git ls-remote --tags --refs https://github.com/astral-sh/uv "${UV_SERIES}.*" \
+                      | sed 's|.*refs/tags/||' | grep -E "^${UV_SERIES}\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
+          fi
+          if [ -z "$version" ]; then
+            echo "::error::no release of the uv series ${UV_SERIES}"
+            exit 1
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::not a uv version: $version"
+            exit 1
+          fi
+          if ! curl -fsSIL -o /dev/null "https://astral.sh/uv/$version/install.sh"; then
+            echo "::error::the installer of uv $version is not published"
+            exit 1
+          fi
+          echo "uv $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve the Python patch and read the fixed versions
+        # The Python of the image is the latest patch of the series in docker/ci/vhdl/Dockerfile that this
+        # uv knows, so a new uv brings a new patch with it; cocotb and click are the versions
+        # docker/ci/vhdl/Dockerfile fixes. They go in the tags and labels of the image, and not in the
+        # combination that decides whether to build: a new uv is what makes a new image.
+        # The same installer the image uses puts that uv on the runner to list the Pythons.
+        id: python
+        env:
+          UV: ${{ steps.uv.outputs.version }}
+        run: |
+          series=$(sed -n 's/^ARG PYTHON_VERSION=//p' docker/ci/vhdl/Dockerfile)
+          cocotb=$(sed -n 's/^ARG COCOTB_VERSION=//p' docker/ci/vhdl/Dockerfile)
+          click=$(sed -n 's/^ARG CLICK_VERSION=//p' docker/ci/vhdl/Dockerfile)
+          printf '%s' "$series" | grep -Eq '^[0-9]+\.[0-9]+$' || { echo "::error::no Python series in docker/ci/vhdl/Dockerfile: '$series'"; exit 1; }
+          for v in "$cocotb" "$click"; do
+            printf '%s' "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::not a version in docker/ci/vhdl/Dockerfile: '$v'"; exit 1; }
+          done
+          curl -fsSL "https://astral.sh/uv/$UV/install.sh" -o "$RUNNER_TEMP/uv-install.sh"
+          UV_UNMANAGED_INSTALL="$RUNNER_TEMP/uv-bin" sh "$RUNNER_TEMP/uv-install.sh" > /dev/null
+          python=$("$RUNNER_TEMP/uv-bin/uv" python list "$series" --only-downloads --output-format json \
+                   | jq -r '[.[].version | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(split(".") | map(tonumber)) | last // empty')
+          if [ -z "$python" ]; then
+            echo "::error::uv $UV knows no Python $series"
+            exit 1
+          fi
+          echo "python $python, cocotb $cocotb, click $click"
+          {
+            echo "python=$python"
+            echo "cocotb=$cocotb"
+            echo "click=$click"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Read the component commits from the latest images
+        id: pins
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_ACT4: ${{ inputs.act4_commit }}
+          UV: ${{ steps.uv.outputs.version }}
+          PYTHON: ${{ steps.python.outputs.python }}
+          COCOTB: ${{ steps.python.outputs.cocotb }}
+          CLICK: ${{ steps.python.outputs.click }}
+        run: |
+          # The component images are manifests of two architectures that carry the same commits.
+          label() {
+            docker buildx imagetools inspect "$1" --format '{{json .Image}}' 2>/dev/null \
+              | jq -r --arg key "$2" '."linux/amd64".config.Labels[$key] // empty' 2>/dev/null || true
+          }
+          ghdl=$(label "$OWNER/base-ghdl:latest" ghdl.commit)
+          yosys=$(label "$OWNER/base-yosys:latest" yosys.commit)
+          sby=$(label "$OWNER/base-yosys:latest" sby.commit)
+          gcc=$(label "$OWNER/base-gcc:latest" riscv-gnu-toolchain.commit)
+          # the latest picolibc image and the GCC it was compiled with: that must be the latest GCC
+          # image, or the picolibc build for it is still to come
+          picolibc=$(label "$OWNER/base-picolibc:latest" picolibc.commit)
+          picolibc_gcc=$(label "$OWNER/base-picolibc:latest" riscv-gnu-toolchain.commit)
+          spike=$(label "$OWNER/base-spike:latest" riscv-isa-sim.commit)
+          sail=$(label "$OWNER/base-sail:latest" sail-riscv.commit)
+          gtkwave=$(label "$OWNER/base-gtkwave:latest" gtkwave.commit)
+          act4="${INPUT_ACT4:-$ACT4_COMMIT}"
+          if ! printf '%s' "$act4" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::not a full commit hash: $act4"
+            exit 1
+          fi
+          if [ -z "$ghdl" ] || [ -z "$yosys" ] || [ -z "$sby" ] || [ -z "$gcc" ] || [ -z "$picolibc" ] \
+             || [ "$picolibc_gcc" != "$gcc" ] || [ -z "$spike" ] || [ -z "$sail" ] || [ -z "$gtkwave" ]; then
+            if [ "$EVENT" = "workflow_dispatch" ]; then
+              echo "::error::could not read the latest GHDL, Yosys, GCC, picolibc, Spike, Sail and GTKWave images, or the picolibc image was not compiled with the latest GCC; run the workflows of those images first"
+              exit 1
+            fi
+            # A run can start before the components exist; their runs trigger this one when they finish.
+            echo "::notice::the component images are not all published yet (or the picolibc image was not compiled with the latest GCC); their runs trigger this workflow when they finish."
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo "ghdl=$ghdl"
+            echo "yosys=$yosys"
+            echo "sby=$sby"
+            echo "gcc=$gcc"
+            echo "picolibc=$picolibc"
+            echo "spike=$spike"
+            echo "sail=$sail"
+            echo "gtkwave=$gtkwave"
+            echo "act4=$act4"
+          } >> "$GITHUB_OUTPUT"
+          # short names what decides whether to build; full adds the versions that follow from the uv
+          short="ghdl-${ghdl:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-uv-${UV}"
+          echo "vhdl_short=$short" >> "$GITHUB_OUTPUT"
+          echo "vhdl_full=$short-python-${PYTHON}-cocotb-${COCOTB}-click-${CLICK}" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether there is anything to assemble now
+        # Nothing to do when a component is not published yet, or when a component run is still
+        # queued or going (its end triggers this workflow again, so the last one to finish does
+        # the single assembly). The GTKWave image is not among them: its end does not trigger this
+        # workflow, and the next run picks it up. The other levels decide for themselves.
+        id: skip
+        env:
+          MISSING: ${{ steps.pins.outputs.missing }}
+          COMBINATION: ${{ steps.pins.outputs.vhdl_short }}
+          FROM: ${{ steps.from.outputs.from }}
+          EVENT: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          pending=0
+          if [ "$EVENT" != "workflow_dispatch" ]; then
+            for workflow in ghdl-image.yml yosys-image.yml gcc-image.yml picolibc-image.yml spike-image.yml sail-image.yml; do
+              for status in queued in_progress; do
+                # A workflow GitHub does not know yet makes this fail; count it as none.
+                count=$(gh run list -R "$REPO" --workflow "$workflow" --status "$status" --json databaseId --jq length 2>/dev/null || echo 0)
+                pending=$((pending + count))
+              done
+            done
+          fi
+
+          if [ "$MISSING" = "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$pending" -gt 0 ]; then
+            echo "::notice::a component image run is still going; it triggers this workflow when it finishes."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$FROM" -le 1 ] || ! docker buildx imagetools inspect "$OWNER/ci-vhdl:$COMBINATION" > /dev/null 2>&1; then
+            echo "vhdl_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$OWNER/ci-vhdl:$COMBINATION already exists."
+          fi
+
+  vhdl:
+    # Level 1. linux/amd64 and linux/arm64, each assembled on a runner of its own architecture,
+    # then one manifest (build-image.yml).
+    needs: pin
+    if: needs.pin.outputs.skip != 'true' && needs.pin.outputs.vhdl_build == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/ci-vhdl
+      dockerfile: docker/ci/vhdl/Dockerfile
+      title: Insper RISC-V VHDL tests
+      description: GHDL, Yosys with SymbiYosys, uv, Python and cocotb, for linux/amd64 and linux/arm64.
+      timeout-minutes: 60
+      build-args: |
+        GHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/base-ghdl:${{ needs.pin.outputs.ghdl }}
+        UV_VERSION=${{ needs.pin.outputs.uv }}
+        PYTHON_VERSION=${{ needs.pin.outputs.python }}
+        COCOTB_VERSION=${{ needs.pin.outputs.cocotb }}
+        CLICK_VERSION=${{ needs.pin.outputs.click }}
+        YOSYS_IMAGE=ghcr.io/${{ github.repository_owner }}/base-yosys:${{ needs.pin.outputs.yosys }}-${{ needs.pin.outputs.sby }}
+      labels: |
+        uv.version=${{ needs.pin.outputs.uv }}
+        python.version=${{ needs.pin.outputs.python }}
+        cocotb.version=${{ needs.pin.outputs.cocotb }}
+        click.version=${{ needs.pin.outputs.click }}
+        ghdl.commit=${{ needs.pin.outputs.ghdl }}
+        yosys.commit=${{ needs.pin.outputs.yosys }}
+        sby.commit=${{ needs.pin.outputs.sby }}
+      tags: |
+        latest
+        sha-${{ github.sha }}
+        ${{ needs.pin.outputs.vhdl_short }}
+        ${{ needs.pin.outputs.vhdl_full }}
+      check: |
+        # what is inside the image is what the workflow pinned: the commit each component left in its
+        # install directory against the commit the labels and tags of this image say
+        expect() { if [ "$2" = "$3" ]; then echo "ok    $1 $3"; else echo "WRONG $1: expected $2, found $3"; exit 1; fi; }
+        expect ghdl     "${{ needs.pin.outputs.ghdl }}"                 "$(cat /opt/ghdl/.tag)"
+        expect yosys    "${{ needs.pin.outputs.yosys }}"                "$(cat /opt/yosys/.tag)"
+        expect sby      "${{ needs.pin.outputs.sby }}"                  "$(cat /opt/yosys/.sby.tag)"
+        expect uv       "${{ needs.pin.outputs.uv }}"                   "$(uv --version | cut -d' ' -f2)"
+        expect python   "${{ needs.pin.outputs.python }}"               "$(python3 -c 'import platform; print(platform.python_version())')"
+        expect cocotb   "${{ needs.pin.outputs.cocotb }}"               "$(python3 -c 'import cocotb; print(cocotb.__version__)')"
+        expect click    "${{ needs.pin.outputs.click }}"                "$(python3 -c 'import importlib.metadata as m; print(m.version("click"))')"
+        ghdl --version | head -n 1
+        yosys -V | head -n 1
+        sby --version
+        uv --version
+        python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"
+
+  asm-plan:
+    # Names the combination of level 2: the digest of the VHDL image (the one just built, or the
+    # one published for this combination) and the commits of GCC, picolibc and Spike.
+    needs: [pin, vhdl]
+    if: ${{ !cancelled() && needs.pin.result == 'success' && needs.pin.outputs.skip != 'true' && (needs.vhdl.result == 'success' || needs.vhdl.result == 'skipped') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      vhdl: ${{ steps.plan.outputs.vhdl }}
+      short: ${{ steps.plan.outputs.short }}
+    steps:
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Name the combination
+        id: plan
+        env:
+          BUILT: ${{ needs.vhdl.outputs.digest }}
+          VHDL_SHORT: ${{ needs.pin.outputs.vhdl_short }}
+          GCC: ${{ needs.pin.outputs.gcc }}
+          PICOLIBC: ${{ needs.pin.outputs.picolibc }}
+          SPIKE: ${{ needs.pin.outputs.spike }}
+          FROM: ${{ needs.pin.outputs.from }}
+        run: |
+          vhdl="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-vhdl:$VHDL_SHORT" --format '{{.Manifest.Digest}}')}"
+          [ -n "$vhdl" ] || { echo "::error::no ci-vhdl image for $VHDL_SHORT"; exit 1; }
+          short="vhdl-$(printf '%s' "$vhdl" | sed 's/^sha256://' | cut -c1-12)-gcc-${GCC:0:7}-picolibc-${PICOLIBC:0:7}-spike-${SPIKE:0:7}"
+          {
+            echo "vhdl=$vhdl"
+            echo "short=$short"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$FROM" -le 2 ] || ! docker buildx imagetools inspect "$OWNER/ci-asm:$short" > /dev/null 2>&1; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$OWNER/ci-asm:$short already exists."
+          fi
+
+  asm:
+    # Level 2.
+    needs: [pin, asm-plan]
+    if: ${{ !cancelled() && needs.asm-plan.result == 'success' && needs.asm-plan.outputs.build == 'true' }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/ci-asm
+      dockerfile: docker/ci/asm/Dockerfile
+      title: Insper RISC-V ASM tests
+      description: The VHDL image plus the RISC-V GCC, picolibc and Spike, for linux/amd64 and linux/arm64.
+      timeout-minutes: 30
+      build-args: |
+        VHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-vhdl@${{ needs.asm-plan.outputs.vhdl }}
+        GCC_IMAGE=ghcr.io/${{ github.repository_owner }}/base-gcc:${{ needs.pin.outputs.gcc }}
+        PICOLIBC_IMAGE=ghcr.io/${{ github.repository_owner }}/base-picolibc:${{ needs.pin.outputs.picolibc }}-${{ needs.pin.outputs.gcc }}
+        SPIKE_IMAGE=ghcr.io/${{ github.repository_owner }}/base-spike:${{ needs.pin.outputs.spike }}
+      labels: |
+        riscv-gnu-toolchain.commit=${{ needs.pin.outputs.gcc }}
+        picolibc.commit=${{ needs.pin.outputs.picolibc }}
+        riscv-isa-sim.commit=${{ needs.pin.outputs.spike }}
+      tags: |
+        latest
+        sha-${{ github.sha }}
+        ${{ needs.asm-plan.outputs.short }}
+      check: |
+        expect() { if [ "$2" = "$3" ]; then echo "ok    $1 $3"; else echo "WRONG $1: expected $2, found $3"; exit 1; fi; }
+        expect gcc      "${{ needs.pin.outputs.gcc }}"                  "$(cat /opt/riscv-foundation/riscv32-elf/.tag)"
+        expect picolibc "${{ needs.pin.outputs.picolibc }}"             "$(cat /opt/riscv-foundation/riscv32-elf/.picolibc.tag)"
+        expect spike    "${{ needs.pin.outputs.spike }}-debug-start"    "$(cat /opt/riscv-foundation/spike/.tag)"
+        ghdl --version | head -n 1
+        riscv32-unknown-elf-gcc --version | head -n 1
+        riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null
+        test "$(riscv32-unknown-elf-gcc -print-multi-lib | wc -l)" = 5
+        out=$(spike --isa=rv32i -m0x0:0x10000 --pc=0 --disable-dtb /dev/null 2>&1 || true)
+        if echo "$out" | grep -q overlap; then echo "Spike still places its debug module at address 0"; exit 1; fi
+        python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"
+
+  elf-plan:
+    # Names the combination of level 3: the digest of the ASM image, the commit of Sail and the
+    # commit of ACT4.
+    needs: [pin, asm-plan, asm]
+    if: ${{ !cancelled() && needs.asm-plan.result == 'success' && (needs.asm.result == 'success' || needs.asm.result == 'skipped') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      asm: ${{ steps.plan.outputs.asm }}
+      short: ${{ steps.plan.outputs.short }}
+    steps:
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Name the combination
+        id: plan
+        env:
+          BUILT: ${{ needs.asm.outputs.digest }}
+          ASM_SHORT: ${{ needs.asm-plan.outputs.short }}
+          SAIL: ${{ needs.pin.outputs.sail }}
+          ACT4: ${{ needs.pin.outputs.act4 }}
+          FROM: ${{ needs.pin.outputs.from }}
+        run: |
+          asm="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-asm:$ASM_SHORT" --format '{{.Manifest.Digest}}')}"
+          [ -n "$asm" ] || { echo "::error::no ci-asm image for $ASM_SHORT"; exit 1; }
+          short="asm-$(printf '%s' "$asm" | sed 's/^sha256://' | cut -c1-12)-sail-${SAIL:0:7}-act4-${ACT4:0:7}"
+          {
+            echo "asm=$asm"
+            echo "short=$short"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$FROM" -le 3 ] || ! docker buildx imagetools inspect "$OWNER/ci-elf:$short" > /dev/null 2>&1; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$OWNER/ci-elf:$short already exists."
+          fi
+
+  elf:
+    # Level 3.
+    needs: [pin, elf-plan]
+    if: ${{ !cancelled() && needs.elf-plan.result == 'success' && needs.elf-plan.outputs.build == 'true' }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/ci-elf
+      dockerfile: docker/ci/elf/Dockerfile
+      title: Insper RISC-V ELF tests
+      description: The ASM image plus Sail, Ruby, Bundler and the dependencies of ACT4, to run the riscv-arch-test suite.
+      timeout-minutes: 60
+      build-args: |
+        ASM_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-asm@${{ needs.elf-plan.outputs.asm }}
+        SAIL_IMAGE=ghcr.io/${{ github.repository_owner }}/base-sail:${{ needs.pin.outputs.sail }}
+        ACT4_COMMIT=${{ needs.pin.outputs.act4 }}
+      labels: |
+        act4.commit=${{ needs.pin.outputs.act4 }}
+        sail-riscv.commit=${{ needs.pin.outputs.sail }}
+      tags: |
+        latest
+        sha-${{ github.sha }}
+        ${{ needs.elf-plan.outputs.short }}
+      check: |
+        ruby --version
+        bundle --version
+        sail_riscv_sim --version
+        ! ldd /opt/riscv-foundation/sail/bin/sail_riscv_sim | grep "not found"
+        ghdl --version | head -n 1
+        riscv32-unknown-elf-gcc --version | head -n 1
+        uv --version
+
+  devtools-plan:
+    # Names the combination of level 4: the digest of the ELF image and the commit of GTKWave.
+    needs: [pin, elf-plan, elf]
+    if: ${{ !cancelled() && needs.elf-plan.result == 'success' && (needs.elf.result == 'success' || needs.elf.result == 'skipped') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      elf: ${{ steps.plan.outputs.elf }}
+      short: ${{ steps.plan.outputs.short }}
+    steps:
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Name the combination
+        id: plan
+        env:
+          BUILT: ${{ needs.elf.outputs.digest }}
+          ELF_SHORT: ${{ needs.elf-plan.outputs.short }}
+          GTKWAVE: ${{ needs.pin.outputs.gtkwave }}
+          FROM: ${{ needs.pin.outputs.from }}
+        run: |
+          elf="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-elf:$ELF_SHORT" --format '{{.Manifest.Digest}}')}"
+          [ -n "$elf" ] || { echo "::error::no ci-elf image for $ELF_SHORT"; exit 1; }
+          # The combination names the ELF image itself (the start of its digest): it carries every
+          # lower level, so any of them changing is a new combination.
+          short="elf-$(printf '%s' "$elf" | sed 's/^sha256://' | cut -c1-12)-gtkwave-${GTKWAVE:0:7}"
+          {
+            echo "elf=$elf"
+            echo "short=$short"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$FROM" -le 4 ] || ! docker buildx imagetools inspect "$OWNER/dev_tools:$short" > /dev/null 2>&1; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$OWNER/dev_tools:$short already exists."
+          fi
+
+  devtools:
+    # Level 4, the final one.
+    needs: [pin, devtools-plan]
+    if: ${{ !cancelled() && needs.devtools-plan.result == 'success' && needs.devtools-plan.outputs.build == 'true' }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/dev_tools
+      dockerfile: docker/dev-tools/Dockerfile
+      title: Insper RISC-V dev tools
+      description: Every level of the images (VHDL, ASM, ELF) plus GTKWave, the build tools and the user dev, for a Dev Container.
+      timeout-minutes: 60
+      build-args: |
+        ELF_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-elf@${{ needs.devtools-plan.outputs.elf }}
+        GTKWAVE_IMAGE=ghcr.io/${{ github.repository_owner }}/base-gtkwave:${{ needs.pin.outputs.gtkwave }}
+      labels: |
+        gtkwave.commit=${{ needs.pin.outputs.gtkwave }}
+      tags: |
+        latest
+        sha-${{ github.sha }}
+        ${{ needs.devtools-plan.outputs.short }}
+      check: |
+        test "$(id -un)" = dev
+        test "$(pwd)" = /work
+        ghdl --version | head -n 1
+        sail_riscv_sim --version
+        ruby --version
+        riscv32-unknown-elf-gcc --version | head -n 1
+        uv --version
+        python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"
+        ! ldd /opt/gtkwave/bin/gtkwave | grep "not found"
+        test -x /opt/gtkwave/bin/gtkwave
+        echo "int main(void){return 0;}" > /tmp/t.c && gcc /tmp/t.c -o /tmp/t && /tmp/t
