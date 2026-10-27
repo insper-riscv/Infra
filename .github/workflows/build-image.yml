@@ -133,9 +133,17 @@ jobs:
           mkdir -p /tmp/digests
           touch "/tmp/digests/${DIGEST#sha256:}"
 
+      - name: Name the artifact after the image
+        # The levels of one run share its artifact namespace: without the image in the name, the
+        # manifest of a level could pick the digest of another level (they would not exist in its repository).
+        id: key
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: echo "value=${IMAGE##*/}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/upload-artifact@v7
         with:
-          name: digest-${{ matrix.arch }}
+          name: digest-${{ steps.key.outputs.value }}-${{ matrix.arch }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -151,10 +159,16 @@ jobs:
       digest: ${{ steps.manifest.outputs.digest }}
 
     steps:
+      - name: Name the artifact after the image
+        id: key
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: echo "value=${IMAGE##*/}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digest-*
+          pattern: digest-${{ steps.key.outputs.value }}-*
           merge-multiple: true
 
       - uses: docker/setup-buildx-action@v4.4.1
