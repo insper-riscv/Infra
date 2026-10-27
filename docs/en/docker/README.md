@@ -21,24 +21,24 @@ base-ghdl    base-yosys    uv
                  │      base-gcc → base-picolibc      base-spike
                  │              └────────┬─────────────────┘
                  ▼                       ▼
-            ci-asm   = ci-vhdl + GCC with picolibc + Spike
+            ci-elf   = ci-vhdl + GCC with picolibc + Spike
                  │
                  │      base-sail
                  │          │
                  ▼          ▼
-            ci-elf   = ci-asm + Sail + ACT4 dependencies
+            ci-act4   = ci-elf + Sail + ACT4 dependencies
                  │
                  │      base-gtkwave
                  │          │
                  ▼          ▼
-            dev_tools = ci-elf + GTKWave + user dev
+            dev_tools = ci-act4 + GTKWave + user dev
 ```
 
 | Level | Image | For | Adds to the level before |
 | :--- | :--- | :--- | :--- |
 | 1 | [`ci-vhdl`](ci-vhdl.md) | VHDL tests (cocotb, formal proofs) | GHDL, Yosys with SymbiYosys, `uv`, Python 3.14, cocotb |
-| 2 | [`ci-asm`](ci-asm.md) | assembly and C tests | the RISC-V GCC with picolibc, Spike |
-| 3 | [`ci-elf`](ci-elf.md) | ELF tests (ACT4) | Sail, Ruby, Bundler, the dependencies of one ACT4 commit |
+| 2 | [`ci-elf`](ci-elf.md) | building ELFs (compiling assembly and C) and running them on Spike | the RISC-V GCC with picolibc, Spike |
+| 3 | [`ci-act4`](ci-act4.md) | ACT4 certification | Sail, Ruby, Bundler, the dependencies of one ACT4 commit |
 | 4 | [`dev_tools`](dev-tools.md) | Dev Container | GTKWave, the user `dev` |
 
 A level contains every level below it, so a CI job takes the lowest level that has what it needs.
@@ -73,7 +73,7 @@ Every image carries the labels `org.opencontainers.image.title`, `description`, 
 Pick the level that has the tools the job needs. Interactively, with the current directory mounted:
 
 ```bash
-docker run --rm -it -v "$PWD:/workspace" ghcr.io/insper-riscv/ci-asm:latest
+docker run --rm -it -v "$PWD:/workspace" ghcr.io/insper-riscv/ci-elf:latest
 ```
 
 In a GitHub Actions job:
@@ -83,7 +83,7 @@ jobs:
   sim:
     runs-on: ubuntu-26.04
     container:
-      image: ghcr.io/insper-riscv/ci-asm:latest
+      image: ghcr.io/insper-riscv/ci-elf:latest
     steps:
       - uses: actions/checkout@v7.0.1
       - run: riscv32-unknown-elf-gcc --version
@@ -93,7 +93,7 @@ For a reproducible result, use the `sha-<commit>` tag of the wanted publication 
 
 ## 4. Automatic updates
 
-Each base image has a workflow that runs every day (UTC) with no field to fill in. The four assembled images (`ci-vhdl`, `ci-asm`, `ci-elf` and `dev_tools`) are built by one workflow, `CI images`, whose jobs run one after the other, from level 1 to level 4. It runs every day, which also looks up `uv` (it has no base image) and picks up the latest GTKWave, and when a base image it uses finishes. A base image that finds nothing new still finishes successfully, so the workflow runs every day after the bases.
+Each base image has a workflow that runs every day (UTC) with no field to fill in. The four assembled images (`ci-vhdl`, `ci-elf`, `ci-act4` and `dev_tools`) are built by one workflow, `CI images`, whose jobs run one after the other, from level 1 to level 4. It runs every day, which also looks up `uv` (it has no base image) and picks up the latest GTKWave, and when a base image it uses finishes. A base image that finds nothing new still finishes successfully, so the workflow runs every day after the bases.
 
 | Workflow | When | What it looks at |
 | :--- | :--- | :--- |

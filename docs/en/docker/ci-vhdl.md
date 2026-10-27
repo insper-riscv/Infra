@@ -1,6 +1,6 @@
 # ci-vhdl
 
-`ghcr.io/<organization>/ci-vhdl` is level 1 of the CI images, with what a VHDL test needs. It copies [`base-ghdl`](base-ghdl.md) and [`base-yosys`](base-yosys.md), and [`ci-asm`](ci-asm.md) and the images after it are built on it. The overview of the images is in [README.md](README.md).
+`ghcr.io/<organization>/ci-vhdl` is level 1 of the CI images, with what a VHDL test needs. It copies [`base-ghdl`](base-ghdl.md) and [`base-yosys`](base-yosys.md), and [`ci-elf`](ci-elf.md) and the images after it are built on it. The overview of the images is in [README.md](README.md).
 
 ## 1. What it holds
 
@@ -53,7 +53,7 @@ Before publishing, the workflow checks that the commit each component left in th
 | Field | Meaning |
 | :--- | :--- |
 | `confirm` | the value of the `IMAGE_PUBLISH_SECRET` secret |
-| `from_level` | the level to rebuild from (`vhdl`, `asm`, `elf` or `devtools`): it and the ones above it are rebuilt, the ones below are reused |
+| `from_level` | the level to rebuild from (`vhdl`, `elf`, `act4` or `devtools`): it and the ones above it are rebuilt, the ones below are reused |
 | `uv_version` | the `uv` version; empty, the latest stable one of the series |
 
 ## 4. Building locally

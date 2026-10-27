@@ -37,8 +37,8 @@ jobs:
           # file -> workflow that builds the image (the name in Actions)
           declare -A image=(
             [docker/ci/vhdl/Dockerfile]="CI images"            [.github/workflows/ci-images.yml]="CI images"
-            [docker/ci/asm/Dockerfile]="CI images"
             [docker/ci/elf/Dockerfile]="CI images"
+            [docker/ci/act4/Dockerfile]="CI images"
             [docker/dev-tools/Dockerfile]="CI images"
             [docker/base/ghdl/Dockerfile]="GHDL image"           [.github/workflows/ghdl-image.yml]="GHDL image"
             [docker/base/gcc/Dockerfile]="GCC image"             [.github/workflows/gcc-image.yml]="GCC image"
@@ -109,7 +109,7 @@ jobs:
           | :--- | :--- |
           $ROWS
 
-          The \`CI images\` workflow assembles the four images that follow the components (VHDL, ASM, ELF and Dev tools, in that order); to rebuild from a given one, choose it in \`from_level\`. They are assembled by themselves when a component finishes.
+          The \`CI images\` workflow assembles the four images that follow the components (VHDL, ELF, ACT4 and Dev tools, in that order); to rebuild from a given one, choose it in \`from_level\`. They are assembled by themselves when a component finishes.
           EOT
           )
           body=$(printf '%s\n' "$body" | sed 's/^          //')

@@ -18,8 +18,8 @@ Passo a passo para instalar as ferramentas da infraestrutura direto numa máquin
 Cada ferramenta se instala sozinha, exceto o ACT4, que precisa das três antes dele. Para os testes do projeto, nesta ordem:
 
 1. [PYTHON_SETUP.md](PYTHON_SETUP.md), [GHDL_SETUP.md](GHDL_SETUP.md) e [YOSYS_SETUP.md](YOSYS_SETUP.md), as ferramentas dos testes VHDL.
-2. [GCC_SETUP.md](GCC_SETUP.md) e [SPIKE_SETUP.md](SPIKE_SETUP.md), para os testes em assembly e em C.
-3. [SAIL_SETUP.md](SAIL_SETUP.md) e [ACT4_SETUP.md](ACT4_SETUP.md), para os testes ELF.
+2. [GCC_SETUP.md](GCC_SETUP.md) e [SPIKE_SETUP.md](SPIKE_SETUP.md), para gerar ELFs (compilar assembly e C) e rodá-los no Spike.
+3. [SAIL_SETUP.md](SAIL_SETUP.md) e [ACT4_SETUP.md](ACT4_SETUP.md), para a certificação ACT4.
 4. [GTKWAVE_SETUP.md](GTKWAVE_SETUP.md), para abrir as formas de onda.
 
 O Quartus Prime Lite do fluxo da placa se instala à parte, em [QUARTUS_INSTALL.md](../QUARTUS_INSTALL.md), e o runner self-hosted que usa essas ferramentas é configurado em [RUNNER_SETUP.md](../RUNNER_SETUP.md).

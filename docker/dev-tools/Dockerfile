@@ -4,12 +4,12 @@
 #   docker build -f docker/dev-tools/Dockerfile -t dev_tools .
 #   docker run --rm -it -v "$PWD:/work" dev_tools
 
-ARG ELF_IMAGE=ghcr.io/insper-riscv/ci-elf:latest
+ARG ACT4_IMAGE=ghcr.io/insper-riscv/ci-act4:latest
 ARG GTKWAVE_IMAGE=ghcr.io/insper-riscv/base-gtkwave:latest
 
 FROM ${GTKWAVE_IMAGE} AS gtkwave
 
-FROM ${ELF_IMAGE}
+FROM ${ACT4_IMAGE}
 
 # build-essential and pkg-config for the projects that compile C; gnat is the Ada runtime GHDL's
 # own builds and some libraries need. The rest are what GTKWave links against and uses at run time

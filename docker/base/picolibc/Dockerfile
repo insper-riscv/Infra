@@ -1,5 +1,5 @@
 # picolibc for the RISC-V GCC of docker/base/gcc/Dockerfile (every variant of that GCC), alone. The
-# published image holds just the files picolibc installs into that GCC's sysroot; ci-asm copies
+# published image holds just the files picolibc installs into that GCC's sysroot; ci-elf copies
 # them over the GCC's prefix. picolibc is compiled with the GCC of base-gcc, so the image carries
 # the commit of that GCC. See docs/en/docker/base-picolibc.md.
 #

@@ -1,6 +1,6 @@
 # base-spike
 
-`ghcr.io/<organização>/base-spike` contém o Spike, o simulador de referência do RISC-V, em `/opt/riscv-foundation/spike`. A [`ci-asm`](ci-asm.md) copia esse diretório. A visão geral das imagens está em [README.md](README.md), e o passo a passo de construir o Spike à mão está em [SPIKE_SETUP.md](../manual/SPIKE_SETUP.md).
+`ghcr.io/<organização>/base-spike` contém o Spike, o simulador de referência do RISC-V, em `/opt/riscv-foundation/spike`. A [`ci-elf`](ci-elf.md) copia esse diretório. A visão geral das imagens está em [README.md](README.md), e o passo a passo de construir o Spike à mão está em [SPIKE_SETUP.md](../manual/SPIKE_SETUP.md).
 
 ## 1. O que contém
 

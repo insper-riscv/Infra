@@ -1,6 +1,6 @@
 # base-sail
 
-`ghcr.io/<organização>/base-sail` contém o modelo Sail RISC-V (`sail_riscv_sim`) de uma release, em `/opt/riscv-foundation/sail`. A [`ci-elf`](ci-elf.md) copia esse diretório. A visão geral das imagens está em [README.md](README.md).
+`ghcr.io/<organização>/base-sail` contém o modelo Sail RISC-V (`sail_riscv_sim`) de uma release, em `/opt/riscv-foundation/sail`. A [`ci-act4`](ci-act4.md) copia esse diretório. A visão geral das imagens está em [README.md](README.md).
 
 ## 1. O que contém
 

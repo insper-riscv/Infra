@@ -104,7 +104,7 @@ The Quartus of the host (here `/opt/altera_lite/25.1std`) is mounted read-only a
 ```bash
 docker run --rm --network host --user "$(id -u):$(id -g)" -e HOME=/tmp/h \
   -v "$PWD:/workspace" -v /opt/altera_lite:/opt/altera_lite:ro \
-  ghcr.io/insper-riscv/ci-asm:latest bash -c '
+  ghcr.io/insper-riscv/ci-elf:latest bash -c '
     export PATH=/opt/altera_lite/25.1std/quartus/bin:$PATH
     jtagconfig
     cd platforms/sdram-bringup/quartus && quartus_sh --flow compile sdram_bringup'

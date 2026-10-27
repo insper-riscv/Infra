@@ -23,8 +23,8 @@ As imagens são de três tipos, descritos na [visão geral das imagens](docs/pt-
 | :--- | :--- |
 | `base-*` | uma ferramenta cada: GHDL, Yosys com SymbiYosys, GCC RISC-V, picolibc, Spike, Sail e GTKWave |
 | `ci-vhdl` | GHDL, Yosys, `uv`, Python e cocotb, para os testes VHDL |
-| `ci-asm` | a anterior mais o GCC RISC-V com picolibc e o Spike, para os testes em assembly e em C |
-| `ci-elf` | a anterior mais o Sail e as dependências do ACT4, para os testes ELF |
+| `ci-elf` | a anterior mais o GCC RISC-V com picolibc e o Spike, para gerar ELFs (compilar assembly e C) e rodá-los no Spike |
+| `ci-act4` | a anterior mais o Sail e as dependências do ACT4, para a certificação ACT4 |
 | `dev_tools` | a anterior mais o GTKWave e o usuário `dev`, para o Dev Container |
 
 Toda imagem é publicada em `ghcr.io/insper-riscv` para `linux/amd64` e `linux/arm64`, e um workflow diário de cada imagem base procura uma versão nova da ferramenta dela.

@@ -1,7 +1,7 @@
 # Sail RISC-V, the formal model of the RISC-V ISA, alone: the executable `sail_riscv_sim` of a
 # release of riscv/sail-riscv. The ACT4 test generator runs it to compute the expected result of
 # every test. The published image holds just the install directory, and the ACT4 image
-# (docker/ci/elf/Dockerfile) copies it from there.
+# (docker/ci/act4/Dockerfile) copies it from there.
 #
 # The release and the SHA-256 of its two tarballs have no default (GitHub publishes the
 # digest of each asset of a release):

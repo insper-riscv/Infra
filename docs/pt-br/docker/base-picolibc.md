@@ -1,6 +1,6 @@
 # base-picolibc
 
-`ghcr.io/<organização>/base-picolibc` contém os arquivos que a picolibc instala no sysroot do GCC, sob `/opt/riscv-foundation/riscv32-elf`. É compilada com a [`base-gcc`](base-gcc.md), e a [`ci-asm`](ci-asm.md) a copia sobre o prefixo do GCC. A visão geral das imagens está em [README.md](README.md).
+`ghcr.io/<organização>/base-picolibc` contém os arquivos que a picolibc instala no sysroot do GCC, sob `/opt/riscv-foundation/riscv32-elf`. É compilada com a [`base-gcc`](base-gcc.md), e a [`ci-elf`](ci-elf.md) a copia sobre o prefixo do GCC. A visão geral das imagens está em [README.md](README.md).
 
 ## 1. O que contém
 
