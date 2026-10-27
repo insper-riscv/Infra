@@ -1,80 +1,62 @@
 # ci-elf
 
-`ghcr.io/<organização>/ci-elf` é o nível 3 das imagens de CI, com o que os testes ELF precisam, isto é, a suíte ACT4 (riscv-arch-test, os Architectural Certification Tests). Ela é a [`ci-asm`](ci-asm.md), cujo GCC RISC-V gera os ELFs, mais o Sail ([`base-sail`](base-sail.md)), o Ruby, o Bundler e as dependências de um commit do ACT4. A [`dev_tools`](dev-tools.md) é construída sobre ela. A visão geral das imagens está em [README.md](README.md).
+`ghcr.io/<organização>/ci-elf` é o nível 2 das imagens de CI, com o que gera e roda um ELF, isto é, o que compila assembly e C. Ela é a [`ci-vhdl`](ci-vhdl.md) mais o GCC RISC-V com a picolibc ([`base-gcc`](base-gcc.md)) e o Spike ([`base-spike`](base-spike.md)). As imagens [`ci-act4`](ci-act4.md) e seguintes são construídas sobre ela. A visão geral das imagens está em [README.md](README.md).
 
-## 1. O que acrescenta à ci-asm
+## 1. O que acrescenta à ci-vhdl
 
-| Item | Detalhe | Versão |
+| Componente | Detalhe | Caminho |
 | :--- | :--- | :--- |
-| Sail | `sail_riscv_sim`, em `/opt/riscv-foundation/sail`, vindo da `base-sail` | o da `base-sail` |
-| Ruby e Bundler | o ACT4 lê a configuração pelas gems do UDB | Ruby 3.3 do Ubuntu, Bundler 4.0.23 |
-| gems do ACT4 (as gems do UDB e suas dependências) | instaladas em `/opt/act-bundle` | as que o commit do rótulo `act4.commit` registra |
-| pacotes Python do ACT4 | no cache do `uv`, em `/opt/act-uv-cache` | os que esse commit registra |
-| programas auxiliares e a biblioteca Z3 que as gems do UDB baixam | em `/opt/act-cache` | os que as gems pedem |
+| GCC RISC-V | alvo `riscv32-unknown-elf`, com as variantes de biblioteca `rv32i/ilp32`, `rv32i_zmmul/ilp32`, `rv32im/ilp32`, `rv32imf/ilp32f` e `rv32imfd/ilp32d` | `/opt/riscv-foundation/riscv32-elf` |
+| picolibc | a biblioteca C desse GCC, vinda da `base-picolibc`, compilada com ele | `/opt/riscv-foundation/riscv32-elf` |
+| Spike | com o módulo de depuração em `0x70000000` | `/opt/riscv-foundation/spike` |
+| `libmpc3` e `libmpfr6` | as bibliotecas que o `cc1` do GCC RISC-V liga, do Ubuntu | `/usr/lib` |
 
-Os três diretórios de cache podem ser escritos por qualquer usuário do contêiner.
+O GCC, a picolibc e o Spike já estão no `PATH`. Os executáveis do GCC RISC-V têm os nomes `riscv32-unknown-elf-*`, então não conflitam com o `gcc` do host que vem da `ci-vhdl`.
 
-## 2. Rodando a suíte ACT4
-
-Clone o ACT4 no commit do rótulo `act4.commit` da imagem e rode o contêiner com o clone como diretório de trabalho:
-
-```bash
-docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/tmp -e UV_LINK_MODE=copy \
-  -v "$PWD:/work" -w /work ghcr.io/insper-riscv/ci-elf:latest bash
-```
-
-Dentro do contêiner, a suíte é gerada, compilada e executada como na documentação do ACT4. O compilador da imagem é o `riscv32-unknown-elf-gcc`, então a configuração do DUT o nomeia:
-
-```yaml
-compiler_exe: riscv32-unknown-elf-gcc
-objdump_exe: riscv32-unknown-elf-objdump
-ref_model_exe: sail_riscv_sim
-```
-
-Depois, no diretório do ACT4:
-
-```bash
-CONFIG_FILES=<diretório do DUT>/test_config.yaml make EXTENSIONS=I,M
-```
-
-Com a configuração `config/sail/sail-rv32-max` do ACT4, trocando apenas os dois nomes de compilador, a suíte da extensão I gera os seus ELFs e o Sail executa todos eles.
-
-`--user` faz os arquivos que o ACT4 cria pertencerem a você, `HOME=/tmp` dá às ferramentas que querem um diretório pessoal um que qualquer usuário escreve, e `UV_LINK_MODE=copy` evita um aviso quando o cache do `uv` e o diretório de trabalho ficam em sistemas de arquivos diferentes. Num daemon do Docker que remapeia espaços de usuário, acrescente `--userns=host`.
-
-## 3. Publicação
+## 2. Publicação
 
 | Item | Valor |
 | :--- | :--- |
 | Receita | `docker/ci/elf/Dockerfile` |
 | Workflow | `CI images`, job `elf` |
-| Tags | `latest`, `sha-<commit do Infra>` e `asm-<12 do digest da ci-asm>-sail-<7 do commit do Sail>-act4-<7 do commit do ACT4>` |
-| Rótulos | `act4.commit` e `sail-riscv.commit` |
-| Agenda | no mesmo run da `ci-asm`, logo depois dela: todo dia, 03:00 UTC, e quando `Sail image` termina |
+| Tags | `latest`, `sha-<commit do Infra>` e `vhdl-<12 do digest>-gcc-<7>-picolibc-<7>-spike-<7>` |
+| Rótulos | `riscv-gnu-toolchain.commit`, `picolibc.commit` e `riscv-isa-sim.commit` |
+| Agenda | no mesmo run da `ci-vhdl`, logo depois dela: todo dia, 03:00 UTC, e quando `GCC image`, `Picolibc image` ou `Spike image` termina |
 
-O commit do ACT4 cujas dependências são instaladas é o commit mais recente do ramo `act4` do `riscv/riscv-arch-test` em que o workflow `ACT Regression` dele passou, consultado a cada run, então a imagem acompanha a suíte e um commit novo gera uma tag nova. O commit só é aceito se o Sail da imagem for a versão que ele exige. Quando não é, o run mantém o commit do ACT4 da `ci-elf` publicada e avisa, e falha se esse commit também não casar com o Sail. Um projeto que usa o ACT4 como submódulo pega o commit do rótulo `act4.commit`.
+A picolibc é a `base-picolibc` mais recente. O workflow só monta quando essa imagem de picolibc foi compilada com a `base-gcc` mais recente; se uma `GCC image` ou uma `Picolibc image` está em execução, ele espera.
 
-| Campo (execução manual) | Significado |
+Antes de publicar, o workflow confere que os commits deixados na imagem (os arquivos `.tag`) são os fixados, que o GCC compila com a picolibc, que ele tem as cinco variantes de biblioteca e que o Spike não coloca o módulo de depuração no endereço `0`.
+
+## 3. Execução manual
+
+| Campo | Significado |
 | :--- | :--- |
 | `confirm` | o valor do secret `IMAGE_PUBLISH_SECRET` |
-| `from_level` | o nível a partir do qual reconstruir (`vhdl`, `asm`, `elf` ou `devtools`): ele e os de cima são reconstruídos, os de baixo são reaproveitados |
-| `act4_commit` | o commit do `riscv/riscv-arch-test`; vazio, o commit verde mais recente do ramo `act4`. O run falha se o Sail da imagem não for a versão que esse commit exige |
+| `from_level` | o nível a partir do qual reconstruir (`vhdl`, `elf`, `act4` ou `devtools`): ele e os de cima são reconstruídos, os de baixo são reaproveitados |
 
 ## 4. Construindo localmente
 
 ```bash
 docker build -f docker/ci/elf/Dockerfile -t ci-elf \
-  --build-arg ASM_IMAGE=ci-asm --build-arg SAIL_IMAGE=base-sail \
-  --build-arg ACT4_COMMIT=<commit do riscv/riscv-arch-test> .
+  --build-arg VHDL_IMAGE=ci-vhdl --build-arg GCC_IMAGE=base-gcc --build-arg SPIKE_IMAGE=base-spike .
 ```
 
 | Argumento | Padrão | Significado |
 | :--- | :--- | :--- |
-| `ASM_IMAGE` | `ci-asm:latest` | o nível abaixo |
-| `SAIL_IMAGE` | `base-sail:latest` | de onde vem o Sail |
-| `ACT4_COMMIT` | nenhum | o commit do `riscv/riscv-arch-test` cujas dependências entram |
-| `BUNDLER_VERSION` | `4.0.23` | o Bundler que o `Gemfile.lock` do ACT4 registra |
+| `VHDL_IMAGE` | `ci-vhdl:latest` | o nível abaixo |
+| `GCC_IMAGE` | `base-gcc:latest` | de onde vem o GCC |
+| `PICOLIBC_IMAGE` | `base-picolibc:latest` | de onde vem a picolibc |
+| `SPIKE_IMAGE` | `base-spike:latest` | de onde vem o Spike |
 
-O build termina conferindo `ruby --version`, `bundle --version` e `sail_riscv_sim --version`, e que o Sail não tem biblioteca faltando.
+## 5. Verificando
+
+```bash
+docker run --rm ci-elf riscv32-unknown-elf-gcc --version
+docker run --rm ci-elf riscv32-unknown-elf-gcc -print-multi-lib
+docker run --rm ci-elf spike --help
+```
+
+O segundo comando deve imprimir cinco linhas, uma para cada variante.
 
 ---
 

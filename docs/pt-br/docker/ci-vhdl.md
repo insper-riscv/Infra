@@ -1,6 +1,6 @@
 # ci-vhdl
 
-`ghcr.io/<organização>/ci-vhdl` é o nível 1 das imagens de CI, com o que um teste VHDL precisa. Ela copia o [`base-ghdl`](base-ghdl.md) e o [`base-yosys`](base-yosys.md), e a imagem [`ci-asm`](ci-asm.md) e seguintes são construídas sobre ela. A visão geral das imagens está em [README.md](README.md).
+`ghcr.io/<organização>/ci-vhdl` é o nível 1 das imagens de CI, com o que um teste VHDL precisa. Ela copia o [`base-ghdl`](base-ghdl.md) e o [`base-yosys`](base-yosys.md), e a imagem [`ci-elf`](ci-elf.md) e seguintes são construídas sobre ela. A visão geral das imagens está em [README.md](README.md).
 
 ## 1. O que contém
 
@@ -53,7 +53,7 @@ Antes de publicar, o workflow confere que o commit que cada componente deixou na
 | Campo | Significado |
 | :--- | :--- |
 | `confirm` | o valor do secret `IMAGE_PUBLISH_SECRET` |
-| `from_level` | o nível a partir do qual reconstruir (`vhdl`, `asm`, `elf` ou `devtools`): ele e os de cima são reconstruídos, os de baixo são reaproveitados |
+| `from_level` | o nível a partir do qual reconstruir (`vhdl`, `elf`, `act4` ou `devtools`): ele e os de cima são reconstruídos, os de baixo são reaproveitados |
 | `uv_version` | a versão do `uv`; vazio, a estável mais recente da série |
 
 ## 4. Construindo localmente

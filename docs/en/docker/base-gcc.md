@@ -1,6 +1,6 @@
 # base-gcc
 
-`ghcr.io/<organization>/base-gcc` holds the RISC-V GCC, with no C library, in `/opt/riscv-foundation/riscv32-elf`. [`base-picolibc`](base-picolibc.md) is compiled with it, and [`ci-asm`](ci-asm.md) copies both. The overview of the images is in [README.md](README.md), and the step by step of building the GCC by hand is in [GCC_SETUP.md](../manual/GCC_SETUP.md).
+`ghcr.io/<organization>/base-gcc` holds the RISC-V GCC, with no C library, in `/opt/riscv-foundation/riscv32-elf`. [`base-picolibc`](base-picolibc.md) is compiled with it, and [`ci-elf`](ci-elf.md) copies both. The overview of the images is in [README.md](README.md), and the step by step of building the GCC by hand is in [GCC_SETUP.md](../manual/GCC_SETUP.md).
 
 ## 1. What it holds
 
@@ -23,7 +23,7 @@
 
 A library built for a smaller set of extensions runs on a core with more of them, and not the other way around, so a core uses the variant that matches what it has and any other variant a subset of it. The compiler selects the variant by the `-march` and `-mabi` given and takes the largest variant that is a subset of what was asked: `rv32ic` takes `rv32i`, and `rv32imc` and `rv32ima` take `rv32im`. The floating point variants do not link with the integer ones, because the ABI changes how `float` and `double` are passed. `libgcc` is built for each variant. The compiler reports a variant that has F with `zicsr` and `zmmul` in its name, because F needs Zicsr; the names are normalized by the compiler, and `-print-multi-lib` lists them.
 
-The build installs binutils and the first compiler of the picolibc configuration, then builds libgcc with it; the second stage of `riscv-gnu-toolchain`, which would rebuild the compiler and libgcc against picolibc, is not run. `cc1` links against `libmpc3` and `libmpfr6`, installed in `ci-asm`. The image has no C library and no libstdc++. picolibc comes from `base-picolibc`, and C++ programs that need the standard library are out of scope. The executables are named `riscv32-unknown-elf-*`, so they do not clash with the host `gcc`.
+The build installs binutils and the first compiler of the picolibc configuration, then builds libgcc with it; the second stage of `riscv-gnu-toolchain`, which would rebuild the compiler and libgcc against picolibc, is not run. `cc1` links against `libmpc3` and `libmpfr6`, installed in `ci-elf`. The image has no C library and no libstdc++. picolibc comes from `base-picolibc`, and C++ programs that need the standard library are out of scope. The executables are named `riscv32-unknown-elf-*`, so they do not clash with the host `gcc`.
 
 ## 2. Publication
 

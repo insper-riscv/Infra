@@ -3,8 +3,8 @@ name: CI images
 # Assembles the four levels of the images that sit on the component images, in order, for
 # linux/amd64 and linux/arm64:
 #   1. ci-vhdl (docker/ci/vhdl/Dockerfile): GHDL, Yosys with SymbiYosys, uv, Python and cocotb;
-#   2. ci-asm (docker/ci/asm/Dockerfile): level 1 plus the RISC-V GCC, picolibc and Spike;
-#   3. ci-elf (docker/ci/elf/Dockerfile): level 2 plus Sail, Ruby and the dependencies of ACT4;
+#   2. ci-elf (docker/ci/elf/Dockerfile): level 1 plus the RISC-V GCC, picolibc and Spike;
+#   3. ci-act4 (docker/ci/act4/Dockerfile): level 2 plus Sail, Ruby and the dependencies of ACT4;
 #   4. dev_tools (docker/dev-tools/Dockerfile): level 3 plus GTKWave and the user dev.
 # The levels are jobs of this one workflow, ordered by `needs`, because a chain of workflows
 # started by workflow_run stops at three levels. A level is assembled when the tag of its
@@ -20,7 +20,7 @@ name: CI images
 # The commit of ACT4 (riscv/riscv-arch-test) that the ELF image prepares is the latest commit of its
 # `act4` branch on which the upstream regression workflow succeeded (green-commit.sh), as long as the
 # Sail of the image is the version that commit requires. The projects update their submodule to
-# the `act4.commit` label of the ci-elf image.
+# the `act4.commit` label of the ci-act4 image.
 on:
   schedule:
     - cron: "0 3 * * *"
@@ -36,8 +36,8 @@ on:
         default: vhdl
         options:
           - vhdl
-          - asm
           - elf
+          - act4
           - devtools
       uv_version:
         description: "uv version to put in the VHDL image (empty: the latest stable release of the series set in UV_SERIES)"
@@ -132,7 +132,7 @@ jobs:
           from=5
           if [ "$EVENT" = "workflow_dispatch" ]; then
             case "$FROM_LEVEL" in
-              vhdl) from=1 ;; asm) from=2 ;; elf) from=3 ;; devtools) from=4 ;;
+              vhdl) from=1 ;; elf) from=2 ;; act4) from=3 ;; devtools) from=4 ;;
               *) echo "::error::not a level: $FROM_LEVEL"; exit 1 ;;
             esac
           fi
@@ -298,14 +298,14 @@ jobs:
             exit 0
           fi
 
-          published=$(docker buildx imagetools inspect "$OWNER/ci-elf:latest" --format '{{json .Image}}' 2>/dev/null \
+          published=$(docker buildx imagetools inspect "$OWNER/ci-act4:latest" --format '{{json .Image}}' 2>/dev/null \
                       | jq -r '."linux/amd64".config.Labels["act4.commit"] // empty' 2>/dev/null || true)
           if full_hash "$published" && [ "$(required_sail "$published")" = "$SAIL_VERSION" ]; then
-            echo "::warning::ACT4 $green requires Sail '$required' and the image has Sail $SAIL_VERSION; keeping ACT4 $published, the one of the published ci-elf."
+            echo "::warning::ACT4 $green requires Sail '$required' and the image has Sail $SAIL_VERSION; keeping ACT4 $published, the one of the published ci-act4."
             echo "commit=$published" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "::error::ACT4 $green requires Sail '$required', the image has Sail $SAIL_VERSION, and the published ci-elf has no ACT4 commit that matches it"
+          echo "::error::ACT4 $green requires Sail '$required', the image has Sail $SAIL_VERSION, and the published ci-act4 has no ACT4 commit that matches it"
           exit 1
 
       - name: Decide whether there is anything to assemble now
@@ -396,7 +396,7 @@ jobs:
         uv --version
         python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"
 
-  asm-plan:
+  elf-plan:
     # Names the combination of level 2: the digest of the VHDL image (the one just built, or the
     # one published for this combination) and the commits of GCC, picolibc and Spike.
     needs: [pin, vhdl]
@@ -436,28 +436,28 @@ jobs:
             echo "vhdl=$vhdl"
             echo "short=$short"
           } >> "$GITHUB_OUTPUT"
-          if [ "$FROM" -le 2 ] || ! docker buildx imagetools inspect "$OWNER/ci-asm:$short" > /dev/null 2>&1; then
+          if [ "$FROM" -le 2 ] || ! docker buildx imagetools inspect "$OWNER/ci-elf:$short" > /dev/null 2>&1; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::notice::$OWNER/ci-asm:$short already exists."
+            echo "::notice::$OWNER/ci-elf:$short already exists."
           fi
 
-  asm:
+  elf:
     # Level 2.
-    needs: [pin, asm-plan]
-    if: ${{ !cancelled() && needs.asm-plan.result == 'success' && needs.asm-plan.outputs.build == 'true' }}
+    needs: [pin, elf-plan]
+    if: ${{ !cancelled() && needs.elf-plan.result == 'success' && needs.elf-plan.outputs.build == 'true' }}
     permissions:
       contents: read
       packages: write
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/ci-asm
-      dockerfile: docker/ci/asm/Dockerfile
-      title: Insper RISC-V ASM tests
+      image: ghcr.io/${{ github.repository_owner }}/ci-elf
+      dockerfile: docker/ci/elf/Dockerfile
+      title: Insper RISC-V ELF tests
       description: The VHDL image plus the RISC-V GCC, picolibc and Spike, for linux/amd64 and linux/arm64.
       timeout-minutes: 30
       build-args: |
-        VHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-vhdl@${{ needs.asm-plan.outputs.vhdl }}
+        VHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-vhdl@${{ needs.elf-plan.outputs.vhdl }}
         GCC_IMAGE=ghcr.io/${{ github.repository_owner }}/base-gcc:${{ needs.pin.outputs.gcc }}
         PICOLIBC_IMAGE=ghcr.io/${{ github.repository_owner }}/base-picolibc:${{ needs.pin.outputs.picolibc }}-${{ needs.pin.outputs.gcc }}
         SPIKE_IMAGE=ghcr.io/${{ github.repository_owner }}/base-spike:${{ needs.pin.outputs.spike }}
@@ -468,7 +468,7 @@ jobs:
       tags: |
         latest
         sha-${{ github.sha }}
-        ${{ needs.asm-plan.outputs.short }}
+        ${{ needs.elf-plan.outputs.short }}
       check: |
         expect() { if [ "$2" = "$3" ]; then echo "ok    $1 $3"; else echo "WRONG $1: expected $2, found $3"; exit 1; fi; }
         expect gcc      "${{ needs.pin.outputs.gcc }}"                  "$(cat /opt/riscv-foundation/riscv32-elf/.tag)"
@@ -482,87 +482,9 @@ jobs:
         if echo "$out" | grep -q overlap; then echo "Spike still places its debug module at address 0"; exit 1; fi
         python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"
 
-  elf-plan:
-    # Names the combination of level 3: the digest of the ASM image, the commit of Sail and the
+  act4-plan:
+    # Names the combination of level 3: the digest of the ELF image, the commit of Sail and the
     # commit of ACT4.
-    needs: [pin, asm-plan, asm]
-    if: ${{ !cancelled() && needs.asm-plan.result == 'success' && (needs.asm.result == 'success' || needs.asm.result == 'skipped') }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      packages: read
-    outputs:
-      build: ${{ steps.plan.outputs.build }}
-      asm: ${{ steps.plan.outputs.asm }}
-      short: ${{ steps.plan.outputs.short }}
-    steps:
-      - uses: docker/setup-buildx-action@v4.4.1
-
-      - uses: docker/login-action@v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Name the combination
-        id: plan
-        env:
-          BUILT: ${{ needs.asm.outputs.digest }}
-          ASM_SHORT: ${{ needs.asm-plan.outputs.short }}
-          SAIL: ${{ needs.pin.outputs.sail }}
-          ACT4: ${{ needs.pin.outputs.act4 }}
-          FROM: ${{ needs.pin.outputs.from }}
-        run: |
-          asm="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-asm:$ASM_SHORT" --format '{{.Manifest.Digest}}')}"
-          [ -n "$asm" ] || { echo "::error::no ci-asm image for $ASM_SHORT"; exit 1; }
-          short="asm-$(printf '%s' "$asm" | sed 's/^sha256://' | cut -c1-12)-sail-${SAIL:0:7}-act4-${ACT4:0:7}"
-          {
-            echo "asm=$asm"
-            echo "short=$short"
-          } >> "$GITHUB_OUTPUT"
-          if [ "$FROM" -le 3 ] || ! docker buildx imagetools inspect "$OWNER/ci-elf:$short" > /dev/null 2>&1; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::$OWNER/ci-elf:$short already exists."
-          fi
-
-  elf:
-    # Level 3.
-    needs: [pin, elf-plan]
-    if: ${{ !cancelled() && needs.elf-plan.result == 'success' && needs.elf-plan.outputs.build == 'true' }}
-    permissions:
-      contents: read
-      packages: write
-    uses: ./.github/workflows/build-image.yml
-    with:
-      image: ghcr.io/${{ github.repository_owner }}/ci-elf
-      dockerfile: docker/ci/elf/Dockerfile
-      title: Insper RISC-V ELF tests
-      description: The ASM image plus Sail, Ruby, Bundler and the dependencies of ACT4, to run the riscv-arch-test suite.
-      timeout-minutes: 60
-      build-args: |
-        ASM_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-asm@${{ needs.elf-plan.outputs.asm }}
-        SAIL_IMAGE=ghcr.io/${{ github.repository_owner }}/base-sail:${{ needs.pin.outputs.sail }}
-        ACT4_COMMIT=${{ needs.pin.outputs.act4 }}
-      labels: |
-        act4.commit=${{ needs.pin.outputs.act4 }}
-        sail-riscv.commit=${{ needs.pin.outputs.sail }}
-      tags: |
-        latest
-        sha-${{ github.sha }}
-        ${{ needs.elf-plan.outputs.short }}
-      check: |
-        ruby --version
-        bundle --version
-        sail_riscv_sim --version
-        ! ldd /opt/riscv-foundation/sail/bin/sail_riscv_sim | grep "not found"
-        ghdl --version | head -n 1
-        riscv32-unknown-elf-gcc --version | head -n 1
-        uv --version
-
-  devtools-plan:
-    # Names the combination of level 4: the digest of the ELF image and the commit of GTKWave.
     needs: [pin, elf-plan, elf]
     if: ${{ !cancelled() && needs.elf-plan.result == 'success' && (needs.elf.result == 'success' || needs.elf.result == 'skipped') }}
     runs-on: ubuntu-26.04
@@ -588,16 +510,94 @@ jobs:
         env:
           BUILT: ${{ needs.elf.outputs.digest }}
           ELF_SHORT: ${{ needs.elf-plan.outputs.short }}
-          GTKWAVE: ${{ needs.pin.outputs.gtkwave }}
+          SAIL: ${{ needs.pin.outputs.sail }}
+          ACT4: ${{ needs.pin.outputs.act4 }}
           FROM: ${{ needs.pin.outputs.from }}
         run: |
           elf="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-elf:$ELF_SHORT" --format '{{.Manifest.Digest}}')}"
           [ -n "$elf" ] || { echo "::error::no ci-elf image for $ELF_SHORT"; exit 1; }
-          # The combination names the ELF image itself (the start of its digest): it carries every
-          # lower level, so any of them changing is a new combination.
-          short="elf-$(printf '%s' "$elf" | sed 's/^sha256://' | cut -c1-12)-gtkwave-${GTKWAVE:0:7}"
+          short="elf-$(printf '%s' "$elf" | sed 's/^sha256://' | cut -c1-12)-sail-${SAIL:0:7}-act4-${ACT4:0:7}"
           {
             echo "elf=$elf"
+            echo "short=$short"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$FROM" -le 3 ] || ! docker buildx imagetools inspect "$OWNER/ci-act4:$short" > /dev/null 2>&1; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$OWNER/ci-act4:$short already exists."
+          fi
+
+  act4:
+    # Level 3.
+    needs: [pin, act4-plan]
+    if: ${{ !cancelled() && needs.act4-plan.result == 'success' && needs.act4-plan.outputs.build == 'true' }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/ci-act4
+      dockerfile: docker/ci/act4/Dockerfile
+      title: Insper RISC-V ACT4 tests
+      description: The ELF image plus Sail, Ruby, Bundler and the dependencies of ACT4, to run the riscv-arch-test suite.
+      timeout-minutes: 60
+      build-args: |
+        ELF_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-elf@${{ needs.act4-plan.outputs.elf }}
+        SAIL_IMAGE=ghcr.io/${{ github.repository_owner }}/base-sail:${{ needs.pin.outputs.sail }}
+        ACT4_COMMIT=${{ needs.pin.outputs.act4 }}
+      labels: |
+        act4.commit=${{ needs.pin.outputs.act4 }}
+        sail-riscv.commit=${{ needs.pin.outputs.sail }}
+      tags: |
+        latest
+        sha-${{ github.sha }}
+        ${{ needs.act4-plan.outputs.short }}
+      check: |
+        ruby --version
+        bundle --version
+        sail_riscv_sim --version
+        ! ldd /opt/riscv-foundation/sail/bin/sail_riscv_sim | grep "not found"
+        ghdl --version | head -n 1
+        riscv32-unknown-elf-gcc --version | head -n 1
+        uv --version
+
+  devtools-plan:
+    # Names the combination of level 4: the digest of the ELF image and the commit of GTKWave.
+    needs: [pin, act4-plan, act4]
+    if: ${{ !cancelled() && needs.act4-plan.result == 'success' && (needs.act4.result == 'success' || needs.act4.result == 'skipped') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      act4: ${{ steps.plan.outputs.act4 }}
+      short: ${{ steps.plan.outputs.short }}
+    steps:
+      - uses: docker/setup-buildx-action@v4.4.1
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Name the combination
+        id: plan
+        env:
+          BUILT: ${{ needs.act4.outputs.digest }}
+          ACT4_SHORT: ${{ needs.act4-plan.outputs.short }}
+          GTKWAVE: ${{ needs.pin.outputs.gtkwave }}
+          FROM: ${{ needs.pin.outputs.from }}
+        run: |
+          act4="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-act4:$ACT4_SHORT" --format '{{.Manifest.Digest}}')}"
+          [ -n "$act4" ] || { echo "::error::no ci-act4 image for $ACT4_SHORT"; exit 1; }
+          # The combination names the ELF image itself (the start of its digest): it carries every
+          # lower level, so any of them changing is a new combination.
+          short="act4-$(printf '%s' "$act4" | sed 's/^sha256://' | cut -c1-12)-gtkwave-${GTKWAVE:0:7}"
+          {
+            echo "act4=$act4"
             echo "short=$short"
           } >> "$GITHUB_OUTPUT"
           if [ "$FROM" -le 4 ] || ! docker buildx imagetools inspect "$OWNER/dev_tools:$short" > /dev/null 2>&1; then
@@ -618,10 +618,10 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/dev_tools
       dockerfile: docker/dev-tools/Dockerfile
       title: Insper RISC-V dev tools
-      description: Every level of the images (VHDL, ASM, ELF) plus GTKWave, the build tools and the user dev, for a Dev Container.
+      description: Every level of the images (VHDL, ELF, ACT4) plus GTKWave, the build tools and the user dev, for a Dev Container.
       timeout-minutes: 60
       build-args: |
-        ELF_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-elf@${{ needs.devtools-plan.outputs.elf }}
+        ACT4_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-act4@${{ needs.devtools-plan.outputs.act4 }}
         GTKWAVE_IMAGE=ghcr.io/${{ github.repository_owner }}/base-gtkwave:${{ needs.pin.outputs.gtkwave }}
       labels: |
         gtkwave.commit=${{ needs.pin.outputs.gtkwave }}

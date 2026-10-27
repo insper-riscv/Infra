@@ -215,7 +215,7 @@ Ao contrário das seções anteriores, esta é configurada por repositório no G
 - [ ] `sudo -u runner killall jtagd` e, 6 segundos depois, `ss -ltn | grep ':1309 '` mostra o servidor de novo
 - [ ] O runner aparece como **Idle** em Settings → Actions → Runners, com os labels certos
 - [ ] O runner group está restrito a **Selected repositories**, e não a "All repositories"
-- [ ] O Docker funciona como `runner`: `sudo -u runner docker run --rm ghcr.io/insper-riscv/ci-asm:latest riscv32-unknown-elf-gcc --version`
+- [ ] O Docker funciona como `runner`: `sudo -u runner docker run --rm ghcr.io/insper-riscv/ci-elf:latest riscv32-unknown-elf-gcc --version`
 - [ ] O Quartus roda no contêiner, com as opções da seção 8: `quartus_pgm --version` imprime a versão
 - [ ] O secret de confirmação manual está configurado, se aplicável
 

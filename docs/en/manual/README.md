@@ -18,8 +18,8 @@ Step by step to install the tools of the infrastructure directly on a machine, w
 Each tool installs on its own, except that ACT4 needs the three before it. For the tests of the project, in this order:
 
 1. [PYTHON_SETUP.md](PYTHON_SETUP.md), [GHDL_SETUP.md](GHDL_SETUP.md) and [YOSYS_SETUP.md](YOSYS_SETUP.md), the tools of the VHDL tests.
-2. [GCC_SETUP.md](GCC_SETUP.md) and [SPIKE_SETUP.md](SPIKE_SETUP.md), for the assembly and C tests.
-3. [SAIL_SETUP.md](SAIL_SETUP.md) and [ACT4_SETUP.md](ACT4_SETUP.md), for the ELF tests.
+2. [GCC_SETUP.md](GCC_SETUP.md) and [SPIKE_SETUP.md](SPIKE_SETUP.md), for building ELFs (compiling assembly and C) and running them on Spike.
+3. [SAIL_SETUP.md](SAIL_SETUP.md) and [ACT4_SETUP.md](ACT4_SETUP.md), for the ACT4 certification.
 4. [GTKWAVE_SETUP.md](GTKWAVE_SETUP.md), to open the waveforms.
 
 The Quartus Prime Lite of the board flow is installed apart, in [QUARTUS_INSTALL.md](../QUARTUS_INSTALL.md), and the self-hosted runner that uses these tools is set up in [RUNNER_SETUP.md](../RUNNER_SETUP.md).

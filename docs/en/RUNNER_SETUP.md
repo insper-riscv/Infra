@@ -215,7 +215,7 @@ Unlike the previous sections, this one is configured per repository on GitHub, a
 - [ ] `sudo -u runner killall jtagd` and, 6 seconds later, `ss -ltn | grep ':1309 '` shows the server again
 - [ ] The runner shows up as **Idle** in Settings → Actions → Runners, with the right labels
 - [ ] The runner group is restricted to **Selected repositories**, not "All repositories"
-- [ ] Docker works as `runner`: `sudo -u runner docker run --rm ghcr.io/insper-riscv/ci-asm:latest riscv32-unknown-elf-gcc --version`
+- [ ] Docker works as `runner`: `sudo -u runner docker run --rm ghcr.io/insper-riscv/ci-elf:latest riscv32-unknown-elf-gcc --version`
 - [ ] Quartus runs in the container, with the options of section 8: `quartus_pgm --version` prints the version
 - [ ] The manual confirmation secret is configured, if applicable
 

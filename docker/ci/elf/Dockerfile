@@ -1,60 +1,44 @@
-# Level 3 of the images: what the ELF tests (the ACT4, riscv-arch-test, suite) need. The ASM image
-# (docker/ci/asm/Dockerfile, whose RISC-V GCC builds the ELFs) plus Sail (the
-# model ACT4 runs to compute the expected result of each test), Ruby and Bundler (ACT4 reads its
-# configuration through the UDB Ruby gems), and the Ruby gems and Python packages of one commit of
-# ACT4, installed ahead of time so that running the suite needs no network.
+# Level 2 of the images: the VHDL image plus the RISC-V GCC, picolibc and Spike, for linux/amd64
+# and linux/arm64. The GCC, picolibc and Spike are copied from base-gcc, base-picolibc and
+# base-spike. See docs/en/docker/ci-elf.md.
 #
-# The commit of riscv/riscv-arch-test whose dependencies are installed has no default; the CI images
-# workflow passes the latest commit of the act4 branch whose upstream CI is green:
-#
-#   docker build -f docker/ci/elf/Dockerfile -t ci-elf \
-#     --build-arg ACT4_COMMIT="$(git ls-remote https://github.com/riscv/riscv-arch-test refs/heads/act4 | cut -f1)" .
+#   docker buildx build --platform linux/amd64,linux/arm64 -f docker/ci/elf/Dockerfile -t ci-elf \
+#     --build-arg VHDL_IMAGE=ci-vhdl --build-arg GCC_IMAGE=base-gcc \
+#     --build-arg PICOLIBC_IMAGE=base-picolibc --build-arg SPIKE_IMAGE=base-spike .
 
-ARG ASM_IMAGE=ghcr.io/insper-riscv/ci-asm:latest
-ARG SAIL_IMAGE=ghcr.io/insper-riscv/base-sail:latest
+ARG VHDL_IMAGE=ghcr.io/insper-riscv/ci-vhdl:latest
+ARG GCC_IMAGE=ghcr.io/insper-riscv/base-gcc:latest
+ARG PICOLIBC_IMAGE=ghcr.io/insper-riscv/base-picolibc:latest
+ARG SPIKE_IMAGE=ghcr.io/insper-riscv/base-spike:latest
 
-FROM ${SAIL_IMAGE} AS sail
+FROM ${GCC_IMAGE} AS gcc
+FROM ${PICOLIBC_IMAGE} AS picolibc
+FROM ${SPIKE_IMAGE} AS spike
 
-FROM ${ASM_IMAGE}
-ARG ACT4_COMMIT
-# The Bundler version the Gemfile.lock of ACT4 records ("BUNDLED WITH").
-ARG BUNDLER_VERSION=4.0.23
+FROM ${VHDL_IMAGE}
 
-RUN test -n "${ACT4_COMMIT}" \
- || { echo "pass --build-arg ACT4_COMMIT=<commit>"; exit 1; }
-
-# Ruby 3.3 satisfies the `ruby "~> 3.2"` of the Gemfile. The development packages are what the
-# gems that compile native code need.
+# libmpc3 and libmpfr6 are what cc1 of the RISC-V GCC links against; Spike needs nothing beyond the
+# base image.
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ruby ruby-dev libyaml-dev libffi-dev zlib1g-dev libssl-dev libz3-dev \
- && rm -rf /var/lib/apt/lists/* \
- && gem install --no-document bundler -v "${BUNDLER_VERSION}"
+      libmpc3 libmpfr6 \
+ && rm -rf /var/lib/apt/lists/*
 
-COPY --from=sail /opt/riscv-foundation/sail /opt/riscv-foundation/sail
-ENV PATH=/opt/riscv-foundation/sail/bin:$PATH
+COPY --from=gcc /opt/riscv-foundation/riscv32-elf /opt/riscv-foundation/riscv32-elf
+COPY --from=picolibc /opt/riscv-foundation/riscv32-elf /opt/riscv-foundation/riscv32-elf
+COPY --from=spike /opt/riscv-foundation/spike /opt/riscv-foundation/spike
 
-# The gems and the Python packages go to fixed directories that any user of the container can
-# write, so that a project's own checkout of ACT4 finds them and can still add what its commit
-# needs, whatever the user id of the container.
-# The UDB gems download their helper programs and the Z3 library when they are installed, into
-# the cache directory below.
-ENV BUNDLE_PATH=/opt/act-bundle \
-    UV_CACHE_DIR=/opt/act-uv-cache \
-    XDG_CACHE_HOME=/opt/act-cache
+ENV PATH=/opt/riscv-foundation/riscv32-elf/bin:/opt/riscv-foundation/spike/bin:$PATH
 
-RUN git init /tmp/act4 \
- && git -C /tmp/act4 fetch --depth 1 https://github.com/riscv/riscv-arch-test "${ACT4_COMMIT}" \
- && git -C /tmp/act4 checkout FETCH_HEAD \
- && cd /tmp/act4/framework/src/act/data && bundle install --jobs 4 \
- && cd /tmp/act4 && uv sync --frozen --all-packages \
- && rm -rf /tmp/act4 \
- && chmod -R a+rwX /opt/act-bundle /opt/act-uv-cache /opt/act-cache
-
-# Fail the build if a tool of the environment does not answer or lacks a library.
-RUN ruby --version && bundle --version && sail_riscv_sim --version \
- && ! ldd /opt/riscv-foundation/sail/bin/sail_riscv_sim | grep "not found"
-
-LABEL act4.commit="${ACT4_COMMIT}"
+# Fail the build here, not in a user's CI: the GCC compiles with picolibc and has libgcc, it has the
+# five library variants, and Spike runs.
+RUN set -e; \
+    echo "gcc       $(riscv32-unknown-elf-gcc --version | head -n 1) (riscv-gnu-toolchain $(cat /opt/riscv-foundation/riscv32-elf/.tag))"; \
+    riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; \
+    test -s "$(riscv32-unknown-elf-gcc -print-libgcc-file-name)"; \
+    echo "picolibc  $(sed -n 's/.*__PICOLIBC_VERSION__ "\(.*\)"/\1/p' /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h) (commit $(cat /opt/riscv-foundation/riscv32-elf/.picolibc.tag))"; \
+    test "$(riscv32-unknown-elf-gcc -print-multi-lib | wc -l)" = 5; \
+    test -s /opt/riscv-foundation/spike/.tag; \
+    echo "spike     $(spike --help 2>&1 | head -n 1) (commit $(sed 's/-debug-start$//' /opt/riscv-foundation/spike/.tag))"
 
 WORKDIR /workspace
