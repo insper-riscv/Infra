@@ -7,8 +7,10 @@
 | Acréscimo | Detalhe |
 | :--- | :--- |
 | GTKWave | a ponta do branch `lts` (linha de manutenção 3.3, árvore GTK 3), copiado da imagem `base-gtkwave` para `/opt/gtkwave`; roda em Wayland nativo e em X11 |
+| Plugin GHDL do Yosys | o `ghdl.so` do `ghdl/ghdl-yosys-plugin`, no commit da tag `ghdl-v6.0.0`, compilado contra o GHDL e o Yosys da imagem; carrega com `yosys -m ghdl` |
 | Usuário | `dev`, com `/work` como diretório de trabalho |
 | Ferramentas de compilação | `build-essential`, `pkg-config`, `gnat` |
+| Globalização | `libicu78`, de que dependem os servidores .NET de extensões do editor, como a V4P |
 
 O GHDL, o Yosys, o GCC RISC-V com picolibc, o Spike, o Sail, as dependências do ACT4, o `uv`, o Python 3.14 e o cocotb 2.1.0 vêm da `ci-act4`, que também explica por que o Python é fixado em 3.14 (o cocotb o fixa). A imagem não tem `pip`: um projeto Python instala as outras dependências com `uv sync`, que encontra esse Python.
 
