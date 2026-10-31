@@ -1,0 +1,13 @@
+# Static analysis tools of the ci-vhdl image, the ones the static-analysis workflow of Tools runs.
+# Installed together in /opt/static-analysis, apart from the Python of the projects. Pinned: edit a
+# version here and run the CI images workflow by hand with from_level=vhdl to publish it.
+ruff==0.17.3
+pycodestyle==2.15.0
+pydocstyle==6.3.0
+pylint==4.1.3
+pyright[nodejs]==1.1.414
+pyrefly==1.4.0
+deptry==0.25.1
+complexipy==8.3.0
+codeclone==2.0.3
+semgrep==1.183.0

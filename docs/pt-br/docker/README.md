@@ -16,7 +16,7 @@ Os `Dockerfile`s ficam na pasta `docker` do repositório (`base/`, `ci/` e `dev-
 base-ghdl    base-yosys    uv
      └───────────┴──────────┘
                  ▼
-            ci-vhdl            GHDL, Yosys, uv, Python, cocotb
+            ci-vhdl            GHDL, Yosys, uv, Python, cocotb, static analysis, riscv-tools
                  │
                  │      base-gcc → base-picolibc      base-spike
                  │              └────────┬─────────────────┘
@@ -36,7 +36,7 @@ base-ghdl    base-yosys    uv
 
 | Nível | Imagem | Serve para | Acrescenta ao nível anterior |
 | :--- | :--- | :--- | :--- |
-| 1 | [`ci-vhdl`](ci-vhdl.md) | testes VHDL (cocotb, provas formais) | GHDL, Yosys com SymbiYosys, `uv`, Python 3.14, cocotb |
+| 1 | [`ci-vhdl`](ci-vhdl.md) | testes VHDL (cocotb, provas formais) | GHDL, Yosys com SymbiYosys, `uv`, Python 3.14, cocotb, static analysis tools, `riscv-tools` |
 | 2 | [`ci-elf`](ci-elf.md) | gerar ELFs (compilar assembly e C) e rodá-los no Spike | GCC RISC-V com picolibc, Spike |
 | 3 | [`ci-act4`](ci-act4.md) | certificação ACT4 | Sail, Ruby, Bundler, dependências de um commit do ACT4 |
 | 4 | [`dev_tools`](dev-tools.md) | Dev Container | GTKWave, usuário `dev` |

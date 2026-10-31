@@ -14,8 +14,12 @@
 | Python | 3.14, installed by `uv` for every user, with `python3` and `python` on the `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, installed in that Python | `/opt/uv/python` |
 | `click` | 8.5.0, the Python library `sby` imports, installed by `uv` | `/opt/uv/python` |
+| Static analysis tools | `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone` and `semgrep`, the ones the `static-analysis` workflow of Tools runs, with versions pinned in `docker/ci/vhdl/static-analysis.txt` | `/opt/static-analysis`, executables in `/usr/local/bin` |
+| `riscv-tools` | the CLI of the Tools repository, installed by `uv tool` from the commit the workflow chooses (`TOOLS_COMMIT`) | `/opt/riscv-tools`, executable in `/usr/local/bin` |
 
 The host `gcc` and `g++` are in the image too. The LLVM backend links the design it elaborates with `gcc`, and cocotb is compiled with `g++` on `arm64`, where it has no wheel for Linux; a project's `uv sync` compiles it there as well. The image has no `pip`; a project installs its other dependencies with `uv sync`, which finds this Python instead of downloading another.
+
+The static analysis tools live in their own environment and do not see a project's dependencies. A project's `pylint`, `pyright` and `deptry` still run with `uv run`, in its environment.
 
 Python is pinned to 3.14 because the latest cocotb, 2.1.0, supports Python up to 3.14, which is why the projects require it (`>=3.14,<3.15`). A newer Python waits for a cocotb that supports it (the build arguments `PYTHON_VERSION` and `COCOTB_VERSION` change both together).
 
@@ -30,9 +34,11 @@ Ubuntu also provides `git`, `make`, `curl` and `ca-certificates` (the checkout o
 | Python | the latest patch of 3.14 that the `uv` of the image knows | a new `uv` is released (automatic); the minor changes only by editing `PYTHON_VERSION` |
 | cocotb | 2.1.0, fixed | `COCOTB_VERSION` is edited |
 | `click` | 8.5.0, fixed | `CLICK_VERSION` is edited |
+| Static analysis tools | the versions in `static-analysis.txt`, pinned | that file is edited |
+| `riscv-tools` | the latest commit of the Tools `main` whose `tests` and `static-analysis` workflows succeeded | Tools gets a commit that passes (automatic, checked every day) |
 | `z3`, `boolector` and the other Ubuntu packages | whatever Ubuntu 26.04 has when the image is built | the image is rebuilt for another reason |
 
-The image is rebuilt only when GHDL, Yosys, SymbiYosys or `uv` change. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, but cocotb and `click` do not follow it: they stay at the versions `docker/ci/vhdl/Dockerfile` fixes until someone edits the build argument and runs the workflow by hand with `from_level` set to `vhdl`. The Python, cocotb and `click` versions are in the long tag and in the labels of every image, and are not part of the decision to build.
+The image is rebuilt only when GHDL, Yosys, SymbiYosys, the Tools commit or `uv` change. The Tools commit is the latest one on `main` on which Tools' own `tests` and `static-analysis` workflows finished successfully; a commit still running is waited for a few minutes and one that failed is skipped. Tools does not trigger the workflow, so a new commit is picked up by the next scheduled run. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, but cocotb and `click` do not follow it: they stay at the versions `docker/ci/vhdl/Dockerfile` fixes until someone edits the build argument and runs the workflow by hand with `from_level` set to `vhdl`. The Python, cocotb and `click` versions are in the long tag and in the labels of every image, and are not part of the decision to build.
 
 ## 2. Publication
 
@@ -40,8 +46,8 @@ The image is rebuilt only when GHDL, Yosys, SymbiYosys or `uv` change. The Pytho
 | :--- | :--- |
 | Recipe | `docker/ci/vhdl/Dockerfile` |
 | Workflow | `CI images`, job `vhdl` |
-| Tags | `latest`, `sha-<Infra commit>`, `ghdl-<7>-yosys-<7>-sby-<7>-uv-<version>` and the same with `-python-<x.y.z>-cocotb-<version>-click-<version>` at the end |
-| Labels | `ghdl.commit`, `yosys.commit`, `sby.commit`, `uv.version`, `python.version`, `cocotb.version` and `click.version` |
+| Tags | `latest`, `sha-<Infra commit>`, `ghdl-<7>-yosys-<7>-sby-<7>-tools-<7>-uv-<version>` and the same with `-python-<x.y.z>-cocotb-<version>-click-<version>` at the end |
+| Labels | `ghdl.commit`, `yosys.commit`, `sby.commit`, `tools.commit`, `uv.version`, `python.version`, `cocotb.version` and `click.version` |
 | Schedule | every day, 03:00 UTC, and when `GHDL image` or `Yosys image` finishes (the first level of `CI images`) |
 
 `uv` is the one component with no image of ours. Every run takes the latest stable release of the series set in `UV_SERIES` (`0`), or the `uv_version` field of a manual run. The version goes into the combination tag, so a run for a version that is already published assembles nothing, and a new `uv` is picked up by the first run after its release.
@@ -55,6 +61,7 @@ Before publishing, the workflow checks that the commit each component left in th
 | `confirm` | the value of the `IMAGE_PUBLISH_SECRET` secret |
 | `from_level` | the level to rebuild from (`vhdl`, `elf`, `act4` or `devtools`): it and the ones above it are rebuilt, the ones below are reused |
 | `uv_version` | the `uv` version; empty, the latest stable one of the series |
+| `tools_commit` | the Tools commit (full hash); empty, the latest on `main` with green workflows |
 
 ## 4. Building locally
 
@@ -73,6 +80,7 @@ docker build -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 | `PYTHON_VERSION` | `3.14` | Python installed by `uv` |
 | `COCOTB_VERSION` | `2.1.0` | cocotb installed in it |
 | `CLICK_VERSION` | a fixed version | `click`, used by `sby` |
+| `TOOLS_COMMIT` | a pinned commit (local builds only; the workflow passes the latest green commit) | commit of Tools the image installs |
 
 The build prints one line per component with its version and commit, and fails if GHDL does not run a VHDL-2008 design, if Yosys and `sby` do not prove a small property with `z3`, or if Python is not 3.14 with cocotb.
 
