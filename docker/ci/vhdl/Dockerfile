@@ -1,5 +1,5 @@
-# Level 1 of the images: GHDL, Yosys with SymbiYosys, uv, and Python with cocotb, for linux/amd64
-# and linux/arm64. GHDL and Yosys are copied from base-ghdl and base-yosys. See docs/en/docker/ci-vhdl.md.
+# Level 1 of the images: GHDL, Yosys with SymbiYosys, uv, Python with cocotb, the static analysis tools
+# and riscv-tools, for linux/amd64 and linux/arm64. GHDL and Yosys are copied from base-ghdl and base-yosys. See docs/en/docker/ci-vhdl.md.
 #
 #   docker buildx build --platform linux/amd64,linux/arm64 -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 #     --build-arg UV_VERSION=<0.x.y> .
@@ -11,6 +11,9 @@ ARG COCOTB_VERSION=2.1.0
 ARG CLICK_VERSION=8.5.0
 ARG GHDL_IMAGE=ghcr.io/insper-riscv/base-ghdl:latest
 ARG YOSYS_IMAGE=ghcr.io/insper-riscv/base-yosys:latest
+# The commit of insper-riscv/Tools to install: the CLI (riscv-tools) comes with the image. The CI images
+# workflow passes the latest commit whose own CI succeeded; this default is for local builds.
+ARG TOOLS_COMMIT=c20e29e7a589f34656de80775cec8145511a47f6
 
 FROM ${GHDL_IMAGE} AS ghdl
 FROM ${YOSYS_IMAGE} AS yosys
@@ -63,6 +66,27 @@ RUN uv python install "${PYTHON_VERSION}" \
  && ln -s "$python" /usr/local/bin/python \
  && chmod -R a+rX /opt/uv
 
+# The static analysis tools in their own virtual environment (versions in static-analysis.txt), with
+# the executables linked into /usr/local/bin. They do not see a project's dependencies: pylint, pyright
+# and deptry of a project still run with `uv run` in its environment.
+COPY docker/ci/vhdl/static-analysis.txt /tmp/static-analysis.txt
+RUN python="$(uv python find "${PYTHON_VERSION}")" \
+ && uv venv --python "$python" /opt/static-analysis \
+ && uv pip install --python /opt/static-analysis/bin/python -r /tmp/static-analysis.txt \
+ && for t in ruff pycodestyle pydocstyle pylint pyright pyrefly deptry complexipy codeclone semgrep; do \
+      ln -s "/opt/static-analysis/bin/$t" "/usr/local/bin/$t"; \
+    done \
+ && rm /tmp/static-analysis.txt \
+ && chmod -R a+rX /opt/static-analysis
+
+# riscv-tools, from the commit of Tools given, in its own environment with the executable in
+# /usr/local/bin (the source is public, so no credentials are needed).
+ARG TOOLS_COMMIT
+RUN UV_TOOL_DIR=/opt/riscv-tools UV_TOOL_BIN_DIR=/usr/local/bin \
+    uv tool install "git+https://github.com/insper-riscv/Tools@${TOOLS_COMMIT}" \
+ && echo "${TOOLS_COMMIT}" > /opt/riscv-tools/.tag \
+ && chmod -R a+rX /opt/riscv-tools
+
 # Fail the build here, not in a user's CI: GHDL runs a VHDL-2008 design and sby proves a property.
 RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     printf '%s\n' \
@@ -78,6 +102,11 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     echo "uv        $(uv --version)"; \
     python3 -c "import sys, cocotb; assert sys.version_info[:2] == (3, 14); print('python   ', sys.version.split()[0], 'cocotb', cocotb.__version__)"; \
     echo "gcc host  $(gcc --version | head -n 1)"; \
+    for t in ruff pycodestyle pydocstyle pylint pyright pyrefly deptry complexipy codeclone semgrep; do \
+      echo "$t  $("$t" --version 2>&1 | head -n 1)"; \
+    done; \
+    riscv-tools --help > /dev/null; \
+    echo "tools     riscv-tools (commit $(cat /opt/riscv-tools/.tag))"; \
     printf '%s\n' \
       'module t (input clk);' \
       '  reg [1:0] c = 0;' \
