@@ -44,9 +44,12 @@ RUN case "${TARGETARCH}" in amd64) arch=x86_64 ;; arm64) arch=aarch64 ;; *) echo
 
 # Static, as the upstream release builds it, so the executable runs in images that do not have libgmp.
 RUN cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTATIC=TRUE -DENABLE_LTO=TRUE \
-      -DENABLE_RISCV_TESTS=FALSE -DCMAKE_INSTALL_PREFIX=/opt/riscv-foundation/sail \
- && cmake --build /build \
- && cmake --install /build \
+      -DENABLE_RISCV_TESTS=FALSE \
+ && cmake --build /build
+
+# Only the executable is installed. `cmake --install` also installs files of the dependencies that a
+# given commit may not have where its install rules look for them, and ACT4 needs just the executable.
+RUN install -D /build/c_emulator/sail_riscv_sim /opt/riscv-foundation/sail/bin/sail_riscv_sim \
  && echo "${SAIL_COMMIT}" > /opt/riscv-foundation/sail/.tag
 
 # Fail the build, before anything is published, if the binary does not run, prints a version other
