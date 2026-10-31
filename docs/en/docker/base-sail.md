@@ -1,14 +1,14 @@
 # base-sail
 
-`ghcr.io/<organization>/base-sail` holds the Sail RISC-V model (`sail_riscv_sim`) of a release, in `/opt/riscv-foundation/sail`. [`ci-act4`](ci-act4.md) copies that directory. The overview of the images is in [README.md](README.md).
+`ghcr.io/<organization>/base-sail` holds the Sail RISC-V model (`sail_riscv_sim`) compiled from one commit of `riscv/sail-riscv`, in `/opt/riscv-foundation/sail`. [`ci-act4`](ci-act4.md) copies that directory. The overview of the images is in [README.md](README.md).
 
 ## 1. What it holds
 
 | Item | Detail |
 | :--- | :--- |
-| `sail_riscv_sim` | the model's executable, with the libraries the release tarball brings, in `/opt/riscv-foundation/sail/bin` |
+| `sail_riscv_sim` | the model's executable, statically linked, in `/opt/riscv-foundation/sail/bin` |
 
-The build downloads the tarball of the `riscv/sail-riscv` release for the build's architecture (`x86_64` or `aarch64`), checks its SHA-256 against the one GitHub publishes for the asset, extracts it into `/opt/riscv-foundation/sail` and runs `sail_riscv_sim --version`. Any mismatch fails the build.
+The build fetches the commit by its hash, downloads the Sail compiler that commit requires (`cmake/sail_required_version.txt`, the binary release of `rems-project/sail` for the build's architecture) and compiles the model with CMake and Ninja, the way the upstream compiles its release. It then checks that `sail_riscv_sim --version` prints the release number the commit declares in `cmake/project_version.cmake`, which is the value ACT4 compares with its own requirement, and that the executable has no missing library. Any mismatch fails the build.
 
 ## 2. Publication
 
@@ -16,35 +16,33 @@ The build downloads the tarball of the `riscv/sail-riscv` release for the build'
 | :--- | :--- |
 | Recipe | `docker/base/sail/Dockerfile` |
 | Workflow | `Sail image` |
-| Tags | the commit of the release tag, and `latest` |
-| Labels | `sail-riscv.version` and `sail-riscv.commit` |
+| Tags | the commit, and `latest` |
+| Labels | `sail-riscv.version` (the release number the commit declares) and `sail-riscv.commit` |
 | Schedule | every day, 03:00 UTC |
 
-The workflow follows series 0 (`SERIES`), whose releases are named `0.N`. The weekly pre-releases of the upstream are not stable releases and never enter.
+The commit is the latest one on the `master` branch of `riscv/sail-riscv` on which the upstream's own `ci.yml` workflow finished successfully. The upstream merges through a merge queue, so that workflow runs on `merge_group` as well as on `push`, and a success on either counts. A commit still running is waited for a few minutes and one that failed is skipped.
 
 ## 3. Manual run
 
 | Field | Meaning |
 | :--- | :--- |
 | `confirm` | the value of the `IMAGE_PUBLISH_SECRET` secret |
-| `version` | the release to build; empty, the latest stable one of the series |
-| `force` | rebuild and republish even if the image for that release exists |
+| `commit` | the commit to build (full hash); empty, the latest one on `master` with a green `ci.yml` |
+| `force` | rebuild and republish even if the image for that commit exists |
 
 ## 4. Building locally
 
 ```bash
 docker build -f docker/base/sail/Dockerfile -t base-sail \
-  --build-arg SAIL_VERSION=0.16 \
-  --build-arg SAIL_SHA256_AMD64=<digest of sail-riscv-Linux-x86_64.tar.gz> \
-  --build-arg SAIL_SHA256_ARM64=<digest of sail-riscv-Linux-aarch64.tar.gz> .
+  --build-arg SAIL_COMMIT=<full commit hash> \
+  --build-arg SAIL_VERSION=0.16 .
 ```
 
 | Argument | Default | Meaning |
 | :--- | :--- | :--- |
 | `BASE_IMAGE` | `ubuntu:26.04` | base image (multi-architecture) |
-| `SAIL_VERSION` | none | the `riscv/sail-riscv` release |
-| `SAIL_SHA256_AMD64` | none | the SHA-256 of the `x86_64` tarball |
-| `SAIL_SHA256_ARM64` | none | the SHA-256 of the `aarch64` tarball |
+| `SAIL_COMMIT` | none | the `riscv/sail-riscv` commit |
+| `SAIL_VERSION` | none | the release number the commit declares |
 
 ---
 

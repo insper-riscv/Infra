@@ -5,7 +5,8 @@
 # for.
 #
 # For each recent commit, newest first, every workflow in REQUIRED_WORKFLOWS is looked up on that
-# commit (the push run):
+# commit (the runs of the events in UPSTREAM_EVENTS, push by default; a repository that merges
+# through a merge queue has its CI on merge_group):
 #
 #   green    all succeeded                     -> this is the commit
 #   failed   one of them failed                -> skip it, look at the previous commit
@@ -19,11 +20,13 @@
 #
 # Environment: GH_TOKEN (the gh CLI), UPSTREAM_REPO (owner/name) and REQUIRED_WORKFLOWS (the file
 # names, separated by spaces), which are required, and optionally UPSTREAM_BRANCH (master),
+# UPSTREAM_EVENTS (push; the events, separated by spaces, whose runs count),
 # WAIT_MINUTES (60), POLL_SECONDS (60), SETTLE_MINUTES (10) and DEPTH (30).
 set -euo pipefail
 
 repo="${UPSTREAM_REPO:?UPSTREAM_REPO is required}"
 branch="${UPSTREAM_BRANCH:-master}"
+events="${UPSTREAM_EVENTS:-push}"
 workflows="${REQUIRED_WORKFLOWS:?REQUIRED_WORKFLOWS is required}"
 wait_minutes="${WAIT_MINUTES:-60}"
 poll_seconds="${POLL_SECONDS:-60}"
@@ -34,10 +37,12 @@ log() { echo "$*" >&2; }
 
 # state_of <sha> <age in seconds>: green, failed, pending or none
 state_of() {
-  local sha="$1" age="$2" failed=0 pending=0 none=0 wf runs
+  local sha="$1" age="$2" failed=0 pending=0 none=0 wf ev runs
   for wf in $workflows; do
-    runs=$(gh api "repos/$repo/actions/workflows/$wf/runs?head_sha=$sha&event=push&per_page=20" \
-             --jq '[.workflow_runs[] | {s: .status, c: .conclusion}]')
+    runs=$(for ev in $events; do
+             gh api "repos/$repo/actions/workflows/$wf/runs?head_sha=$sha&event=$ev&per_page=20" \
+               --jq '[.workflow_runs[] | {s: .status, c: .conclusion}]'
+           done | jq -s 'add')
     if jq -e 'any(.[]; .c == "success")' <<< "$runs" > /dev/null; then
       continue                                   # a re-run that succeeded counts
     elif jq -e 'any(.[]; .s != "completed")' <<< "$runs" > /dev/null; then
