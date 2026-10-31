@@ -1,14 +1,17 @@
 name: Sail image
 
-# Builds the Sail RISC-V model (the executable `sail_riscv_sim` of a release of
-# riscv/sail-riscv, docker/base/sail/Dockerfile) alone and publishes it as base-sail, tagged with the commit of
-# the release tag and as latest, for linux/amd64 and linux/arm64.
+# Builds the Sail RISC-V model (the executable `sail_riscv_sim`, compiled from one commit of
+# riscv/sail-riscv, docker/base/sail/Dockerfile) alone and publishes it as base-sail, tagged with that
+# commit and as latest, for linux/amd64 and linux/arm64.
 #
-# - Run by hand to update Sail: it builds the release given, or the latest stable release of the
-#   series set in SERIES, unless that image already exists.
-# - Runs every day (schedule): it takes the latest stable release of the series set in SERIES and
-#   builds it only if that image does not exist yet. The weekly pre-releases of the upstream
-#   are not stable releases and never enter.
+# The commit is the latest one of the master branch on which the upstream `ci.yml` succeeded (the
+# upstream merges through a merge queue, so its CI runs on `merge_group` as well as on `push`), so
+# the image never gets a Sail that its own CI rejected (green-commit.sh).
+#
+# - Run by hand to update Sail: it builds the commit given, or the latest green one, unless that
+#   image already exists.
+# - Runs every day (schedule): it takes the latest green commit and builds it only if that image
+#   does not exist yet.
 #   A change of Dockerfile or of this workflow does not build by itself: the Recipe changed
 #   workflow warns about it, and a run by hand with `force` rebuilds.
 #
@@ -21,11 +24,11 @@ on:
       confirm:
         description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
         required: true
-      version:
-        description: "Release of riscv/sail-riscv to build (empty: the latest stable release of the series)"
+      commit:
+        description: "riscv/sail-riscv commit to build, full hash (empty: the latest commit of master whose upstream CI succeeded)"
         required: false
       force:
-        description: "Rebuild and republish even if the image for that release already exists"
+        description: "Rebuild and republish even if the image for that commit already exists"
         type: boolean
         default: false
 
@@ -35,11 +38,12 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/base-sail
-  UPSTREAM: https://github.com/riscv/sail-riscv
-  UPSTREAM_API: https://api.github.com/repos/riscv/sail-riscv
-  LABEL: sail-riscv.commit
-  # the series of Sail the image follows (0.N); a new series is chosen by editing this line
-  SERIES: "0"
+  # the upstream branch and workflow whose success vouches for a commit of Sail; the upstream
+  # runs it on push and on merge_group (its merge queue)
+  UPSTREAM_REPO: riscv/sail-riscv
+  UPSTREAM_BRANCH: master
+  UPSTREAM_WORKFLOWS: ci.yml
+  UPSTREAM_EVENTS: push merge_group
 
 jobs:
   pin:
@@ -50,11 +54,10 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: read
     outputs:
       version: ${{ steps.pin.outputs.version }}
       commit: ${{ steps.pin.outputs.commit }}
-      sha_amd64: ${{ steps.pin.outputs.sha_amd64 }}
-      sha_arm64: ${{ steps.pin.outputs.sha_arm64 }}
       build: ${{ steps.pin.outputs.build }}
 
     steps:
@@ -75,6 +78,8 @@ jobs:
             exit 1
           fi
 
+      - uses: actions/checkout@v7.0.1
+
       - uses: docker/setup-buildx-action@v4.4.1
 
       - uses: docker/login-action@v4.6.0
@@ -83,65 +88,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve the release
+      - name: Resolve the commit
         id: pin
         env:
-          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_COMMIT: ${{ inputs.commit }}
           INPUT_FORCE: ${{ inputs.force }}
           GH_TOKEN: ${{ github.token }}
+          # a newer commit still running is waited for a few minutes only; then the newest green one is taken
+          WAIT_MINUTES: "5"
         run: |
-          latest_release() {
-            # the latest stable release tag of the series SERIES (0.N); the upstream's weekly
-            # pre-releases are named by date and never match
-            tag=$(git ls-remote --tags --refs "$UPSTREAM" | sed 's|.*refs/tags/||' \
-                  | grep -E "^${SERIES}\.[0-9]+$" | sort -V | tail -n 1)
-            if [ -z "$tag" ]; then
-              echo "::error::no release of the series ${SERIES} in $UPSTREAM" >&2
-              return 1
-            fi
-            echo "$tag"
-          }
+          full_hash() { printf '%s' "$1" | grep -Eq '^[0-9a-f]{40}$'; }
 
-          version="${INPUT_VERSION:-}"
-          if [ -z "$version" ]; then
-            version=$(latest_release)
+          commit="${INPUT_COMMIT:-}"
+          if [ -z "$commit" ]; then
+            commit=$(UPSTREAM_REPO="$UPSTREAM_REPO" UPSTREAM_BRANCH="$UPSTREAM_BRANCH" \
+                     UPSTREAM_EVENTS="$UPSTREAM_EVENTS" REQUIRED_WORKFLOWS="$UPSTREAM_WORKFLOWS" \
+                     bash .github/scripts/green-commit.sh)
           fi
-          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+$'; then
-            echo "::error::not a Sail release: $version"
+          full_hash "$commit" || { echo "::error::not a full commit hash: '$commit'"; exit 1; }
+
+          # the release number the commit declares: what sail_riscv_sim --version prints, and what ACT4 compares
+          version=$(curl -fsSL "https://raw.githubusercontent.com/$UPSTREAM_REPO/$commit/cmake/project_version.cmake" \
+                    | sed -n 's/^set(sail_riscv_release_version *"\([0-9.]*\)").*/\1/p')
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
+            echo "::error::could not read the release number declared by $commit: '$version'"
             exit 1
           fi
-
-          # an annotated tag has a second line, peeled to the commit (^{}); a lightweight one is the commit
-          commit=$(git ls-remote "$UPSTREAM" "refs/tags/${version}" "refs/tags/${version}^{}" | tail -n 1 | cut -f1)
-          if ! printf '%s' "$commit" | grep -Eq '^[0-9a-f]{40}$'; then
-            echo "::error::could not find the commit of the release $version: $commit"
-            exit 1
-          fi
-
-          # GitHub publishes the SHA-256 of each asset of a release; the build checks the download against it
-          release=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-                         "$UPSTREAM_API/releases/tags/$version")
-          digest() { jq -r --arg name "$1" '.assets[] | select(.name == $name) | .digest // empty' <<< "$release"; }
-          sha_amd64=$(digest sail-riscv-Linux-x86_64.tar.gz)
-          sha_arm64=$(digest sail-riscv-Linux-aarch64.tar.gz)
-          for sum in "$sha_amd64" "$sha_arm64"; do
-            if ! printf '%s' "$sum" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
-              echo "::error::the release $version does not publish the digest of its Linux tarballs: '$sum'"
-              exit 1
-            fi
-          done
           {
             echo "version=$version"
             echo "commit=$commit"
-            echo "sha_amd64=$sha_amd64"
-            echo "sha_arm64=$sha_arm64"
           } >> "$GITHUB_OUTPUT"
 
           if [ "$INPUT_FORCE" != "true" ] && docker buildx imagetools inspect "$IMAGE:$commit" > /dev/null 2>&1; then
             echo "::notice::$IMAGE:$commit already exists; nothing to build (run again with force to rebuild)."
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
-            echo "Building $version ($commit)."
+            echo "Building Sail $version at $commit."
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -158,13 +140,11 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/base-sail
       dockerfile: docker/base/sail/Dockerfile
       title: Sail RISC-V
-      description: The Sail RISC-V model (sail_riscv_sim) of a release. Only the install directory, /opt/riscv-foundation/sail.
-      timeout-minutes: 30
+      description: The Sail RISC-V model (sail_riscv_sim) built from one commit. Only the install directory, /opt/riscv-foundation/sail.
+      timeout-minutes: 90
       build-args: |
         SAIL_VERSION=${{ needs.pin.outputs.version }}
         SAIL_COMMIT=${{ needs.pin.outputs.commit }}
-        SAIL_SHA256_AMD64=${{ needs.pin.outputs.sha_amd64 }}
-        SAIL_SHA256_ARM64=${{ needs.pin.outputs.sha_arm64 }}
       labels: |
         sail-riscv.version=${{ needs.pin.outputs.version }}
         sail-riscv.commit=${{ needs.pin.outputs.commit }}

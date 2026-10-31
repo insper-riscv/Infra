@@ -23,7 +23,8 @@ case "$url" in
     echo "$d" > "$SCENARIO/dir"; cat "$d/commits" ;;
   repos/*/actions/workflows/*/runs\?*)
     wf="${url#*workflows/}"; wf="${wf%%/*}"; sha="${url#*head_sha=}"; sha="${sha%%&*}"
-    f="$(cat "$SCENARIO/dir")/$wf/$sha.json"; if [ -f "$f" ]; then cat "$f"; else echo '[]'; fi ;;
+    ev="${url#*event=}"; ev="${ev%%&*}"; ext=json; [ "$ev" = push ] || ext="$ev.json"
+    f="$(cat "$SCENARIO/dir")/$wf/$sha.$ext"; if [ -f "$f" ]; then cat "$f"; else echo '[]'; fi ;;
   *) echo "unexpected $url" >&2; exit 1 ;;
 esac
 GH
@@ -100,5 +101,16 @@ run_case "no run yet on a commit pushed a moment ago: waits" "$s" $A WAIT_MINUTE
 s="$tmp/s9"; new_iter "$s" 1 <<< "$A $old"$'\n'"$C $older"
 runs "$s" 1 ci.yml $A "$bad"; runs "$s" 1 ci.yml $C "$bad"
 run_case "nothing green" "$s" FAIL
+
+# 10. a merge queue runs the CI on merge_group: the commit has no push run, and counts only when that
+# event is listed (a commit with a failed push run and a green merge_group run is green too)
+s="$tmp/s10"; new_iter "$s" 1 <<< "$A $old"$'\n'"$B $older"
+mkdir -p "$s/iter1/ci.yml" "$s/iter1/debug.yml"
+echo "$ok" > "$s/iter1/ci.yml/$A.merge_group.json"; echo "$ok" > "$s/iter1/debug.yml/$A.merge_group.json"
+runs "$s" 1 ci.yml $B "$ok"; runs "$s" 1 debug.yml $B "$ok"
+run_case "merge_group not listed: skipped" "$s" $B
+run_case "merge_group listed: counts" "$s" $A UPSTREAM_EVENTS="push merge_group"
+echo "$bad" > "$s/iter1/ci.yml/$A.json"
+run_case "failed push, green merge_group, both listed" "$s" $A UPSTREAM_EVENTS="push merge_group"
 
 [ "$fail" -eq 0 ] && echo "all cases passed" || { echo "FAILED"; exit 1; }
