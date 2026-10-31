@@ -2,7 +2,8 @@ name: CI images
 
 # Assembles the four levels of the images that sit on the component images, in order, for
 # linux/amd64 and linux/arm64:
-#   1. ci-vhdl (docker/ci/vhdl/Dockerfile): GHDL, Yosys with SymbiYosys, uv, Python and cocotb;
+#   1. ci-vhdl (docker/ci/vhdl/Dockerfile): GHDL, Yosys with SymbiYosys, uv, Python, cocotb, the static
+#      analysis tools and riscv-tools;
 #   2. ci-elf (docker/ci/elf/Dockerfile): level 1 plus the RISC-V GCC, picolibc and Spike;
 #   3. ci-act4 (docker/ci/act4/Dockerfile): level 2 plus Sail, Ruby and the dependencies of ACT4;
 #   4. dev_tools (docker/dev-tools/Dockerfile): level 3 plus GTKWave and the user dev.
@@ -42,6 +43,9 @@ on:
       uv_version:
         description: "uv version to put in the VHDL image (empty: the latest stable release of the series set in UV_SERIES)"
         required: false
+      tools_commit:
+        description: "insper-riscv/Tools commit to install in the VHDL image (empty: the latest commit of its main branch whose tests and static-analysis workflows succeeded)"
+        required: false
       act4_commit:
         description: "riscv/riscv-arch-test commit whose dependencies go in the ELF image (empty: the latest commit of the act4 branch whose upstream CI is green)"
         required: false
@@ -63,6 +67,10 @@ env:
   ACT4_REPO: riscv/riscv-arch-test
   ACT4_BRANCH: act4
   ACT4_WORKFLOWS: regress.yml
+  # the same for the Tools commit installed in the VHDL image: both of its workflows must have succeeded
+  TOOLS_REPO: insper-riscv/Tools
+  TOOLS_BRANCH: main
+  TOOLS_WORKFLOWS: tests.yml static-analysis.yml
 
 jobs:
   pin:
@@ -87,6 +95,7 @@ jobs:
       gtkwave: ${{ steps.pins.outputs.gtkwave }}
       act4: ${{ steps.act4.outputs.commit }}
       uv: ${{ steps.uv.outputs.version }}
+      tools: ${{ steps.tools.outputs.commit }}
       python: ${{ steps.python.outputs.python }}
       cocotb: ${{ steps.python.outputs.cocotb }}
       click: ${{ steps.python.outputs.click }}
@@ -199,10 +208,36 @@ jobs:
             echo "click=$click"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Choose the commit of Tools
+        # A manual run takes the commit it is given. The others take the latest commit of the
+        # branch on which the tests and the static analysis of Tools succeeded (green-commit.sh),
+        # so the image never gets a Tools that its own CI rejected. Tools has no image workflow
+        # to trigger this one, so a new commit is picked up by the next scheduled run.
+        id: tools
+        env:
+          INPUT_TOOLS: ${{ inputs.tools_commit }}
+          GH_TOKEN: ${{ github.token }}
+          UPSTREAM_REPO: ${{ env.TOOLS_REPO }}
+          UPSTREAM_BRANCH: ${{ env.TOOLS_BRANCH }}
+          REQUIRED_WORKFLOWS: ${{ env.TOOLS_WORKFLOWS }}
+          WAIT_MINUTES: "5"
+        run: |
+          full_hash() { printf '%s' "$1" | grep -Eq '^[0-9a-f]{40}$'; }
+          if [ -n "${INPUT_TOOLS:-}" ]; then
+            full_hash "$INPUT_TOOLS" || { echo "::error::not a full commit hash: $INPUT_TOOLS"; exit 1; }
+            commit="$INPUT_TOOLS"
+          else
+            commit=$(bash .github/scripts/green-commit.sh)
+            full_hash "$commit" || { echo "::error::green-commit.sh did not print a commit: '$commit'"; exit 1; }
+          fi
+          echo "Tools $commit"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+
       - name: Read the component commits from the latest images
         id: pins
         env:
           EVENT: ${{ github.event_name }}
+          TOOLS: ${{ steps.tools.outputs.commit }}
           UV: ${{ steps.uv.outputs.version }}
           PYTHON: ${{ steps.python.outputs.python }}
           COCOTB: ${{ steps.python.outputs.cocotb }}
@@ -248,7 +283,7 @@ jobs:
             echo "gtkwave=$gtkwave"
           } >> "$GITHUB_OUTPUT"
           # short names what decides whether to build; full adds the versions that follow from the uv
-          short="ghdl-${ghdl:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-uv-${UV}"
+          short="ghdl-${ghdl:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-tools-${TOOLS:0:7}-uv-${UV}"
           echo "vhdl_short=$short" >> "$GITHUB_OUTPUT"
           echo "vhdl_full=$short-python-${PYTHON}-cocotb-${COCOTB}-click-${CLICK}" >> "$GITHUB_OUTPUT"
 
@@ -362,6 +397,7 @@ jobs:
       build-args: |
         GHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/base-ghdl:${{ needs.pin.outputs.ghdl }}
         UV_VERSION=${{ needs.pin.outputs.uv }}
+        TOOLS_COMMIT=${{ needs.pin.outputs.tools }}
         PYTHON_VERSION=${{ needs.pin.outputs.python }}
         COCOTB_VERSION=${{ needs.pin.outputs.cocotb }}
         CLICK_VERSION=${{ needs.pin.outputs.click }}
@@ -374,6 +410,7 @@ jobs:
         ghdl.commit=${{ needs.pin.outputs.ghdl }}
         yosys.commit=${{ needs.pin.outputs.yosys }}
         sby.commit=${{ needs.pin.outputs.sby }}
+        tools.commit=${{ needs.pin.outputs.tools }}
       tags: |
         latest
         sha-${{ github.sha }}
@@ -386,6 +423,7 @@ jobs:
         expect ghdl     "${{ needs.pin.outputs.ghdl }}"                 "$(cat /opt/ghdl/.tag)"
         expect yosys    "${{ needs.pin.outputs.yosys }}"                "$(cat /opt/yosys/.tag)"
         expect sby      "${{ needs.pin.outputs.sby }}"                  "$(cat /opt/yosys/.sby.tag)"
+        expect tools    "${{ needs.pin.outputs.tools }}"                "$(cat /opt/riscv-tools/.tag)"
         expect uv       "${{ needs.pin.outputs.uv }}"                   "$(uv --version | cut -d' ' -f2)"
         expect python   "${{ needs.pin.outputs.python }}"               "$(python3 -c 'import platform; print(platform.python_version())')"
         expect cocotb   "${{ needs.pin.outputs.cocotb }}"               "$(python3 -c 'import cocotb; print(cocotb.__version__)')"
@@ -394,6 +432,8 @@ jobs:
         yosys -V | head -n 1
         sby --version
         uv --version
+        riscv-tools --help > /dev/null
+        ruff --version
         python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"
 
   elf-plan:
