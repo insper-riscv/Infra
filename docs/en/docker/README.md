@@ -103,7 +103,7 @@ Each base image has a workflow that runs every day (UTC) with no field to fill i
 | `GTKWave image` | every day, 03:00 | the head of the `lts` branch |
 | `Spike image` | every day, 03:00 | the latest upstream commit with green CI (it can wait up to 60 minutes for a running one) |
 | `GCC image` | every day, 03:00 | the latest commit of `riscv-gnu-toolchain` whose `Build` succeeded |
-| `Sail image` | every day, 03:00 | the latest stable `0.N` release |
+| `Sail image` | every day, 03:00 | the latest commit of the Sail `master` whose upstream `ci.yml` passed |
 | `CI images` | every day, 03:00, and when `GHDL image`, `Yosys image`, `GCC image`, `Picolibc image`, `Spike image` or `Sail image` finishes | the latest `uv` of series 0, the six bases above, GTKWave, and the image of the level below at each level |
 
 A run builds **only if the image for that version does not exist yet**; when nothing changed it ends in seconds with a notice.
