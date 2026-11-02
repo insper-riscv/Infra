@@ -36,8 +36,7 @@ FROM ${BASE_IMAGE}
 # g++ builds cocotb on arm64;
 # libreadline8t64, libtcl8.6 and libffi8 for Yosys;
 # libgmp10 for yices-smt2, and libstdc++6 and libgcc-s1 for btorsim of Boolector (Bitwuzla and the
-# other Boolector executables are static);
-# z3 is the solver of the proofs that still run with it.
+# other Boolector executables are static).
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       libglib2.0-0t64 \
@@ -47,7 +46,6 @@ RUN apt-get update \
       g++ \
       libreadline8t64 libtcl8.6 libffi8 \
       libgmp10 libstdc++6 libgcc-s1 \
-      z3 \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghdl /opt/ghdl /opt/ghdl
@@ -103,7 +101,7 @@ RUN UV_TOOL_DIR=/opt/riscv-tools UV_TOOL_BIN_DIR=/usr/local/bin \
  && chmod -R a+rX /opt/riscv-tools
 
 # Fail the build here, not in a user's CI: GHDL runs a VHDL-2008 design, and sby proves a property with
-# each engine (the solvers z3, Yices, Bitwuzla and Boolector, and the abc engines) and reports, with
+# each engine (the solvers Yices, Bitwuzla and Boolector, and the abc engines) and reports, with
 # status 2, one that does not hold.
 RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     printf '%s\n' \
@@ -137,7 +135,7 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     sed 's/c <= 9/c <= 8/' f.sv > g.sv; \
     sby_file() { printf '%s\n' '[options]' "mode $2" 'depth 12' "$4" '[engines]' "$3" \
       '[script]' "read_verilog -formal -sv $5" 'prep -top t' '[files]' "$5" > "$1.sby"; }; \
-    for e in z3 yices bitwuzla boolector; do \
+    for e in yices bitwuzla boolector; do \
       sby_file "$e" prove "smtbmc $e" '' f.sv; \
       sby -f "$e.sby" > "$e.log" 2>&1 || { cat "$e.log"; exit 1; }; \
       echo "proof     smtbmc $e: $(tail -n 1 "$e.log")"; \

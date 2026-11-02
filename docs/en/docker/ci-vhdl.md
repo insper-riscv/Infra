@@ -13,7 +13,6 @@
 | Bitwuzla | the `bitwuzla` solver, for the `smtbmc bitwuzla` engine, from `base-bitwuzla` | `/opt/bitwuzla` |
 | Boolector | the `boolector` solver for the `smtbmc boolector` engine, and `btormc` and `btorsim` for the `btor` engine, from `base-boolector` | `/opt/boolector` |
 | `abc` | the engine `abc bmc3` and `abc pdr` run through `yosys-abc`, from `base-yosys` | `/opt/yosys` |
-| `z3` | the SMT solver of the proofs that still run with it, from Ubuntu | `/usr/bin` |
 | `uv` | Python project manager, installed by the official installer of the chosen version, which checks the binary against the SHA-256 it carries | `/usr/local/bin` |
 | Python | 3.14, installed by `uv` for every user, with `python3` and `python` on the `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, installed in that Python | `/opt/uv/python` |
@@ -41,7 +40,7 @@ Ubuntu also provides `git`, `make`, `curl` and `ca-certificates` (the checkout o
 | `click` | 8.5.0, fixed | `CLICK_VERSION` is edited |
 | Static analysis tools | the versions in `static-analysis.txt`, pinned | that file is edited |
 | `riscv-tools` | the latest stable release of Tools (`vX.Y.Z`), published after its `ci` workflow (the tests and the static analysis) succeeded | Tools publishes a release (automatic, checked every day) |
-| `z3` and the other Ubuntu packages | whatever Ubuntu 26.04 has when the image is built | the image is rebuilt for another reason |
+| The other Ubuntu packages | whatever Ubuntu 26.04 has when the image is built | the image is rebuilt for another reason |
 
 The image is rebuilt only when GHDL, Yosys, SymbiYosys, Yices, Bitwuzla, Boolector, the Tools release or `uv` change. The Tools commit is the one of the latest stable release of Tools (the highest `vX.Y.Z` tag), which the release workflow of Tools publishes only after its `ci` workflow finished successfully on that commit. Tools does not trigger the workflow, so a new release is picked up by the next scheduled run. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, but cocotb and `click` do not follow it: they stay at the versions `docker/ci/vhdl/Dockerfile` fixes until someone edits the build argument and runs the workflow by hand with `from_level` set to `vhdl`. The Python, cocotb and `click` versions are in the labels of every image, and are not part of the decision to build.
 
@@ -91,7 +90,7 @@ docker build -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 | `CLICK_VERSION` | a fixed version | `click`, used by `sby` |
 | `TOOLS_COMMIT` | a pinned commit (local builds only; the workflow passes the commit of the latest Tools release) | commit of Tools the image installs |
 
-The build prints one line per component with its version and commit, and fails if GHDL does not run a VHDL-2008 design, if Yosys and `sby` do not prove a small property with each engine (`z3`, `yices`, `bitwuzla`, `boolector`, `abc bmc3` and `abc pdr`), or if Python is not 3.14 with cocotb.
+The build prints one line per component with its version and commit, and fails if GHDL does not run a VHDL-2008 design, if Yosys and `sby` do not prove a small property with each engine (`yices`, `bitwuzla`, `boolector`, `abc bmc3` and `abc pdr`), or if Python is not 3.14 with cocotb.
 
 ## 5. Uses
 
@@ -105,7 +104,7 @@ ghdl --synth --std=08 --workdir=work --out=verilog my_block > my_block.v
 sby -f my_block.sby
 ```
 
-The `.sby` file names the mode (`prove` for an unbounded proof by induction, `bmc` for a bounded check, `cover` to confirm the properties are not vacuous), the depth, the engine (`smtbmc z3`) and the files. A proof that fails writes a waveform of the counterexample next to the log.
+The `.sby` file names the mode (`prove` for an unbounded proof by induction, `bmc` for a bounded check, `cover` to confirm the properties are not vacuous), the depth, the engine (`smtbmc bitwuzla`) and the files. A proof that fails writes a waveform of the counterexample next to the log.
 
 ---
 

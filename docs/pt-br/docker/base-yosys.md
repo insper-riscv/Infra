@@ -10,7 +10,7 @@
 | SymbiYosys (`sby`) | construído junto com o Yosys; roda o Yosys e os solvers |
 | `/opt/yosys/.tag` e `/opt/yosys/.sby.tag` | os commits de que a instalação foi construída |
 
-Os solvers `z3` e `boolector` vêm do Ubuntu e são instalados na `ci-vhdl`, que também instala as bibliotecas com que o Yosys liga (`libreadline8t64`, `libtcl8.6` e `libffi8`) e o `click` que o `sby` importa.
+Os solvers SMT vêm de [`base-yices`](base-yices.md), [`base-bitwuzla`](base-bitwuzla.md) e [`base-boolector`](base-boolector.md) e são copiados para a `ci-vhdl`, que também instala as bibliotecas com que o Yosys liga (`libreadline8t64`, `libtcl8.6` e `libffi8`) e o `click` que o `sby` importa.
 
 ## 2. Publicação
 

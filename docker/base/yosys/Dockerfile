@@ -23,12 +23,12 @@ RUN test -n "${YOSYS_COMMIT}" && test -n "${SBY_COMMIT}" \
 
 # cmake, a C++20 compiler (build-essential), flex and bison build Yosys; readline, libffi, Tcl
 # and zlib are the optional libraries it uses when they are there. python3 runs the build
-# scripts, and python3-click and z3 are only for the check at the end of this stage.
+# scripts, and python3-click is only for the check at the end of this stage (sby imports it).
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       build-essential cmake git ca-certificates python3 pkg-config gawk bison flex \
       libreadline-dev libffi-dev libfl-dev tcl-dev zlib1g-dev \
-      python3-click z3 \
+      python3-click \
  && rm -rf /var/lib/apt/lists/*
 
 # The submodules a build without Slang needs: ABC (logic optimization), symfpu (the floating-point
@@ -61,17 +61,18 @@ RUN git init /sby \
  && echo "${SBY_COMMIT}" > /opt/yosys/.sby.tag \
  && rm -rf /sby
 
-# Fail the build, before anything is published, if the two do not work together: a small proof
-# with the z3 solver.
+# Fail the build, before anything is published, if the two do not work together: a small proof with the
+# abc engine (pdr), which runs inside Yosys and needs no SMT solver. The property has to be one abc can
+# see: with an always true one (a 2-bit counter below 4) the engine finds no output and ends in an error.
 RUN set -e; d="$(mktemp -d)"; cd "$d"; export PATH=/opt/yosys/bin:$PATH; \
     yosys -V; \
     printf '%s\n' \
-      'module t (input clk);' \
-      '  reg [1:0] c = 0;' \
-      '  always @(posedge clk) c <= c + 1;' \
-      '  always @* assert(c <= 3);' \
+      'module t (input clk, input en);' \
+      '  reg [3:0] c = 0;' \
+      '  always @(posedge clk) if (en) c <= (c == 9) ? 4'"'"'d0 : c + 1;' \
+      '  always @* assert(c <= 9);' \
       'endmodule' > f.sv; \
-    printf '%s\n' '[options]' 'mode prove' 'depth 5' '[engines]' 'smtbmc z3' \
+    printf '%s\n' '[options]' 'mode prove' 'depth 12' 'aigsmt none' '[engines]' 'abc pdr' \
       '[script]' 'read_verilog -formal -sv f.sv' 'prep -top t' '[files]' 'f.sv' > f.sby; \
     sby -f f.sby > sby.log 2>&1 || { cat sby.log; exit 1; }; \
     tail -n 1 sby.log; \
