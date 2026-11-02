@@ -40,10 +40,10 @@ Também vêm do Ubuntu `git`, `make`, `curl` e `ca-certificates` (o checkout de 
 | cocotb | 2.1.0, fixo | `COCOTB_VERSION` é editado |
 | `click` | 8.5.0, fixo | `CLICK_VERSION` é editado |
 | Ferramentas de análise estática | as versões de `static-analysis.txt`, fixas | esse arquivo é editado |
-| `riscv-tools` | o último commit da `main` do Tools cujo workflow `ci` (os testes e a análise estática) passou | o Tools ganha um commit que passa (automático, consultado todo dia) |
+| `riscv-tools` | a release estável mais recente do Tools (`vX.Y.Z`), publicada depois que o workflow `ci` (os testes e a análise estática) passou | o Tools publica uma release (automático, consultado todo dia) |
 | `z3` e os demais pacotes do Ubuntu | o que o Ubuntu 26.04 tem quando a imagem é construída | a imagem é reconstruída por outro motivo |
 
-A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o Bitwuzla, o Boolector, o commit do Tools ou o `uv` mudam. O commit do Tools é o mais recente da `main` em que o workflow `ci` do próprio Tools terminou com sucesso; um commit que ainda roda é esperado por alguns minutos e um que falhou é pulado. O Tools não dispara o workflow, então um commit novo entra na próxima execução agendada. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `from_level` em `vhdl`. As versões de Python, cocotb e `click` estão na tag longa e nos rótulos de toda imagem, e não entram na decisão de construir.
+A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o Bitwuzla, o Boolector, a release do Tools ou o `uv` mudam. O commit do Tools é o da release estável mais recente do Tools (a maior tag `vX.Y.Z`), que o workflow de release do Tools só publica depois que o workflow `ci` terminou com sucesso nesse commit. O Tools não dispara o workflow, então uma release nova entra na próxima execução agendada. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `from_level` em `vhdl`. As versões de Python, cocotb e `click` estão nos rótulos de toda imagem, e não entram na decisão de construir.
 
 ## 2. Publicação
 
@@ -51,7 +51,7 @@ A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o B
 | :--- | :--- |
 | Receita | `docker/ci/vhdl/Dockerfile` |
 | Workflow | `CI images`, job `vhdl` |
-| Tags | `latest`, `sha-<commit do Infra>`, `ghdl-<7>-yosys-<7>-sby-<7>-yices-<7>-bitwuzla-<7>-boolector-<7>-tools-<7>-uv-<versão>` e a mesma com `-python-<x.y.z>-cocotb-<versão>-click-<versão>` no final |
+| Tags | `latest`, `sha-<commit do Infra>`, `ghdl-<versão>-yosys-<versão>-sby-<versão>-yices-<versão>-bitwuzla-<versão>-boolector-<versão>-tools-<versão>-uv-<versão>` |
 | Rótulos | `ghdl.commit`, `yosys.commit`, `sby.commit`, `yices.commit`, `bitwuzla.commit`, `boolector.commit`, `tools.commit`, `uv.version`, `python.version`, `cocotb.version` e `click.version` |
 | Agenda | todo dia, 03:00 UTC, e quando `GHDL image`, `Yosys image`, `Yices image`, `Bitwuzla image` ou `Boolector image` termina (o primeiro nível do `CI images`) |
 
@@ -66,7 +66,7 @@ Antes de publicar, o workflow confere que o commit que cada componente deixou na
 | `confirm` | o valor do secret `IMAGE_PUBLISH_SECRET` |
 | `from_level` | o nível a partir do qual reconstruir (`vhdl`, `elf`, `act4` ou `devtools`): ele e os de cima são reconstruídos, os de baixo são reaproveitados |
 | `uv_version` | a versão do `uv`; vazio, a estável mais recente da série |
-| `tools_commit` | o commit do Tools (hash completo); vazio, o último da `main` com os workflows verdes |
+| `tools_commit` | o commit do Tools (hash completo); vazio, o da release mais recente do Tools |
 
 ## 4. Construindo localmente
 
@@ -89,7 +89,7 @@ docker build -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 | `PYTHON_VERSION` | `3.14` | Python instalado pelo `uv` |
 | `COCOTB_VERSION` | `2.1.0` | cocotb instalado nele |
 | `CLICK_VERSION` | uma versão fixa | `click`, usado pelo `sby` |
-| `TOOLS_COMMIT` | um commit fixo (só para build local; o workflow passa o commit verde mais recente) | commit do Tools que a imagem instala |
+| `TOOLS_COMMIT` | um commit fixo (só para build local; o workflow passa o commit da release mais recente do Tools) | commit do Tools que a imagem instala |
 
 O build imprime uma linha por componente, com a versão e o commit, e falha se o GHDL não roda um projeto VHDL-2008, se o Yosys e o `sby` não provam uma propriedade pequena com cada engine (`z3`, `yices`, `bitwuzla`, `boolector`, `abc bmc3` e `abc pdr`) ou se o Python não é o 3.14 com cocotb.
 

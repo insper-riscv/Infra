@@ -45,7 +45,7 @@ on:
         description: "uv version to put in the VHDL image (empty: the latest stable release of the series set in UV_SERIES)"
         required: false
       tools_commit:
-        description: "insper-riscv/Tools commit to install in the VHDL image (empty: the latest commit of its main branch whose ci workflow succeeded)"
+        description: "insper-riscv/Tools commit to install in the VHDL image (empty: the commit of the latest stable release of Tools, vX.Y.Z)"
         required: false
       act4_commit:
         description: "riscv/riscv-arch-test commit whose dependencies go in the ELF image (empty: the latest commit of the act4 branch whose upstream CI is green)"
@@ -68,11 +68,8 @@ env:
   ACT4_REPO: riscv/riscv-arch-test
   ACT4_BRANCH: act4
   ACT4_WORKFLOWS: regress.yml
-  # the same for the Tools commit installed in the VHDL image: its ci workflow (the tests and the static analysis)
-  # must have succeeded
+  # the repository whose latest stable release (riscv-tools) is installed in the VHDL image
   TOOLS_REPO: insper-riscv/Tools
-  TOOLS_BRANCH: main
-  TOOLS_WORKFLOWS: ci.yml
 
 jobs:
   pin:
@@ -98,6 +95,11 @@ jobs:
       spike: ${{ steps.pins.outputs.spike }}
       sail: ${{ steps.pins.outputs.sail }}
       gtkwave: ${{ steps.pins.outputs.gtkwave }}
+      gcc_name: ${{ steps.pins.outputs.gcc_name }}
+      picolibc_name: ${{ steps.pins.outputs.picolibc_name }}
+      spike_name: ${{ steps.pins.outputs.spike_name }}
+      sail_name: ${{ steps.pins.outputs.sail_name }}
+      gtkwave_name: ${{ steps.pins.outputs.gtkwave_name }}
       act4: ${{ steps.act4.outputs.commit }}
       uv: ${{ steps.uv.outputs.version }}
       tools: ${{ steps.tools.outputs.commit }}
@@ -105,7 +107,6 @@ jobs:
       cocotb: ${{ steps.python.outputs.cocotb }}
       click: ${{ steps.python.outputs.click }}
       vhdl_short: ${{ steps.pins.outputs.vhdl_short }}
-      vhdl_full: ${{ steps.pins.outputs.vhdl_full }}
       vhdl_build: ${{ steps.skip.outputs.vhdl_build }}
 
     steps:
@@ -214,26 +215,32 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Choose the commit of Tools
-        # A manual run takes the commit it is given. The others take the latest commit of the
-        # branch on which the tests and the static analysis of Tools succeeded (green-commit.sh),
-        # so the image never gets a Tools that its own CI rejected. Tools has no image workflow
-        # to trigger this one, so a new commit is picked up by the next scheduled run.
+        # A manual run takes the commit it is given. The others take the commit of the latest
+        # stable release of Tools (the highest vX.Y.Z tag). The release workflow of Tools publishes
+        # it only after its ci workflow finished green on the commit it tags, so the image never
+        # gets a Tools that its own CI rejected. Tools has no image workflow to trigger this one,
+        # so a new release is picked up by the next scheduled run.
         id: tools
         env:
           INPUT_TOOLS: ${{ inputs.tools_commit }}
-          GH_TOKEN: ${{ github.token }}
-          UPSTREAM_REPO: ${{ env.TOOLS_REPO }}
-          UPSTREAM_BRANCH: ${{ env.TOOLS_BRANCH }}
-          REQUIRED_WORKFLOWS: ${{ env.TOOLS_WORKFLOWS }}
-          WAIT_MINUTES: "5"
         run: |
           full_hash() { printf '%s' "$1" | grep -Eq '^[0-9a-f]{40}$'; }
           if [ -n "${INPUT_TOOLS:-}" ]; then
             full_hash "$INPUT_TOOLS" || { echo "::error::not a full commit hash: $INPUT_TOOLS"; exit 1; }
             commit="$INPUT_TOOLS"
           else
-            commit=$(bash .github/scripts/green-commit.sh)
-            full_hash "$commit" || { echo "::error::green-commit.sh did not print a commit: '$commit'"; exit 1; }
+            upstream="https://github.com/$TOOLS_REPO"
+            tag=$(git ls-remote --tags --refs "$upstream" 'v*' | sed 's|.*refs/tags/||' \
+                  | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+            if [ -z "$tag" ]; then
+              echo "::error::no release tag (vX.Y.Z) in $upstream"
+              exit 1
+            fi
+            # the commit a tag points at: an annotated tag has a second line, peeled to the commit
+            # (^{}); a lightweight one is the commit
+            commit=$(git ls-remote "$upstream" "refs/tags/$tag" "refs/tags/$tag^{}" | tail -n 1 | cut -f1)
+            full_hash "$commit" || { echo "::error::could not resolve the commit of $tag in $upstream: '$commit'"; exit 1; }
+            echo "release $tag"
           fi
           echo "Tools $commit"
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
@@ -244,9 +251,6 @@ jobs:
           EVENT: ${{ github.event_name }}
           TOOLS: ${{ steps.tools.outputs.commit }}
           UV: ${{ steps.uv.outputs.version }}
-          PYTHON: ${{ steps.python.outputs.python }}
-          COCOTB: ${{ steps.python.outputs.cocotb }}
-          CLICK: ${{ steps.python.outputs.click }}
         run: |
           # The component images are manifests of two architectures that carry the same commits.
           label() {
@@ -293,10 +297,35 @@ jobs:
             echo "sail_version=$sail_version"
             echo "gtkwave=$gtkwave"
           } >> "$GITHUB_OUTPUT"
-          # short names what decides whether to build; full adds the versions that follow from the uv
-          short="ghdl-${ghdl:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-yices-${yices:0:7}-bitwuzla-${bitwuzla:0:7}-boolector-${boolector:0:7}-tools-${TOOLS:0:7}-uv-${UV}"
+          # How a component is named in a tag: the version of the release whose tag points at the
+          # commit (the highest one, without the v or Yices- prefix), or the first 7 characters of the
+          # commit when none does (Spike, Sail, GTKWave and ACT4 follow a branch, and a commit
+          # of the GCC that is not a dated release has no version either).
+          name_of() {
+            local tag
+            tag=$(git ls-remote --tags "$1" 2>/dev/null \
+                  | awk -v c="$2" '$1 == c { sub("refs/tags/", "", $2); sub(/\^\{\}$/, "", $2); print $2 }' \
+                  | grep -E '^(v|Yices-)?[0-9]+(\.[0-9]+)+$' | sort -V | tail -n 1) || true
+            if [ -n "$tag" ]; then printf '%s' "${tag#v}" | sed 's/^Yices-//'; else printf '%s' "${2:0:7}"; fi
+          }
+          ghdl_name=$(name_of https://github.com/ghdl/ghdl "$ghdl")
+          yosys_name=$(name_of https://github.com/YosysHQ/yosys "$yosys")
+          sby_name=$(name_of https://github.com/YosysHQ/sby "$sby")
+          yices_name=$(name_of https://github.com/SRI-CSL/yices2 "$yices")
+          bitwuzla_name=$(name_of https://github.com/bitwuzla/bitwuzla "$bitwuzla")
+          boolector_name=$(name_of https://github.com/Boolector/boolector "$boolector")
+          tools_name=$(name_of "https://github.com/$TOOLS_REPO" "$TOOLS")
+          {
+            echo "gcc_name=$(name_of https://github.com/riscv-collab/riscv-gnu-toolchain "$gcc")"
+            echo "picolibc_name=$(name_of https://github.com/picolibc/picolibc "$picolibc")"
+            echo "spike_name=$(name_of https://github.com/riscv-software-src/riscv-isa-sim "$spike")"
+            echo "sail_name=$(name_of https://github.com/riscv/sail-riscv "$sail")"
+            echo "gtkwave_name=$(name_of https://github.com/gtkwave/gtkwave "$gtkwave")"
+          } >> "$GITHUB_OUTPUT"
+          # names what decides whether to build. A tag is at most 128 characters, so the Python, cocotb and
+          # click versions are in the labels of the image and not in the tag.
+          short="ghdl-${ghdl_name}-yosys-${yosys_name}-sby-${sby_name}-yices-${yices_name}-bitwuzla-${bitwuzla_name}-boolector-${boolector_name}-tools-${tools_name}-uv-${UV}"
           echo "vhdl_short=$short" >> "$GITHUB_OUTPUT"
-          echo "vhdl_full=$short-python-${PYTHON}-cocotb-${COCOTB}-click-${CLICK}" >> "$GITHUB_OUTPUT"
 
       - name: Choose the commit of ACT4
         # A manual run takes the commit it is given and fails if the Sail of the image is not the
@@ -432,7 +461,6 @@ jobs:
         latest
         sha-${{ github.sha }}
         ${{ needs.pin.outputs.vhdl_short }}
-        ${{ needs.pin.outputs.vhdl_full }}
       check: |
         # what is inside the image is what the workflow pinned: the commit each component left in its
         # install directory against the commit the labels and tags of this image say
@@ -487,14 +515,14 @@ jobs:
         env:
           BUILT: ${{ needs.vhdl.outputs.digest }}
           VHDL_SHORT: ${{ needs.pin.outputs.vhdl_short }}
-          GCC: ${{ needs.pin.outputs.gcc }}
-          PICOLIBC: ${{ needs.pin.outputs.picolibc }}
-          SPIKE: ${{ needs.pin.outputs.spike }}
+          GCC_NAME: ${{ needs.pin.outputs.gcc_name }}
+          PICOLIBC_NAME: ${{ needs.pin.outputs.picolibc_name }}
+          SPIKE_NAME: ${{ needs.pin.outputs.spike_name }}
           FROM: ${{ needs.pin.outputs.from }}
         run: |
           vhdl="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-vhdl:$VHDL_SHORT" --format '{{.Manifest.Digest}}')}"
           [ -n "$vhdl" ] || { echo "::error::no ci-vhdl image for $VHDL_SHORT"; exit 1; }
-          short="vhdl-$(printf '%s' "$vhdl" | sed 's/^sha256://' | cut -c1-12)-gcc-${GCC:0:7}-picolibc-${PICOLIBC:0:7}-spike-${SPIKE:0:7}"
+          short="vhdl-$(printf '%s' "$vhdl" | sed 's/^sha256://' | cut -c1-12)-gcc-${GCC_NAME}-picolibc-${PICOLIBC_NAME}-spike-${SPIKE_NAME}"
           {
             echo "vhdl=$vhdl"
             echo "short=$short"
@@ -573,13 +601,13 @@ jobs:
         env:
           BUILT: ${{ needs.elf.outputs.digest }}
           ELF_SHORT: ${{ needs.elf-plan.outputs.short }}
-          SAIL: ${{ needs.pin.outputs.sail }}
+          SAIL_NAME: ${{ needs.pin.outputs.sail_name }}
           ACT4: ${{ needs.pin.outputs.act4 }}
           FROM: ${{ needs.pin.outputs.from }}
         run: |
           elf="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-elf:$ELF_SHORT" --format '{{.Manifest.Digest}}')}"
           [ -n "$elf" ] || { echo "::error::no ci-elf image for $ELF_SHORT"; exit 1; }
-          short="elf-$(printf '%s' "$elf" | sed 's/^sha256://' | cut -c1-12)-sail-${SAIL:0:7}-act4-${ACT4:0:7}"
+          short="elf-$(printf '%s' "$elf" | sed 's/^sha256://' | cut -c1-12)-sail-${SAIL_NAME}-act4-${ACT4:0:7}"
           {
             echo "elf=$elf"
             echo "short=$short"
@@ -651,14 +679,14 @@ jobs:
         env:
           BUILT: ${{ needs.act4.outputs.digest }}
           ACT4_SHORT: ${{ needs.act4-plan.outputs.short }}
-          GTKWAVE: ${{ needs.pin.outputs.gtkwave }}
+          GTKWAVE_NAME: ${{ needs.pin.outputs.gtkwave_name }}
           FROM: ${{ needs.pin.outputs.from }}
         run: |
           act4="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-act4:$ACT4_SHORT" --format '{{.Manifest.Digest}}')}"
           [ -n "$act4" ] || { echo "::error::no ci-act4 image for $ACT4_SHORT"; exit 1; }
           # The combination names the ELF image itself (the start of its digest): it carries every
           # lower level, so any of them changing is a new combination.
-          short="act4-$(printf '%s' "$act4" | sed 's/^sha256://' | cut -c1-12)-gtkwave-${GTKWAVE:0:7}"
+          short="act4-$(printf '%s' "$act4" | sed 's/^sha256://' | cut -c1-12)-gtkwave-${GTKWAVE_NAME}"
           {
             echo "act4=$act4"
             echo "short=$short"

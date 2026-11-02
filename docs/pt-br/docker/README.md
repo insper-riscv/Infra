@@ -67,7 +67,7 @@ Uma imagem base não tem sistema de arquivos além do diretório de instalação
 | `base-*` | o commit (ou a versão) da ferramenta e `latest`; o formato exato está no arquivo de cada uma |
 | `ci-*` e `dev_tools` | `latest`, `sha-<commit do Infra>` e uma tag de combinação que nomeia tudo o que entrou na imagem |
 
-A tag de combinação de um nível acima nomeia o início do digest da imagem abaixo e os commits dos componentes que ele acrescenta. Qualquer mudança em qualquer nível de baixo gera, portanto, uma combinação nova.
+A tag de combinação de um nível acima nomeia o início do digest da imagem abaixo e os componentes que ele acrescenta. Um componente é nomeado pela versão quando uma tag de release aponta para o seu commit (`6.0.0` no GHDL, `0.70` no Yosys, `2026.10.29` no GCC quando o commit dele é uma release datada) e pelos 7 primeiros caracteres do commit quando nenhuma aponta (Spike, Sail, GTKWave e ACT4 seguem uma branch). Uma tag tem no máximo 128 caracteres. Qualquer mudança em qualquer nível de baixo gera, portanto, uma combinação nova.
 
 Toda imagem leva os rótulos `org.opencontainers.image.title`, `description`, `source`, `revision` (o commit deste repositório que a construiu) e `created`, definidos pelo workflow, e os rótulos de commit dos seus componentes (`ghdl.commit`, `riscv-gnu-toolchain.commit`, `picolibc.commit`, `riscv-isa-sim.commit`, `yosys.commit`, `sby.commit`, `yices.commit`, `bitwuzla.commit`, `boolector.commit`, `sail-riscv.commit`, `gtkwave.commit`, `act4.commit`, `uv.version`). Os rótulos são definidos explicitamente porque uma imagem construída sobre a base Ubuntu herdaria o título, a descrição e a data da imagem do Ubuntu.
 

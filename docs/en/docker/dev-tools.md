@@ -57,7 +57,7 @@ On a Docker daemon that remaps user namespaces (`userns-remap`), the host user a
 | :--- | :--- |
 | Recipe | `docker/dev-tools/Dockerfile` |
 | Workflow | `CI images`, job `devtools` |
-| Tags | `latest`, `sha-<Infra commit>` and `act4-<12 of the ci-act4 digest>-gtkwave-<7>` |
+| Tags | `latest`, `sha-<Infra commit>` and `act4-<12 of the ci-act4 digest>-gtkwave-<name>` |
 | Label | `gtkwave.commit` |
 | Schedule | in the same run as `ci-act4`, right after it; a new GTKWave is picked up by the run of 03:00 UTC |
 
