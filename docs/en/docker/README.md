@@ -4,7 +4,7 @@ The project's Docker images hold what the RISC-V test flow needs. There are thre
 
 | Kind | Name | What it is |
 | :--- | :--- | :--- |
-| Base | `base-*` | one tool per image (GHDL, Yosys with SymbiYosys, the GCC, picolibc, Spike, Sail, GTKWave) and nothing else; they exist to be copied from |
+| Base | `base-*` | one tool per image (GHDL, Yosys with SymbiYosys, the SMT solvers Yices, Bitwuzla and Boolector, the GCC, picolibc, Spike, Sail, GTKWave) and nothing else; they exist to be copied from |
 | CI | `ci-*` | the images a project's CI runs in; each is the one before it plus more tools, in levels |
 | Final | `dev_tools` | the last level, for the Dev Container |
 
@@ -49,6 +49,9 @@ The base images, one per tool:
 | :--- | :--- | :--- |
 | `base-ghdl` | `/opt/ghdl` | [base-ghdl.md](base-ghdl.md) |
 | `base-yosys` | `/opt/yosys` (Yosys and SymbiYosys) | [base-yosys.md](base-yosys.md) |
+| `base-yices` | `/opt/yices` (the Yices 2 solver) | [base-yices.md](base-yices.md) |
+| `base-bitwuzla` | `/opt/bitwuzla` (the Bitwuzla solver) | [base-bitwuzla.md](base-bitwuzla.md) |
+| `base-boolector` | `/opt/boolector` (the Boolector solver, with `btormc`) | [base-boolector.md](base-boolector.md) |
 | `base-gcc` | `/opt/riscv-foundation/riscv32-elf` (binutils, the GCC and libgcc) | [base-gcc.md](base-gcc.md) |
 | `base-picolibc` | the files picolibc installs into the GCC's sysroot | [base-picolibc.md](base-picolibc.md) |
 | `base-spike` | `/opt/riscv-foundation/spike` | [base-spike.md](base-spike.md) |
@@ -66,7 +69,7 @@ A base image has no file system besides its install directory, so it cannot be r
 
 The combination tag of a level names the start of the digest of the image below it and the commits of the components it adds. Any change at any lower level therefore makes a new combination.
 
-Every image carries the labels `org.opencontainers.image.title`, `description`, `source`, `revision` (the commit of this repository that built it) and `created`, set by the workflow, and the commit labels of its components (`ghdl.commit`, `riscv-gnu-toolchain.commit`, `picolibc.commit`, `riscv-isa-sim.commit`, `yosys.commit`, `sby.commit`, `sail-riscv.commit`, `gtkwave.commit`, `act4.commit`, `uv.version`). The labels are set explicitly because an image built on the Ubuntu base would otherwise inherit the title, the description and the date of the Ubuntu image.
+Every image carries the labels `org.opencontainers.image.title`, `description`, `source`, `revision` (the commit of this repository that built it) and `created`, set by the workflow, and the commit labels of its components (`ghdl.commit`, `riscv-gnu-toolchain.commit`, `picolibc.commit`, `riscv-isa-sim.commit`, `yosys.commit`, `sby.commit`, `yices.commit`, `bitwuzla.commit`, `boolector.commit`, `sail-riscv.commit`, `gtkwave.commit`, `act4.commit`, `uv.version`). The labels are set explicitly because an image built on the Ubuntu base would otherwise inherit the title, the description and the date of the Ubuntu image.
 
 ## 3. Using the CI images
 
@@ -100,6 +103,9 @@ Each base image has a workflow that runs every day (UTC) with no field to fill i
 | `GHDL image` | every day, 03:00 | the latest `6.x.y` release |
 | `Picolibc image` | every day, 03:10, and when `GCC image` finishes | the latest `1.x.y` release, compiled with the latest GCC |
 | `Yosys image` | every day, 03:00 | the latest `v0.N` release of Yosys, with the `sby` of the same version |
+| `Yices image` | every day, 03:00 | the latest `Yices-2.N.P` release |
+| `Bitwuzla image` | every day, 03:00 | the latest `0.N.P` release |
+| `Boolector image` | every day, 03:00 | the latest `3.N.P` release |
 | `GTKWave image` | every day, 03:00 | the head of the `lts` branch |
 | `Spike image` | every day, 03:00 | the latest upstream commit with green CI (it can wait up to 60 minutes for a running one) |
 | `GCC image` | every day, 03:00 | the latest commit of `riscv-gnu-toolchain` whose `Build` succeeded |
