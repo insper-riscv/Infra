@@ -18,7 +18,7 @@
 | Python | 3.14, instalado pelo `uv` para todos os usuários, com `python3` e `python` no `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, instalado nesse Python | `/opt/uv/python` |
 | `click` | 8.5.0, a biblioteca Python que o `sby` importa, instalada pelo `uv` | `/opt/uv/python` |
-| Ferramentas de análise estática | `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone` e `semgrep`, as que o workflow `static-analysis` do Tools roda, com versões fixas em `docker/ci/vhdl/static-analysis.txt` | `/opt/static-analysis`, executáveis em `/usr/local/bin` |
+| Ferramentas de análise estática | `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone` e `semgrep`, as que o job `python-static-analysis` do workflow `ci` do Tools roda, com versões fixas em `docker/ci/vhdl/static-analysis.txt` | `/opt/static-analysis`, executáveis em `/usr/local/bin` |
 | `riscv-tools` | a CLI do repositório Tools, instalada pelo `uv tool` a partir do commit que o workflow escolhe (`TOOLS_COMMIT`) | `/opt/riscv-tools`, executável em `/usr/local/bin` |
 
 O `gcc` e o `g++` do host também estão na imagem. O backend LLVM liga com o `gcc` o executável que elabora, e o cocotb é compilado com o `g++` no `arm64`, onde não tem wheel para Linux; o `uv sync` de cada projeto o compila lá também. A imagem não tem `pip`; um projeto instala o restante das suas dependências com `uv sync`, que encontra este Python em vez de baixar outro.
@@ -40,10 +40,10 @@ Também vêm do Ubuntu `git`, `make`, `curl` e `ca-certificates` (o checkout de 
 | cocotb | 2.1.0, fixo | `COCOTB_VERSION` é editado |
 | `click` | 8.5.0, fixo | `CLICK_VERSION` é editado |
 | Ferramentas de análise estática | as versões de `static-analysis.txt`, fixas | esse arquivo é editado |
-| `riscv-tools` | o último commit da `main` do Tools cujos workflows `tests` e `static-analysis` passaram | o Tools ganha um commit que passa (automático, consultado todo dia) |
+| `riscv-tools` | o último commit da `main` do Tools cujo workflow `ci` (os testes e a análise estática) passou | o Tools ganha um commit que passa (automático, consultado todo dia) |
 | `z3` e os demais pacotes do Ubuntu | o que o Ubuntu 26.04 tem quando a imagem é construída | a imagem é reconstruída por outro motivo |
 
-A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o Bitwuzla, o Boolector, o commit do Tools ou o `uv` mudam. O commit do Tools é o mais recente da `main` em que os workflows `tests` e `static-analysis` do próprio Tools terminaram com sucesso; um commit que ainda roda é esperado por alguns minutos e um que falhou é pulado. O Tools não dispara o workflow, então um commit novo entra na próxima execução agendada. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `from_level` em `vhdl`. As versões de Python, cocotb e `click` estão na tag longa e nos rótulos de toda imagem, e não entram na decisão de construir.
+A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o Bitwuzla, o Boolector, o commit do Tools ou o `uv` mudam. O commit do Tools é o mais recente da `main` em que o workflow `ci` do próprio Tools terminou com sucesso; um commit que ainda roda é esperado por alguns minutos e um que falhou é pulado. O Tools não dispara o workflow, então um commit novo entra na próxima execução agendada. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `from_level` em `vhdl`. As versões de Python, cocotb e `click` estão na tag longa e nos rótulos de toda imagem, e não entram na decisão de construir.
 
 ## 2. Publicação
 

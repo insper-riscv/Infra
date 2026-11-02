@@ -18,7 +18,7 @@
 | Python | 3.14, installed by `uv` for every user, with `python3` and `python` on the `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, installed in that Python | `/opt/uv/python` |
 | `click` | 8.5.0, the Python library `sby` imports, installed by `uv` | `/opt/uv/python` |
-| Static analysis tools | `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone` and `semgrep`, the ones the `static-analysis` workflow of Tools runs, with versions pinned in `docker/ci/vhdl/static-analysis.txt` | `/opt/static-analysis`, executables in `/usr/local/bin` |
+| Static analysis tools | `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone` and `semgrep`, the ones the `python-static-analysis` job of the Tools `ci` workflow runs, with versions pinned in `docker/ci/vhdl/static-analysis.txt` | `/opt/static-analysis`, executables in `/usr/local/bin` |
 | `riscv-tools` | the CLI of the Tools repository, installed by `uv tool` from the commit the workflow chooses (`TOOLS_COMMIT`) | `/opt/riscv-tools`, executable in `/usr/local/bin` |
 
 The host `gcc` and `g++` are in the image too. The LLVM backend links the design it elaborates with `gcc`, and cocotb is compiled with `g++` on `arm64`, where it has no wheel for Linux; a project's `uv sync` compiles it there as well. The image has no `pip`; a project installs its other dependencies with `uv sync`, which finds this Python instead of downloading another.
@@ -40,10 +40,10 @@ Ubuntu also provides `git`, `make`, `curl` and `ca-certificates` (the checkout o
 | cocotb | 2.1.0, fixed | `COCOTB_VERSION` is edited |
 | `click` | 8.5.0, fixed | `CLICK_VERSION` is edited |
 | Static analysis tools | the versions in `static-analysis.txt`, pinned | that file is edited |
-| `riscv-tools` | the latest commit of the Tools `main` whose `tests` and `static-analysis` workflows succeeded | Tools gets a commit that passes (automatic, checked every day) |
+| `riscv-tools` | the latest commit of the Tools `main` whose `ci` workflow (the tests and the static analysis) succeeded | Tools gets a commit that passes (automatic, checked every day) |
 | `z3` and the other Ubuntu packages | whatever Ubuntu 26.04 has when the image is built | the image is rebuilt for another reason |
 
-The image is rebuilt only when GHDL, Yosys, SymbiYosys, Yices, Bitwuzla, Boolector, the Tools commit or `uv` change. The Tools commit is the latest one on `main` on which Tools' own `tests` and `static-analysis` workflows finished successfully; a commit still running is waited for a few minutes and one that failed is skipped. Tools does not trigger the workflow, so a new commit is picked up by the next scheduled run. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, but cocotb and `click` do not follow it: they stay at the versions `docker/ci/vhdl/Dockerfile` fixes until someone edits the build argument and runs the workflow by hand with `from_level` set to `vhdl`. The Python, cocotb and `click` versions are in the long tag and in the labels of every image, and are not part of the decision to build.
+The image is rebuilt only when GHDL, Yosys, SymbiYosys, Yices, Bitwuzla, Boolector, the Tools commit or `uv` change. The Tools commit is the latest one on `main` on which the `ci` workflow of Tools finished successfully; a commit still running is waited for a few minutes and one that failed is skipped. Tools does not trigger the workflow, so a new commit is picked up by the next scheduled run. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, but cocotb and `click` do not follow it: they stay at the versions `docker/ci/vhdl/Dockerfile` fixes until someone edits the build argument and runs the workflow by hand with `from_level` set to `vhdl`. The Python, cocotb and `click` versions are in the long tag and in the labels of every image, and are not part of the decision to build.
 
 ## 2. Publication
 
