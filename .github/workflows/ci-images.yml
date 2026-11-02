@@ -2,8 +2,8 @@ name: CI images
 
 # Assembles the four levels of the images that sit on the component images, in order, for
 # linux/amd64 and linux/arm64:
-#   1. ci-vhdl (docker/ci/vhdl/Dockerfile): GHDL, Yosys with SymbiYosys, uv, Python, cocotb, the static
-#      analysis tools and riscv-tools;
+#   1. ci-vhdl (docker/ci/vhdl/Dockerfile): GHDL, Yosys with SymbiYosys, the SMT solvers Yices,
+#      Bitwuzla and Boolector, uv, Python, cocotb, the static analysis tools and riscv-tools;
 #   2. ci-elf (docker/ci/elf/Dockerfile): level 1 plus the RISC-V GCC, picolibc and Spike;
 #   3. ci-act4 (docker/ci/act4/Dockerfile): level 2 plus Sail, Ruby and the dependencies of ACT4;
 #   4. dev_tools (docker/dev-tools/Dockerfile): level 3 plus GTKWave and the user dev.
@@ -12,7 +12,8 @@ name: CI images
 # combination of components is not published yet; one that is published is skipped, and the level
 # above it still runs, because the image below it may have changed.
 #
-# It runs when the GHDL, Yosys, GCC, Picolibc, Spike or Sail image workflow finishes, every day at
+# It runs when the GHDL, Yosys, Yices, Bitwuzla, Boolector, GCC, Picolibc, Spike or Sail image workflow
+# finishes, every day at
 # 03:00 UTC (the `uv` has no component image, so it is looked up here, and the GTKWave image is
 # picked up here too), and on demand. A change of a Dockerfile in docker/ci or docker/dev-tools or
 # of this workflow does not assemble by itself: the Recipe changed workflow warns about it, and a
@@ -50,7 +51,7 @@ on:
         description: "riscv/riscv-arch-test commit whose dependencies go in the ELF image (empty: the latest commit of the act4 branch whose upstream CI is green)"
         required: false
   workflow_run:
-    workflows: ["GHDL image", "Yosys image", "GCC image", "Picolibc image", "Spike image", "Sail image"]
+    workflows: ["GHDL image", "Yosys image", "Yices image", "Bitwuzla image", "Boolector image", "GCC image", "Picolibc image", "Spike image", "Sail image"]
     types: [completed]
     branches: [main]
 
@@ -88,6 +89,9 @@ jobs:
       ghdl: ${{ steps.pins.outputs.ghdl }}
       yosys: ${{ steps.pins.outputs.yosys }}
       sby: ${{ steps.pins.outputs.sby }}
+      yices: ${{ steps.pins.outputs.yices }}
+      bitwuzla: ${{ steps.pins.outputs.bitwuzla }}
+      boolector: ${{ steps.pins.outputs.boolector }}
       gcc: ${{ steps.pins.outputs.gcc }}
       picolibc: ${{ steps.pins.outputs.picolibc }}
       spike: ${{ steps.pins.outputs.spike }}
@@ -251,6 +255,9 @@ jobs:
           ghdl=$(label "$OWNER/base-ghdl:latest" ghdl.commit)
           yosys=$(label "$OWNER/base-yosys:latest" yosys.commit)
           sby=$(label "$OWNER/base-yosys:latest" sby.commit)
+          yices=$(label "$OWNER/base-yices:latest" yices.commit)
+          bitwuzla=$(label "$OWNER/base-bitwuzla:latest" bitwuzla.commit)
+          boolector=$(label "$OWNER/base-boolector:latest" boolector.commit)
           gcc=$(label "$OWNER/base-gcc:latest" riscv-gnu-toolchain.commit)
           # the latest picolibc image and the GCC it was compiled with: that must be the latest GCC
           # image, or the picolibc build for it is still to come
@@ -260,10 +267,10 @@ jobs:
           sail=$(label "$OWNER/base-sail:latest" sail-riscv.commit)
           sail_version=$(label "$OWNER/base-sail:latest" sail-riscv.version)
           gtkwave=$(label "$OWNER/base-gtkwave:latest" gtkwave.commit)
-          if [ -z "$ghdl" ] || [ -z "$yosys" ] || [ -z "$sby" ] || [ -z "$gcc" ] || [ -z "$picolibc" ] \
+          if [ -z "$ghdl" ] || [ -z "$yosys" ] || [ -z "$sby" ] || [ -z "$yices" ] || [ -z "$bitwuzla" ] || [ -z "$boolector" ] || [ -z "$gcc" ] || [ -z "$picolibc" ] \
              || [ "$picolibc_gcc" != "$gcc" ] || [ -z "$spike" ] || [ -z "$sail" ] || [ -z "$sail_version" ] || [ -z "$gtkwave" ]; then
             if [ "$EVENT" = "workflow_dispatch" ]; then
-              echo "::error::could not read the latest GHDL, Yosys, GCC, picolibc, Spike, Sail and GTKWave images, or the picolibc image was not compiled with the latest GCC; run the workflows of those images first"
+              echo "::error::could not read the latest GHDL, Yosys, Yices, Bitwuzla, Boolector, GCC, picolibc, Spike, Sail and GTKWave images, or the picolibc image was not compiled with the latest GCC; run the workflows of those images first"
               exit 1
             fi
             # A run can start before the components exist; their runs trigger this one when they finish.
@@ -275,6 +282,9 @@ jobs:
             echo "ghdl=$ghdl"
             echo "yosys=$yosys"
             echo "sby=$sby"
+            echo "yices=$yices"
+            echo "bitwuzla=$bitwuzla"
+            echo "boolector=$boolector"
             echo "gcc=$gcc"
             echo "picolibc=$picolibc"
             echo "spike=$spike"
@@ -283,7 +293,7 @@ jobs:
             echo "gtkwave=$gtkwave"
           } >> "$GITHUB_OUTPUT"
           # short names what decides whether to build; full adds the versions that follow from the uv
-          short="ghdl-${ghdl:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-tools-${TOOLS:0:7}-uv-${UV}"
+          short="ghdl-${ghdl:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-yices-${yices:0:7}-bitwuzla-${bitwuzla:0:7}-boolector-${boolector:0:7}-tools-${TOOLS:0:7}-uv-${UV}"
           echo "vhdl_short=$short" >> "$GITHUB_OUTPUT"
           echo "vhdl_full=$short-python-${PYTHON}-cocotb-${COCOTB}-click-${CLICK}" >> "$GITHUB_OUTPUT"
 
@@ -359,7 +369,7 @@ jobs:
         run: |
           pending=0
           if [ "$EVENT" != "workflow_dispatch" ]; then
-            for workflow in ghdl-image.yml yosys-image.yml gcc-image.yml picolibc-image.yml spike-image.yml sail-image.yml; do
+            for workflow in ghdl-image.yml yosys-image.yml yices-image.yml bitwuzla-image.yml boolector-image.yml gcc-image.yml picolibc-image.yml spike-image.yml sail-image.yml; do
               for status in queued in_progress; do
                 # A workflow GitHub does not know yet makes this fail; count it as none.
                 count=$(gh run list -R "$REPO" --workflow "$workflow" --status "$status" --json databaseId --jq length 2>/dev/null || echo 0)
@@ -392,7 +402,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/ci-vhdl
       dockerfile: docker/ci/vhdl/Dockerfile
       title: Insper RISC-V VHDL tests
-      description: GHDL, Yosys with SymbiYosys, uv, Python and cocotb, for linux/amd64 and linux/arm64.
+      description: GHDL, Yosys with SymbiYosys, the SMT solvers Yices, Bitwuzla and Boolector, uv, Python and cocotb, for linux/amd64 and linux/arm64.
       timeout-minutes: 60
       build-args: |
         GHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/base-ghdl:${{ needs.pin.outputs.ghdl }}
@@ -402,6 +412,9 @@ jobs:
         COCOTB_VERSION=${{ needs.pin.outputs.cocotb }}
         CLICK_VERSION=${{ needs.pin.outputs.click }}
         YOSYS_IMAGE=ghcr.io/${{ github.repository_owner }}/base-yosys:${{ needs.pin.outputs.yosys }}-${{ needs.pin.outputs.sby }}
+        YICES_IMAGE=ghcr.io/${{ github.repository_owner }}/base-yices:${{ needs.pin.outputs.yices }}
+        BITWUZLA_IMAGE=ghcr.io/${{ github.repository_owner }}/base-bitwuzla:${{ needs.pin.outputs.bitwuzla }}
+        BOOLECTOR_IMAGE=ghcr.io/${{ github.repository_owner }}/base-boolector:${{ needs.pin.outputs.boolector }}
       labels: |
         uv.version=${{ needs.pin.outputs.uv }}
         python.version=${{ needs.pin.outputs.python }}
@@ -410,6 +423,9 @@ jobs:
         ghdl.commit=${{ needs.pin.outputs.ghdl }}
         yosys.commit=${{ needs.pin.outputs.yosys }}
         sby.commit=${{ needs.pin.outputs.sby }}
+        yices.commit=${{ needs.pin.outputs.yices }}
+        bitwuzla.commit=${{ needs.pin.outputs.bitwuzla }}
+        boolector.commit=${{ needs.pin.outputs.boolector }}
         tools.commit=${{ needs.pin.outputs.tools }}
       tags: |
         latest
@@ -423,6 +439,9 @@ jobs:
         expect ghdl     "${{ needs.pin.outputs.ghdl }}"                 "$(cat /opt/ghdl/.tag)"
         expect yosys    "${{ needs.pin.outputs.yosys }}"                "$(cat /opt/yosys/.tag)"
         expect sby      "${{ needs.pin.outputs.sby }}"                  "$(cat /opt/yosys/.sby.tag)"
+        expect yices    "${{ needs.pin.outputs.yices }}"                "$(cat /opt/yices/.tag)"
+        expect bitwuzla "${{ needs.pin.outputs.bitwuzla }}"             "$(cat /opt/bitwuzla/.tag)"
+        expect boolector "${{ needs.pin.outputs.boolector }}"           "$(cat /opt/boolector/.tag)"
         expect tools    "${{ needs.pin.outputs.tools }}"                "$(cat /opt/riscv-tools/.tag)"
         expect uv       "${{ needs.pin.outputs.uv }}"                   "$(uv --version | cut -d' ' -f2)"
         expect python   "${{ needs.pin.outputs.python }}"               "$(python3 -c 'import platform; print(platform.python_version())')"
@@ -431,6 +450,9 @@ jobs:
         ghdl --version | head -n 1
         yosys -V | head -n 1
         sby --version
+        yices-smt2 --version | head -n 1
+        bitwuzla --version
+        boolector --version
         uv --version
         riscv-tools --help > /dev/null
         ruff --version
