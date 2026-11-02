@@ -35,7 +35,10 @@ Qualquer alteração em código, configuração ou documentação deve passar se
 
 ```bash
 docker build -f docker/<tipo>/<receita>/Dockerfile -t <receita> .  # Constrói a imagem da receita alterada
+riscv-tools --root . check-tree --kind infra                       # Árvore do repositório
 ```
+
+O job `tree`, de um workflow à parte, confere a árvore do repositório com `riscv-tools check-tree`.
 
 Ao adicionar, renomear ou remover qualquer arquivo versionado, atualize imediatamente:
 - `.github/workflows/`
