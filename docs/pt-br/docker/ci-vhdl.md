@@ -1,6 +1,6 @@
 # ci-vhdl
 
-`ghcr.io/<organização>/ci-vhdl` é o nível 1 das imagens de CI, com o que um teste VHDL precisa. Ela copia o [`base-ghdl`](base-ghdl.md) e o [`base-yosys`](base-yosys.md), e a imagem [`ci-elf`](ci-elf.md) e seguintes são construídas sobre ela. A visão geral das imagens está em [README.md](README.md).
+`ghcr.io/<organização>/ci-vhdl` é o nível 1 das imagens de CI, com o que um teste VHDL precisa. Ela copia o [`base-ghdl`](base-ghdl.md), o [`base-yosys`](base-yosys.md) e os solvers [`base-yices`](base-yices.md), [`base-bitwuzla`](base-bitwuzla.md) e [`base-boolector`](base-boolector.md), e a imagem [`ci-elf`](ci-elf.md) e seguintes são construídas sobre ela. A visão geral das imagens está em [README.md](README.md).
 
 ## 1. O que contém
 
@@ -9,7 +9,11 @@
 | GHDL | backend LLVM, vindo de `base-ghdl` | `/opt/ghdl` |
 | Yosys | lê o netlist Verilog que o GHDL sintetiza do VHDL, vindo de `base-yosys` | `/opt/yosys` |
 | SymbiYosys (`sby`) | roda o Yosys e os solvers, vindo de `base-yosys` | `/opt/yosys` |
-| `z3` e `boolector` | os solvers SMT do SymbiYosys, do Ubuntu | `/usr/bin` |
+| Yices | o solver `yices-smt2`, para o engine `smtbmc yices`, vindo de `base-yices` | `/opt/yices` |
+| Bitwuzla | o solver `bitwuzla`, para o engine `smtbmc bitwuzla`, vindo de `base-bitwuzla` | `/opt/bitwuzla` |
+| Boolector | o solver `boolector`, para o engine `smtbmc boolector`, e o `btormc` e o `btorsim`, para o engine `btor`, vindos de `base-boolector` | `/opt/boolector` |
+| `abc` | os engines `abc bmc3` e `abc pdr`, que rodam pelo `yosys-abc`, vindo de `base-yosys` | `/opt/yosys` |
+| `z3` | o solver SMT das provas que ainda rodam com ele, do Ubuntu | `/usr/bin` |
 | `uv` | gerenciador de projetos Python, instalado pelo instalador oficial da versão escolhida, que confere o binário contra o SHA-256 que ele carrega | `/usr/local/bin` |
 | Python | 3.14, instalado pelo `uv` para todos os usuários, com `python3` e `python` no `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, instalado nesse Python | `/opt/uv/python` |
@@ -30,15 +34,16 @@ Também vêm do Ubuntu `git`, `make`, `curl` e `ca-certificates` (o checkout de 
 | Item | Versão | Muda quando |
 | :--- | :--- | :--- |
 | GHDL, Yosys, SymbiYosys | as da `base-ghdl` e da `base-yosys` | essas imagens ganham uma versão nova (automático) |
+| Yices, Bitwuzla, Boolector | as da `base-yices`, da `base-bitwuzla` e da `base-boolector` | essas imagens ganham uma versão nova (automático) |
 | `uv` | a release estável mais recente da série 0 | o `uv` lança uma versão nova (automático, consultado todo dia) |
 | Python | o patch mais recente do 3.14 que o `uv` da imagem conhece | sai um `uv` novo (automático); o minor só muda editando `PYTHON_VERSION` |
 | cocotb | 2.1.0, fixo | `COCOTB_VERSION` é editado |
 | `click` | 8.5.0, fixo | `CLICK_VERSION` é editado |
 | Ferramentas de análise estática | as versões de `static-analysis.txt`, fixas | esse arquivo é editado |
 | `riscv-tools` | o último commit da `main` do Tools cujos workflows `tests` e `static-analysis` passaram | o Tools ganha um commit que passa (automático, consultado todo dia) |
-| `z3`, `boolector` e os demais pacotes do Ubuntu | o que o Ubuntu 26.04 tem quando a imagem é construída | a imagem é reconstruída por outro motivo |
+| `z3` e os demais pacotes do Ubuntu | o que o Ubuntu 26.04 tem quando a imagem é construída | a imagem é reconstruída por outro motivo |
 
-A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o commit do Tools ou o `uv` mudam. O commit do Tools é o mais recente da `main` em que os workflows `tests` e `static-analysis` do próprio Tools terminaram com sucesso; um commit que ainda roda é esperado por alguns minutos e um que falhou é pulado. O Tools não dispara o workflow, então um commit novo entra na próxima execução agendada. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `from_level` em `vhdl`. As versões de Python, cocotb e `click` estão na tag longa e nos rótulos de toda imagem, e não entram na decisão de construir.
+A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o Bitwuzla, o Boolector, o commit do Tools ou o `uv` mudam. O commit do Tools é o mais recente da `main` em que os workflows `tests` e `static-analysis` do próprio Tools terminaram com sucesso; um commit que ainda roda é esperado por alguns minutos e um que falhou é pulado. O Tools não dispara o workflow, então um commit novo entra na próxima execução agendada. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `from_level` em `vhdl`. As versões de Python, cocotb e `click` estão na tag longa e nos rótulos de toda imagem, e não entram na decisão de construir.
 
 ## 2. Publicação
 
@@ -46,9 +51,9 @@ A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o commit do 
 | :--- | :--- |
 | Receita | `docker/ci/vhdl/Dockerfile` |
 | Workflow | `CI images`, job `vhdl` |
-| Tags | `latest`, `sha-<commit do Infra>`, `ghdl-<7>-yosys-<7>-sby-<7>-tools-<7>-uv-<versão>` e a mesma com `-python-<x.y.z>-cocotb-<versão>-click-<versão>` no final |
-| Rótulos | `ghdl.commit`, `yosys.commit`, `sby.commit`, `tools.commit`, `uv.version`, `python.version`, `cocotb.version` e `click.version` |
-| Agenda | todo dia, 03:00 UTC, e quando `GHDL image` ou `Yosys image` termina (o primeiro nível do `CI images`) |
+| Tags | `latest`, `sha-<commit do Infra>`, `ghdl-<7>-yosys-<7>-sby-<7>-yices-<7>-bitwuzla-<7>-boolector-<7>-tools-<7>-uv-<versão>` e a mesma com `-python-<x.y.z>-cocotb-<versão>-click-<versão>` no final |
+| Rótulos | `ghdl.commit`, `yosys.commit`, `sby.commit`, `yices.commit`, `bitwuzla.commit`, `boolector.commit`, `tools.commit`, `uv.version`, `python.version`, `cocotb.version` e `click.version` |
+| Agenda | todo dia, 03:00 UTC, e quando `GHDL image`, `Yosys image`, `Yices image`, `Bitwuzla image` ou `Boolector image` termina (o primeiro nível do `CI images`) |
 
 O `uv` é o único componente sem imagem nossa. Todo run usa a release estável mais recente da série definida em `UV_SERIES` (`0`), ou o campo `uv_version` de um run manual. A versão entra na tag de combinação, então um run para uma versão já publicada não monta nada, e um `uv` novo é pego pelo primeiro run depois do lançamento.
 
@@ -68,6 +73,7 @@ Antes de publicar, o workflow confere que o commit que cada componente deixou na
 ```bash
 docker build -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
   --build-arg GHDL_IMAGE=base-ghdl --build-arg YOSYS_IMAGE=base-yosys \
+  --build-arg YICES_IMAGE=base-yices --build-arg BITWUZLA_IMAGE=base-bitwuzla --build-arg BOOLECTOR_IMAGE=base-boolector \
   --build-arg UV_VERSION="$(git ls-remote --tags --refs https://github.com/astral-sh/uv '0.*' | sed 's|.*refs/tags/||' | grep -E '^0\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)" .
 ```
 
@@ -76,13 +82,16 @@ docker build -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 | `BASE_IMAGE` | `ubuntu:26.04` | imagem base (multi-arquitetura) |
 | `GHDL_IMAGE` | `base-ghdl:latest` | de onde vem o GHDL |
 | `YOSYS_IMAGE` | `base-yosys:latest` | de onde vêm o Yosys e o SymbiYosys |
+| `YICES_IMAGE` | `base-yices:latest` | de onde vem o Yices |
+| `BITWUZLA_IMAGE` | `base-bitwuzla:latest` | de onde vem o Bitwuzla |
+| `BOOLECTOR_IMAGE` | `base-boolector:latest` | de onde vem o Boolector |
 | `UV_VERSION` | nenhum (obrigatório) | versão do `uv`; o build falha com uma mensagem se faltar |
 | `PYTHON_VERSION` | `3.14` | Python instalado pelo `uv` |
 | `COCOTB_VERSION` | `2.1.0` | cocotb instalado nele |
 | `CLICK_VERSION` | uma versão fixa | `click`, usado pelo `sby` |
 | `TOOLS_COMMIT` | um commit fixo (só para build local; o workflow passa o commit verde mais recente) | commit do Tools que a imagem instala |
 
-O build imprime uma linha por componente, com a versão e o commit, e falha se o GHDL não roda um projeto VHDL-2008, se o Yosys e o `sby` não provam uma propriedade pequena com o `z3` ou se o Python não é o 3.14 com cocotb.
+O build imprime uma linha por componente, com a versão e o commit, e falha se o GHDL não roda um projeto VHDL-2008, se o Yosys e o `sby` não provam uma propriedade pequena com cada engine (`z3`, `yices`, `bitwuzla`, `boolector`, `abc bmc3` e `abc pdr`) ou se o Python não é o 3.14 com cocotb.
 
 ## 5. Usos
 

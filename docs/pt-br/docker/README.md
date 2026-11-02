@@ -13,10 +13,10 @@ Os `Dockerfile`s ficam na pasta `docker` do repositório (`base/`, `ci/` e `dev-
 ## 1. Os níveis
 
 ```text
-base-ghdl    base-yosys    uv
-     └───────────┴──────────┘
+base-ghdl    base-yosys    base-yices    base-bitwuzla    base-boolector    uv
+     └───────────┴──────────┴──────────────┴────────────────┴────────────────┘
                  ▼
-            ci-vhdl            GHDL, Yosys, uv, Python, cocotb, static analysis, riscv-tools
+            ci-vhdl            GHDL, Yosys, solvers, uv, Python, cocotb, static analysis, riscv-tools
                  │
                  │      base-gcc → base-picolibc      base-spike
                  │              └────────┬─────────────────┘
@@ -36,7 +36,7 @@ base-ghdl    base-yosys    uv
 
 | Nível | Imagem | Serve para | Acrescenta ao nível anterior |
 | :--- | :--- | :--- | :--- |
-| 1 | [`ci-vhdl`](ci-vhdl.md) | testes VHDL (cocotb, provas formais) | GHDL, Yosys com SymbiYosys, `uv`, Python 3.14, cocotb, static analysis tools, `riscv-tools` |
+| 1 | [`ci-vhdl`](ci-vhdl.md) | testes VHDL (cocotb, provas formais) | GHDL, Yosys com SymbiYosys, os solvers Yices, Bitwuzla e Boolector, `uv`, Python 3.14, cocotb, static analysis tools, `riscv-tools` |
 | 2 | [`ci-elf`](ci-elf.md) | gerar ELFs (compilar assembly e C) e rodá-los no Spike | GCC RISC-V com picolibc, Spike |
 | 3 | [`ci-act4`](ci-act4.md) | certificação ACT4 | Sail, Ruby, Bundler, dependências de um commit do ACT4 |
 | 4 | [`dev_tools`](dev-tools.md) | Dev Container | GTKWave, usuário `dev` |
@@ -110,7 +110,7 @@ Cada imagem base tem um workflow que roda todo dia (UTC), sem campo a preencher.
 | `Spike image` | todo dia, 03:00 | o commit mais recente do upstream com CI verde (pode esperar até 60 minutos por um CI em andamento) |
 | `GCC image` | todo dia, 03:00 | o commit mais recente do `riscv-gnu-toolchain` cujo `Build` passou |
 | `Sail image` | todo dia, 03:00 | o commit mais recente da `master` do Sail cujo `ci.yml` upstream passou |
-| `CI images` | todo dia, 03:00, e quando `GHDL image`, `Yosys image`, `GCC image`, `Picolibc image`, `Spike image` ou `Sail image` termina | o `uv` mais recente da série 0, as seis bases acima, o GTKWave e, em cada nível, a imagem do nível abaixo |
+| `CI images` | todo dia, 03:00, e quando `GHDL image`, `Yosys image`, `Yices image`, `Bitwuzla image`, `Boolector image`, `GCC image`, `Picolibc image`, `Spike image` ou `Sail image` termina | o `uv` mais recente da série 0, as nove bases acima, o GTKWave e, em cada nível, a imagem do nível abaixo |
 
 Um run constrói **só se a imagem para aquela versão ainda não existir**; sem novidade, termina em segundos com um aviso.
 

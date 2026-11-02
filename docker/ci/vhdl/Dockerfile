@@ -1,5 +1,7 @@
-# Level 1 of the images: GHDL, Yosys with SymbiYosys, uv, Python with cocotb, the static analysis tools
-# and riscv-tools, for linux/amd64 and linux/arm64. GHDL and Yosys are copied from base-ghdl and base-yosys. See docs/en/docker/ci-vhdl.md.
+# Level 1 of the images: GHDL, Yosys with SymbiYosys, the SMT solvers Yices, Bitwuzla and Boolector, uv,
+# Python with cocotb, the static analysis tools and riscv-tools, for linux/amd64 and linux/arm64. GHDL,
+# Yosys and the solvers are copied from base-ghdl, base-yosys, base-yices, base-bitwuzla and
+# base-boolector. See docs/en/docker/ci-vhdl.md.
 #
 #   docker buildx build --platform linux/amd64,linux/arm64 -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 #     --build-arg UV_VERSION=<0.x.y> .
@@ -11,12 +13,18 @@ ARG COCOTB_VERSION=2.1.0
 ARG CLICK_VERSION=8.5.0
 ARG GHDL_IMAGE=ghcr.io/insper-riscv/base-ghdl:latest
 ARG YOSYS_IMAGE=ghcr.io/insper-riscv/base-yosys:latest
+ARG YICES_IMAGE=ghcr.io/insper-riscv/base-yices:latest
+ARG BITWUZLA_IMAGE=ghcr.io/insper-riscv/base-bitwuzla:latest
+ARG BOOLECTOR_IMAGE=ghcr.io/insper-riscv/base-boolector:latest
 # The commit of insper-riscv/Tools to install: the CLI (riscv-tools) comes with the image. The CI images
 # workflow passes the latest commit whose own CI succeeded; this default is for local builds.
 ARG TOOLS_COMMIT=c20e29e7a589f34656de80775cec8145511a47f6
 
 FROM ${GHDL_IMAGE} AS ghdl
 FROM ${YOSYS_IMAGE} AS yosys
+FROM ${YICES_IMAGE} AS yices
+FROM ${BITWUZLA_IMAGE} AS bitwuzla
+FROM ${BOOLECTOR_IMAGE} AS boolector
 
 FROM ${BASE_IMAGE}
 
@@ -25,8 +33,10 @@ FROM ${BASE_IMAGE}
 # libgnat, libllvm, zlib1g-dev and libedit2 for GHDL;
 # gcc and libc6-dev link what GHDL elaborates;
 # g++ builds cocotb on arm64;
-# libreadline8t64, libtcl8.6 and libffi8 for Yosys.
-# z3 and boolector for sby; 
+# libreadline8t64, libtcl8.6 and libffi8 for Yosys;
+# libgmp10 for yices-smt2, and libstdc++6 and libgcc-s1 for btorsim of Boolector (Bitwuzla and the
+# other Boolector executables are static);
+# z3 is the solver of the proofs that still run with it.
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       libglib2.0-0t64 \
@@ -35,11 +45,15 @@ RUN apt-get update \
       gcc libc6-dev \
       g++ \
       libreadline8t64 libtcl8.6 libffi8 \
-      z3 boolector \
+      libgmp10 libstdc++6 libgcc-s1 \
+      z3 \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghdl /opt/ghdl /opt/ghdl
 COPY --from=yosys /opt/yosys /opt/yosys
+COPY --from=yices /opt/yices /opt/yices
+COPY --from=bitwuzla /opt/bitwuzla /opt/bitwuzla
+COPY --from=boolector /opt/boolector /opt/boolector
 
 # uv, from the official installer of the version given, in /usr/local/bin. The installer checks the
 # binary against the SHA-256 it carries, and UV_UNMANAGED_INSTALL leaves no receipt or updater.
@@ -50,7 +64,7 @@ RUN test -n "${UV_VERSION}" || { echo "pass --build-arg UV_VERSION=<0.x.y>"; exi
  && rm /tmp/uv-install.sh \
  && uv --version
 
-ENV PATH=/opt/ghdl/bin:/opt/yosys/bin:$PATH
+ENV PATH=/opt/ghdl/bin:/opt/yosys/bin:/opt/yices/bin:/opt/bitwuzla/bin:/opt/boolector/bin:$PATH
 
 # Python from uv in a directory every user reads, with cocotb and click installed in it and python3
 # on the PATH. --break-system-packages because uv marks its Python as externally managed.
@@ -87,7 +101,9 @@ RUN UV_TOOL_DIR=/opt/riscv-tools UV_TOOL_BIN_DIR=/usr/local/bin \
  && echo "${TOOLS_COMMIT}" > /opt/riscv-tools/.tag \
  && chmod -R a+rX /opt/riscv-tools
 
-# Fail the build here, not in a user's CI: GHDL runs a VHDL-2008 design and sby proves a property.
+# Fail the build here, not in a user's CI: GHDL runs a VHDL-2008 design, and sby proves a property with
+# each engine (the solvers z3, Yices, Bitwuzla and Boolector, and the abc engines) and reports, with
+# status 2, one that does not hold.
 RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     printf '%s\n' \
       'library ieee; use ieee.std_logic_1164.all;' \
@@ -107,16 +123,34 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     done; \
     riscv-tools --help > /dev/null; \
     echo "tools     riscv-tools (commit $(cat /opt/riscv-tools/.tag))"; \
+    echo "sby       $(sby --version 2>&1 | head -n 1) (commit $(cat /opt/yosys/.sby.tag))"; \
+    echo "yices     $(yices-smt2 --version | head -n 1) (commit $(cat /opt/yices/.tag))"; \
+    echo "bitwuzla  $(bitwuzla --version) (commit $(cat /opt/bitwuzla/.tag))"; \
+    echo "boolector $(boolector --version) (commit $(cat /opt/boolector/.tag))"; \
     printf '%s\n' \
-      'module t (input clk);' \
-      '  reg [1:0] c = 0;' \
-      '  always @(posedge clk) c <= c + 1;' \
-      '  always @* assert(c <= 3);' \
+      'module t (input clk, input en);' \
+      '  reg [3:0] c = 0;' \
+      '  always @(posedge clk) if (en) c <= (c == 9) ? 4'"'"'d0 : c + 1;' \
+      '  always @* assert(c <= 9);' \
       'endmodule' > f.sv; \
-    printf '%s\n' '[options]' 'mode prove' 'depth 5' '[engines]' 'smtbmc z3' \
-      '[script]' 'read_verilog -formal -sv f.sv' 'prep -top t' '[files]' 'f.sv' > f.sby; \
-    sby -f f.sby > sby.log 2>&1 || { cat sby.log; exit 1; }; \
-    echo "sby       $(sby --version 2>&1 | head -n 1) (commit $(cat /opt/yosys/.sby.tag)); proof: $(tail -n 1 sby.log)"; \
+    sed 's/c <= 9/c <= 8/' f.sv > g.sv; \
+    sby_file() { printf '%s\n' '[options]' "mode $2" 'depth 12' "$4" '[engines]' "$3" \
+      '[script]' "read_verilog -formal -sv $5" 'prep -top t' '[files]' "$5" > "$1.sby"; }; \
+    for e in z3 yices bitwuzla boolector; do \
+      sby_file "$e" prove "smtbmc $e" '' f.sv; \
+      sby -f "$e.sby" > "$e.log" 2>&1 || { cat "$e.log"; exit 1; }; \
+      echo "proof     smtbmc $e: $(tail -n 1 "$e.log")"; \
+    done; \
+    sby_file abc-bmc3 bmc 'abc bmc3' 'aigsmt none' f.sv; \
+    sby_file abc-pdr prove 'abc pdr' 'aigsmt none' f.sv; \
+    for e in abc-bmc3 abc-pdr; do \
+      sby -f "$e.sby" > "$e.log" 2>&1 || { cat "$e.log"; exit 1; }; \
+      echo "proof     $e: $(tail -n 1 "$e.log")"; \
+    done; \
+    sby_file neg bmc 'abc bmc3' 'aigsmt none' g.sv; \
+    rc=0; sby -f neg.sby > neg.log 2>&1 || rc=$?; \
+    [ "$rc" = 2 ] || { cat neg.log; echo "a refuted property must end with status 2, got $rc"; exit 1; }; \
+    echo "refuted   abc-bmc3: status 2 for a property that does not hold"; \
     cd /; rm -rf "$d"
 
 WORKDIR /workspace
