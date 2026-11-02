@@ -35,7 +35,10 @@ Any change to code, configuration, or documentation must pass all commands below
 
 ```bash
 docker build -f docker/<kind>/<recipe>/Dockerfile -t <recipe> .  # Builds the image of the changed recipe
+riscv-tools --root . check-tree --kind infra                     # Repository tree
 ```
+
+The `tree` job, in its own workflow, checks the repository tree with `riscv-tools check-tree`.
 
 When adding, renaming, or removing any versioned file, immediately update:
 - `.github/workflows/`
