@@ -105,7 +105,6 @@ jobs:
       cocotb: ${{ steps.python.outputs.cocotb }}
       click: ${{ steps.python.outputs.click }}
       vhdl_short: ${{ steps.pins.outputs.vhdl_short }}
-      vhdl_full: ${{ steps.pins.outputs.vhdl_full }}
       vhdl_build: ${{ steps.skip.outputs.vhdl_build }}
 
     steps:
@@ -244,9 +243,6 @@ jobs:
           EVENT: ${{ github.event_name }}
           TOOLS: ${{ steps.tools.outputs.commit }}
           UV: ${{ steps.uv.outputs.version }}
-          PYTHON: ${{ steps.python.outputs.python }}
-          COCOTB: ${{ steps.python.outputs.cocotb }}
-          CLICK: ${{ steps.python.outputs.click }}
         run: |
           # The component images are manifests of two architectures that carry the same commits.
           label() {
@@ -293,10 +289,10 @@ jobs:
             echo "sail_version=$sail_version"
             echo "gtkwave=$gtkwave"
           } >> "$GITHUB_OUTPUT"
-          # short names what decides whether to build; full adds the versions that follow from the uv
+          # names what decides whether to build. A tag is at most 128 characters, so the Python, cocotb and
+          # click versions are in the labels of the image and not in the tag.
           short="ghdl-${ghdl:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-yices-${yices:0:7}-bitwuzla-${bitwuzla:0:7}-boolector-${boolector:0:7}-tools-${TOOLS:0:7}-uv-${UV}"
           echo "vhdl_short=$short" >> "$GITHUB_OUTPUT"
-          echo "vhdl_full=$short-python-${PYTHON}-cocotb-${COCOTB}-click-${CLICK}" >> "$GITHUB_OUTPUT"
 
       - name: Choose the commit of ACT4
         # A manual run takes the commit it is given and fails if the Sail of the image is not the
@@ -432,7 +428,6 @@ jobs:
         latest
         sha-${{ github.sha }}
         ${{ needs.pin.outputs.vhdl_short }}
-        ${{ needs.pin.outputs.vhdl_full }}
       check: |
         # what is inside the image is what the workflow pinned: the commit each component left in its
         # install directory against the commit the labels and tags of this image say
