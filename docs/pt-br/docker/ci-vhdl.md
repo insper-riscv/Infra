@@ -51,7 +51,7 @@ A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o B
 | :--- | :--- |
 | Receita | `docker/ci/vhdl/Dockerfile` |
 | Workflow | `CI images`, job `vhdl` |
-| Tags | `latest`, `sha-<commit do Infra>`, `ghdl-<7>-yosys-<7>-sby-<7>-yices-<7>-bitwuzla-<7>-boolector-<7>-tools-<7>-uv-<versão>` |
+| Tags | `latest`, `sha-<commit do Infra>`, `ghdl-<versão>-yosys-<versão>-sby-<versão>-yices-<versão>-bitwuzla-<versão>-boolector-<versão>-tools-<7>-uv-<versão>` |
 | Rótulos | `ghdl.commit`, `yosys.commit`, `sby.commit`, `yices.commit`, `bitwuzla.commit`, `boolector.commit`, `tools.commit`, `uv.version`, `python.version`, `cocotb.version` e `click.version` |
 | Agenda | todo dia, 03:00 UTC, e quando `GHDL image`, `Yosys image`, `Yices image`, `Bitwuzla image` ou `Boolector image` termina (o primeiro nível do `CI images`) |
 
