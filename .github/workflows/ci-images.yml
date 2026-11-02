@@ -45,7 +45,7 @@ on:
         description: "uv version to put in the VHDL image (empty: the latest stable release of the series set in UV_SERIES)"
         required: false
       tools_commit:
-        description: "insper-riscv/Tools commit to install in the VHDL image (empty: the latest commit of its main branch whose tests and static-analysis workflows succeeded)"
+        description: "insper-riscv/Tools commit to install in the VHDL image (empty: the latest commit of its main branch whose ci workflow succeeded)"
         required: false
       act4_commit:
         description: "riscv/riscv-arch-test commit whose dependencies go in the ELF image (empty: the latest commit of the act4 branch whose upstream CI is green)"
@@ -68,10 +68,11 @@ env:
   ACT4_REPO: riscv/riscv-arch-test
   ACT4_BRANCH: act4
   ACT4_WORKFLOWS: regress.yml
-  # the same for the Tools commit installed in the VHDL image: both of its workflows must have succeeded
+  # the same for the Tools commit installed in the VHDL image: its ci workflow (the tests and the static analysis)
+  # must have succeeded
   TOOLS_REPO: insper-riscv/Tools
   TOOLS_BRANCH: main
-  TOOLS_WORKFLOWS: tests.yml static-analysis.yml
+  TOOLS_WORKFLOWS: ci.yml
 
 jobs:
   pin:
