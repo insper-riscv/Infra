@@ -98,6 +98,11 @@ jobs:
       spike: ${{ steps.pins.outputs.spike }}
       sail: ${{ steps.pins.outputs.sail }}
       gtkwave: ${{ steps.pins.outputs.gtkwave }}
+      gcc_name: ${{ steps.pins.outputs.gcc_name }}
+      picolibc_name: ${{ steps.pins.outputs.picolibc_name }}
+      spike_name: ${{ steps.pins.outputs.spike_name }}
+      sail_name: ${{ steps.pins.outputs.sail_name }}
+      gtkwave_name: ${{ steps.pins.outputs.gtkwave_name }}
       act4: ${{ steps.act4.outputs.commit }}
       uv: ${{ steps.uv.outputs.version }}
       tools: ${{ steps.tools.outputs.commit }}
@@ -289,9 +294,34 @@ jobs:
             echo "sail_version=$sail_version"
             echo "gtkwave=$gtkwave"
           } >> "$GITHUB_OUTPUT"
+          # How a component is named in a tag: the version of the release whose tag points at the
+          # commit (the highest one, without the v or Yices- prefix), or the first 7 characters of the
+          # commit when none does (Spike, Sail, GTKWave, ACT4 and Tools follow a branch, and a commit
+          # of the GCC that is not a dated release has no version either).
+          name_of() {
+            local tag
+            tag=$(git ls-remote --tags "$1" 2>/dev/null \
+                  | awk -v c="$2" '$1 == c { sub("refs/tags/", "", $2); sub(/\^\{\}$/, "", $2); print $2 }' \
+                  | grep -E '^(v|Yices-)?[0-9]+(\.[0-9]+)+$' | sort -V | tail -n 1) || true
+            if [ -n "$tag" ]; then printf '%s' "${tag#v}" | sed 's/^Yices-//'; else printf '%s' "${2:0:7}"; fi
+          }
+          ghdl_name=$(name_of https://github.com/ghdl/ghdl "$ghdl")
+          yosys_name=$(name_of https://github.com/YosysHQ/yosys "$yosys")
+          sby_name=$(name_of https://github.com/YosysHQ/sby "$sby")
+          yices_name=$(name_of https://github.com/SRI-CSL/yices2 "$yices")
+          bitwuzla_name=$(name_of https://github.com/bitwuzla/bitwuzla "$bitwuzla")
+          boolector_name=$(name_of https://github.com/Boolector/boolector "$boolector")
+          tools_name=$(name_of "https://github.com/$TOOLS_REPO" "$TOOLS")
+          {
+            echo "gcc_name=$(name_of https://github.com/riscv-collab/riscv-gnu-toolchain "$gcc")"
+            echo "picolibc_name=$(name_of https://github.com/picolibc/picolibc "$picolibc")"
+            echo "spike_name=$(name_of https://github.com/riscv-software-src/riscv-isa-sim "$spike")"
+            echo "sail_name=$(name_of https://github.com/riscv/sail-riscv "$sail")"
+            echo "gtkwave_name=$(name_of https://github.com/gtkwave/gtkwave "$gtkwave")"
+          } >> "$GITHUB_OUTPUT"
           # names what decides whether to build. A tag is at most 128 characters, so the Python, cocotb and
           # click versions are in the labels of the image and not in the tag.
-          short="ghdl-${ghdl:0:7}-yosys-${yosys:0:7}-sby-${sby:0:7}-yices-${yices:0:7}-bitwuzla-${bitwuzla:0:7}-boolector-${boolector:0:7}-tools-${TOOLS:0:7}-uv-${UV}"
+          short="ghdl-${ghdl_name}-yosys-${yosys_name}-sby-${sby_name}-yices-${yices_name}-bitwuzla-${bitwuzla_name}-boolector-${boolector_name}-tools-${tools_name}-uv-${UV}"
           echo "vhdl_short=$short" >> "$GITHUB_OUTPUT"
 
       - name: Choose the commit of ACT4
@@ -482,14 +512,14 @@ jobs:
         env:
           BUILT: ${{ needs.vhdl.outputs.digest }}
           VHDL_SHORT: ${{ needs.pin.outputs.vhdl_short }}
-          GCC: ${{ needs.pin.outputs.gcc }}
-          PICOLIBC: ${{ needs.pin.outputs.picolibc }}
-          SPIKE: ${{ needs.pin.outputs.spike }}
+          GCC_NAME: ${{ needs.pin.outputs.gcc_name }}
+          PICOLIBC_NAME: ${{ needs.pin.outputs.picolibc_name }}
+          SPIKE_NAME: ${{ needs.pin.outputs.spike_name }}
           FROM: ${{ needs.pin.outputs.from }}
         run: |
           vhdl="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-vhdl:$VHDL_SHORT" --format '{{.Manifest.Digest}}')}"
           [ -n "$vhdl" ] || { echo "::error::no ci-vhdl image for $VHDL_SHORT"; exit 1; }
-          short="vhdl-$(printf '%s' "$vhdl" | sed 's/^sha256://' | cut -c1-12)-gcc-${GCC:0:7}-picolibc-${PICOLIBC:0:7}-spike-${SPIKE:0:7}"
+          short="vhdl-$(printf '%s' "$vhdl" | sed 's/^sha256://' | cut -c1-12)-gcc-${GCC_NAME}-picolibc-${PICOLIBC_NAME}-spike-${SPIKE_NAME}"
           {
             echo "vhdl=$vhdl"
             echo "short=$short"
@@ -568,13 +598,13 @@ jobs:
         env:
           BUILT: ${{ needs.elf.outputs.digest }}
           ELF_SHORT: ${{ needs.elf-plan.outputs.short }}
-          SAIL: ${{ needs.pin.outputs.sail }}
+          SAIL_NAME: ${{ needs.pin.outputs.sail_name }}
           ACT4: ${{ needs.pin.outputs.act4 }}
           FROM: ${{ needs.pin.outputs.from }}
         run: |
           elf="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-elf:$ELF_SHORT" --format '{{.Manifest.Digest}}')}"
           [ -n "$elf" ] || { echo "::error::no ci-elf image for $ELF_SHORT"; exit 1; }
-          short="elf-$(printf '%s' "$elf" | sed 's/^sha256://' | cut -c1-12)-sail-${SAIL:0:7}-act4-${ACT4:0:7}"
+          short="elf-$(printf '%s' "$elf" | sed 's/^sha256://' | cut -c1-12)-sail-${SAIL_NAME}-act4-${ACT4:0:7}"
           {
             echo "elf=$elf"
             echo "short=$short"
@@ -646,14 +676,14 @@ jobs:
         env:
           BUILT: ${{ needs.act4.outputs.digest }}
           ACT4_SHORT: ${{ needs.act4-plan.outputs.short }}
-          GTKWAVE: ${{ needs.pin.outputs.gtkwave }}
+          GTKWAVE_NAME: ${{ needs.pin.outputs.gtkwave_name }}
           FROM: ${{ needs.pin.outputs.from }}
         run: |
           act4="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-act4:$ACT4_SHORT" --format '{{.Manifest.Digest}}')}"
           [ -n "$act4" ] || { echo "::error::no ci-act4 image for $ACT4_SHORT"; exit 1; }
           # The combination names the ELF image itself (the start of its digest): it carries every
           # lower level, so any of them changing is a new combination.
-          short="act4-$(printf '%s' "$act4" | sed 's/^sha256://' | cut -c1-12)-gtkwave-${GTKWAVE:0:7}"
+          short="act4-$(printf '%s' "$act4" | sed 's/^sha256://' | cut -c1-12)-gtkwave-${GTKWAVE_NAME}"
           {
             echo "act4=$act4"
             echo "short=$short"
