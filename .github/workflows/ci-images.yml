@@ -45,7 +45,7 @@ on:
         description: "uv version to put in the VHDL image (empty: the latest stable release of the series set in UV_SERIES)"
         required: false
       tools_commit:
-        description: "insper-riscv/Tools commit to install in the VHDL image (empty: the commit of the latest stable release of Tools, vX.Y.Z, as long as its ci workflow succeeded)"
+        description: "insper-riscv/Tools commit to install in the VHDL image (empty: the commit of the latest stable release of Tools, vX.Y.Z)"
         required: false
       act4_commit:
         description: "riscv/riscv-arch-test commit whose dependencies go in the ELF image (empty: the latest commit of the act4 branch whose upstream CI is green)"
@@ -68,8 +68,7 @@ env:
   ACT4_REPO: riscv/riscv-arch-test
   ACT4_BRANCH: act4
   ACT4_WORKFLOWS: regress.yml
-  # the repository whose latest stable release (riscv-tools) is installed in the VHDL image; its ci workflow (the
-  # tests and the static analysis) must have succeeded on the commit of the release
+  # the repository whose latest stable release (riscv-tools) is installed in the VHDL image
   TOOLS_REPO: insper-riscv/Tools
 
 jobs:
@@ -217,14 +216,13 @@ jobs:
 
       - name: Choose the commit of Tools
         # A manual run takes the commit it is given. The others take the commit of the latest
-        # stable release of Tools (the highest vX.Y.Z tag), as long as the ci workflow of Tools
-        # succeeded on that commit, so the image never gets a Tools that its own CI rejected.
-        # Tools has no image workflow to trigger this one, so a new release is picked up by the
-        # next scheduled run.
+        # stable release of Tools (the highest vX.Y.Z tag). The release workflow of Tools publishes
+        # it only after its ci workflow finished green on the commit it tags, so the image never
+        # gets a Tools that its own CI rejected. Tools has no image workflow to trigger this one,
+        # so a new release is picked up by the next scheduled run.
         id: tools
         env:
           INPUT_TOOLS: ${{ inputs.tools_commit }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           full_hash() { printf '%s' "$1" | grep -Eq '^[0-9a-f]{40}$'; }
           if [ -n "${INPUT_TOOLS:-}" ]; then
@@ -242,12 +240,6 @@ jobs:
             # (^{}); a lightweight one is the commit
             commit=$(git ls-remote "$upstream" "refs/tags/$tag" "refs/tags/$tag^{}" | tail -n 1 | cut -f1)
             full_hash "$commit" || { echo "::error::could not resolve the commit of $tag in $upstream: '$commit'"; exit 1; }
-            ok=$(gh api "repos/$TOOLS_REPO/actions/workflows/ci.yml/runs?head_sha=$commit&per_page=20" \
-                   --jq '[.workflow_runs[] | select(.conclusion == "success")] | length')
-            if [ "${ok:-0}" -lt 1 ]; then
-              echo "::error::the ci workflow of Tools has no successful run on $tag ($commit), so the image does not take it"
-              exit 1
-            fi
             echo "release $tag"
           fi
           echo "Tools $commit"
