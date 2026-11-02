@@ -17,8 +17,8 @@ ARG YICES_IMAGE=ghcr.io/insper-riscv/base-yices:latest
 ARG BITWUZLA_IMAGE=ghcr.io/insper-riscv/base-bitwuzla:latest
 ARG BOOLECTOR_IMAGE=ghcr.io/insper-riscv/base-boolector:latest
 # The commit of insper-riscv/Tools to install: the CLI (riscv-tools) comes with the image. The CI images
-# workflow passes the commit of the latest stable release whose own CI succeeded; this default is for local
-# builds.
+# workflow passes the commit of the latest stable release (Tools publishes it only after its CI succeeded); this
+# default is for local builds.
 ARG TOOLS_COMMIT=c20e29e7a589f34656de80775cec8145511a47f6
 
 FROM ${GHDL_IMAGE} AS ghdl

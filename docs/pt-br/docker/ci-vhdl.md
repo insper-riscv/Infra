@@ -40,10 +40,10 @@ Também vêm do Ubuntu `git`, `make`, `curl` e `ca-certificates` (o checkout de 
 | cocotb | 2.1.0, fixo | `COCOTB_VERSION` é editado |
 | `click` | 8.5.0, fixo | `CLICK_VERSION` é editado |
 | Ferramentas de análise estática | as versões de `static-analysis.txt`, fixas | esse arquivo é editado |
-| `riscv-tools` | a release estável mais recente do Tools (`vX.Y.Z`), se o workflow `ci` dela (os testes e a análise estática) passou no commit | o Tools publica uma release (automático, consultado todo dia) |
+| `riscv-tools` | a release estável mais recente do Tools (`vX.Y.Z`), publicada depois que o workflow `ci` (os testes e a análise estática) passou | o Tools publica uma release (automático, consultado todo dia) |
 | `z3` e os demais pacotes do Ubuntu | o que o Ubuntu 26.04 tem quando a imagem é construída | a imagem é reconstruída por outro motivo |
 
-A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o Bitwuzla, o Boolector, a release do Tools ou o `uv` mudam. O commit do Tools é o da release estável mais recente do Tools (a maior tag `vX.Y.Z`), desde que o workflow `ci` do próprio Tools tenha terminado com sucesso nele; uma release cujo `ci` não passou não é usada. O Tools não dispara o workflow, então uma release nova entra na próxima execução agendada. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `from_level` em `vhdl`. As versões de Python, cocotb e `click` estão nos rótulos de toda imagem, e não entram na decisão de construir.
+A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o Bitwuzla, o Boolector, a release do Tools ou o `uv` mudam. O commit do Tools é o da release estável mais recente do Tools (a maior tag `vX.Y.Z`), que o workflow de release do Tools só publica depois que o workflow `ci` terminou com sucesso nesse commit. O Tools não dispara o workflow, então uma release nova entra na próxima execução agendada. O patch do Python acompanha o `uv`, porque um `uv` novo traz o patch novo, mas o cocotb e o `click` não o acompanham: ficam nas versões que o `docker/ci/vhdl/Dockerfile` fixa até alguém editar o argumento de build e rodar o workflow à mão com `from_level` em `vhdl`. As versões de Python, cocotb e `click` estão nos rótulos de toda imagem, e não entram na decisão de construir.
 
 ## 2. Publicação
 
