@@ -8,6 +8,7 @@
 | :--- | :--- | :--- |
 | GHDL | LLVM backend, from `base-ghdl` | `/opt/ghdl` |
 | Yosys | reads the Verilog netlist GHDL synthesizes from the VHDL, from `base-yosys` | `/opt/yosys` |
+| GHDL plugin for Yosys | the `ghdl.so` of `ghdl/ghdl-yosys-plugin`, at the commit of the `ghdl-v6.0.0` tag, built against the GHDL and the Yosys of the image; loaded with `yosys -m ghdl` | `/opt/yosys/share/yosys/plugins` |
 | SymbiYosys (`sby`) | runs Yosys and the solvers, from `base-yosys` | `/opt/yosys` |
 | Yices | the `yices-smt2` solver, for the `smtbmc yices` engine, from `base-yices` | `/opt/yices` |
 | Bitwuzla | the `bitwuzla` solver, for the `smtbmc bitwuzla` engine, from `base-bitwuzla` | `/opt/bitwuzla` |
@@ -90,13 +91,13 @@ docker build -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 | `CLICK_VERSION` | a fixed version | `click`, used by `sby` |
 | `TOOLS_COMMIT` | a pinned commit (local builds only; the workflow passes the commit of the latest Tools release) | commit of Tools the image installs |
 
-The build prints one line per component with its version and commit, and fails if GHDL does not run a VHDL-2008 design, if Yosys and `sby` do not prove a small property with each engine (`yices`, `bitwuzla`, `boolector`, `abc bmc3` and `abc pdr`), or if Python is not 3.14 with cocotb.
+The build prints one line per component with its version and commit, and fails if GHDL does not run a VHDL-2008 design, if Yosys cannot load the GHDL plugin and synthesize a VHDL design through it, if Yosys and `sby` do not prove a small property with each engine (`yices`, `bitwuzla`, `boolector`, `abc bmc3` and `abc pdr`), or if Python is not 3.14 with cocotb.
 
 ## 5. Uses
 
 ### 5.1. Formal verification
 
-GHDL turns a VHDL entity into a Verilog netlist, which Yosys reads and SymbiYosys proves properties on. The properties are written in SystemVerilog around the netlist, so no GHDL plugin for Yosys is needed:
+GHDL turns a VHDL entity into a Verilog netlist, which Yosys reads and SymbiYosys proves properties on. The properties are written in SystemVerilog around the netlist, so the GHDL plugin for Yosys is not required; it is in the image for whoever prefers to synthesize directly with `yosys -m ghdl`:
 
 ```bash
 ghdl -a --std=08 --workdir=work my_block.vhd

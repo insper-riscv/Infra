@@ -7,7 +7,6 @@
 | Addition | Detail |
 | :--- | :--- |
 | GTKWave | the head of the `lts` branch (3.3 maintenance line, GTK 3 tree), copied from the `base-gtkwave` image into `/opt/gtkwave`; runs on Wayland natively and on X11 |
-| GHDL plugin for Yosys | the `ghdl.so` of `ghdl/ghdl-yosys-plugin`, at the commit of the `ghdl-v6.0.0` tag, built against the GHDL and the Yosys of the image; loaded with `yosys -m ghdl` |
 | User | `dev`, with `/work` as the working directory |
 | Build tools | `build-essential`, `pkg-config`, `gnat` |
 | Globalization | `libicu78`, which the .NET language servers of editor extensions, such as V4P, depend on |

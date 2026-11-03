@@ -8,6 +8,7 @@
 | :--- | :--- | :--- |
 | GHDL | backend LLVM, vindo de `base-ghdl` | `/opt/ghdl` |
 | Yosys | lê o netlist Verilog que o GHDL sintetiza do VHDL, vindo de `base-yosys` | `/opt/yosys` |
+| Plugin GHDL do Yosys | o `ghdl.so` do `ghdl/ghdl-yosys-plugin`, no commit da tag `ghdl-v6.0.0`, compilado contra o GHDL e o Yosys da imagem; carrega com `yosys -m ghdl` | `/opt/yosys/share/yosys/plugins` |
 | SymbiYosys (`sby`) | roda o Yosys e os solvers, vindo de `base-yosys` | `/opt/yosys` |
 | Yices | o solver `yices-smt2`, para o engine `smtbmc yices`, vindo de `base-yices` | `/opt/yices` |
 | Bitwuzla | o solver `bitwuzla`, para o engine `smtbmc bitwuzla`, vindo de `base-bitwuzla` | `/opt/bitwuzla` |
@@ -90,13 +91,13 @@ docker build -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 | `CLICK_VERSION` | uma versão fixa | `click`, usado pelo `sby` |
 | `TOOLS_COMMIT` | um commit fixo (só para build local; o workflow passa o commit da release mais recente do Tools) | commit do Tools que a imagem instala |
 
-O build imprime uma linha por componente, com a versão e o commit, e falha se o GHDL não roda um projeto VHDL-2008, se o Yosys e o `sby` não provam uma propriedade pequena com cada engine (`yices`, `bitwuzla`, `boolector`, `abc bmc3` e `abc pdr`) ou se o Python não é o 3.14 com cocotb.
+O build imprime uma linha por componente, com a versão e o commit, e falha se o GHDL não roda um projeto VHDL-2008, se o Yosys não carrega o plugin do GHDL e sintetiza um design VHDL por ele, se o Yosys e o `sby` não provam uma propriedade pequena com cada engine (`yices`, `bitwuzla`, `boolector`, `abc bmc3` e `abc pdr`) ou se o Python não é o 3.14 com cocotb.
 
 ## 5. Usos
 
 ### 5.1. Verificação formal
 
-O GHDL transforma uma entidade VHDL num netlist Verilog, que o Yosys lê e sobre o qual o SymbiYosys prova propriedades. As propriedades são escritas em SystemVerilog em volta do netlist, então nenhum plugin do GHDL para o Yosys é necessário:
+O GHDL transforma uma entidade VHDL num netlist Verilog, que o Yosys lê e sobre o qual o SymbiYosys prova propriedades. As propriedades são escritas em SystemVerilog em volta do netlist, então o plugin do GHDL para o Yosys não é necessário; ele está na imagem para quem prefere sintetizar direto com `yosys -m ghdl`:
 
 ```bash
 ghdl -a --std=08 --workdir=work meu_bloco.vhd
