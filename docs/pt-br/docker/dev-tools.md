@@ -7,7 +7,6 @@
 | Acréscimo | Detalhe |
 | :--- | :--- |
 | GTKWave | a ponta do branch `lts` (linha de manutenção 3.3, árvore GTK 3), copiado da imagem `base-gtkwave` para `/opt/gtkwave`; roda em Wayland nativo e em X11 |
-| Plugin GHDL do Yosys | o `ghdl.so` do `ghdl/ghdl-yosys-plugin`, no commit da tag `ghdl-v6.0.0`, compilado contra o GHDL e o Yosys da imagem; carrega com `yosys -m ghdl` |
 | Usuário | `dev`, com `/work` como diretório de trabalho |
 | Ferramentas de compilação | `build-essential`, `pkg-config`, `gnat` |
 | Globalização | `libicu78`, de que dependem os servidores .NET de extensões do editor, como a V4P |

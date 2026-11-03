@@ -1,7 +1,7 @@
-# Level 1 of the images: GHDL, Yosys with SymbiYosys, the SMT solvers Yices, Bitwuzla and Boolector, uv,
-# Python with cocotb, the static analysis tools and riscv-tools, for linux/amd64 and linux/arm64. GHDL,
-# Yosys and the solvers are copied from base-ghdl, base-yosys, base-yices, base-bitwuzla and
-# base-boolector. See docs/en/docker/ci-vhdl.md.
+# Level 1 of the images: GHDL, Yosys with SymbiYosys, the GHDL plugin for Yosys, the SMT solvers Yices,
+# Bitwuzla and Boolector, uv, Python with cocotb, the static analysis tools and riscv-tools, for
+# linux/amd64 and linux/arm64. GHDL, Yosys and the solvers are copied from base-ghdl, base-yosys,
+# base-yices, base-bitwuzla and base-boolector. See docs/en/docker/ci-vhdl.md.
 #
 #   docker buildx build --platform linux/amd64,linux/arm64 -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 #     --build-arg UV_VERSION=<0.x.y> .
@@ -20,6 +20,10 @@ ARG BOOLECTOR_IMAGE=ghcr.io/insper-riscv/base-boolector:latest
 # workflow passes the commit of the latest stable release (Tools publishes it only after its CI succeeded); this
 # default is for local builds.
 ARG TOOLS_COMMIT=c20e29e7a589f34656de80775cec8145511a47f6
+# The commit of ghdl/ghdl-yosys-plugin to build: the one tagged ghdl-v6.0.0, which builds against the
+# GHDL 6.0.0 and the Yosys 0.70 of the image. The plugin links libghdl and uses the Yosys C++ API, so a
+# new GHDL or Yosys can need a newer commit (the build below fails when it does).
+ARG GHDL_YOSYS_PLUGIN_COMMIT=7b8075d21c602d53932dd82e168ee5f4635e81ad
 
 FROM ${GHDL_IMAGE} AS ghdl
 FROM ${YOSYS_IMAGE} AS yosys
@@ -27,7 +31,7 @@ FROM ${YICES_IMAGE} AS yices
 FROM ${BITWUZLA_IMAGE} AS bitwuzla
 FROM ${BOOLECTOR_IMAGE} AS boolector
 
-FROM ${BASE_IMAGE}
+FROM ${BASE_IMAGE} AS toolchain
 
 # libglib2.0-0t64 for quartus from host to be able to talk to the internal server;
 # git, make, curl and ca-certificates for whoever uses the image;
@@ -50,6 +54,20 @@ RUN apt-get update \
 
 COPY --from=ghdl /opt/ghdl /opt/ghdl
 COPY --from=yosys /opt/yosys /opt/yosys
+
+# Builds ghdl.so against the GHDL and the Yosys above and installs it where `yosys -m ghdl` looks for
+# it. Only that file is copied to the final image.
+FROM toolchain AS ghdl-plugin
+ARG GHDL_YOSYS_PLUGIN_COMMIT
+RUN git init /plugin \
+ && git -C /plugin fetch --depth 1 https://github.com/ghdl/ghdl-yosys-plugin "${GHDL_YOSYS_PLUGIN_COMMIT}" \
+ && git -C /plugin checkout FETCH_HEAD \
+ && make -C /plugin -j"$(nproc)" GHDL=/opt/ghdl/bin/ghdl YOSYS_CONFIG=/opt/yosys/bin/yosys-config \
+ && make -C /plugin install GHDL=/opt/ghdl/bin/ghdl YOSYS_CONFIG=/opt/yosys/bin/yosys-config
+
+FROM toolchain
+
+COPY --from=ghdl-plugin /opt/yosys/share/yosys/plugins/ghdl.so /opt/yosys/share/yosys/plugins/ghdl.so
 COPY --from=yices /opt/yices /opt/yices
 COPY --from=bitwuzla /opt/bitwuzla /opt/bitwuzla
 COPY --from=boolector /opt/boolector /opt/boolector
@@ -113,6 +131,11 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     echo "ghdl      $(ghdl --version | head -n 1) (commit $(cat /opt/ghdl/.tag))"; \
     ghdl -a --std=08 t.vhd; \
     ghdl --elab-run --std=08 t; \
+    printf '%s\n' \
+      'library ieee; use ieee.std_logic_1164.all;' \
+      'entity p is port (a, b : in std_logic; y : out std_logic); end;' \
+      'architecture r of p is begin y <= a and b; end;' > p.vhd; \
+    yosys -q -m ghdl -p 'ghdl --std=08 p.vhd -e p; hierarchy -top p; proc; select -assert-count 1 t:$and'; \
     echo "yosys     $(yosys -V) (commit $(cat /opt/yosys/.tag))"; \
     echo "uv        $(uv --version)"; \
     python3 -c "import sys, cocotb; assert sys.version_info[:2] == (3, 14); print('python   ', sys.version.split()[0], 'cocotb', cocotb.__version__)"; \
