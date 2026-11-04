@@ -568,7 +568,11 @@ jobs:
         ghdl --version | head -n 1
         riscv32-unknown-elf-gcc --version | head -n 1
         riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null
-        test "$(riscv32-unknown-elf-gcc -print-multi-lib | wc -l)" = 5
+        riscv32-unknown-elf-gcc -print-multi-lib | while read -r line; do
+          v="$(printf '%s' "${line#*;}" | sed 's/@/ -/g')"
+          test -s "$(riscv32-unknown-elf-gcc $v -print-libgcc-file-name)" || exit 1
+          test -s "$(riscv32-unknown-elf-gcc $v --specs=picolibc.specs -print-file-name=libc.a)" || exit 1
+        done
         out=$(spike --isa=rv32i -m0x0:0x10000 --pc=0 --disable-dtb /dev/null 2>&1 || true)
         if echo "$out" | grep -q overlap; then echo "Spike still places its debug module at address 0"; exit 1; fi
         python3 -c "import cocotb, sys; assert sys.version_info[:2] == (3, 14); print(cocotb.__version__)"
