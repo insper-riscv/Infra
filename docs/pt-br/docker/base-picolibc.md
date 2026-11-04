@@ -91,7 +91,7 @@ O compilador escreve o nome de cada variante de forma normalizada, e esse nome �
 | `c` | `_zca`, mais `_zcf` com F e `_zcd` com D |
 | o grupo B | nada, o nome já tem `_zba_zbb_zbs` |
 
-As extensões acrescentadas vêm depois das letras, na ordem `_zicsr`, `_zmmul`, `_zaamo_zalrsc`, `_zca`, `_zcd`, `_zcf` e `_zba_zbb_zbs`. A variante `rv32im/ilp32` é o padrão do compilador, então é instalada na raiz de `lib` e não tem diretório próprio.
+A extensão acrescentada para o `m` não é a variante `_zmmul` da seção 2.1. A extensão M inclui o Zmmul (a multiplicação) e acrescenta a divisão, então o compilador lista `_zmmul` no nome de toda variante que tem `m`, e uma variante só com a multiplicação tem `_zmmul` e não tem `m`. As extensões acrescentadas vêm depois das letras, na ordem `_zicsr`, `_zmmul`, `_zaamo_zalrsc`, `_zca`, `_zcd`, `_zcf` e `_zba_zbb_zbs`. A variante `rv32im/ilp32` é o padrão do compilador, então é instalada na raiz de `lib` e não tem diretório próprio.
 
 | Variante da seção 2.1 | Diretório |
 | :--- | :--- |

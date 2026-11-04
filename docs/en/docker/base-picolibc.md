@@ -91,7 +91,7 @@ The compiler writes the name of each variant in a normalized form, and that name
 | `c` | `_zca`, plus `_zcf` with F and `_zcd` with D |
 | the group B | nothing, the name already has `_zba_zbb_zbs` |
 
-The added extensions come after the letters in the order `_zicsr`, `_zmmul`, `_zaamo_zalrsc`, `_zca`, `_zcd`, `_zcf` and `_zba_zbb_zbs`. The variant `rv32im/ilp32` is the default of the compiler, so it is installed at the root of `lib` and has no directory of its own.
+The extension added for `m` is not the variant `_zmmul` of section 2.1. The M extension includes Zmmul (the multiply) and adds the divide, so the compiler lists `_zmmul` in the name of every variant that has `m`, and a variant with only the multiply has `_zmmul` and no `m`. The added extensions come after the letters in the order `_zicsr`, `_zmmul`, `_zaamo_zalrsc`, `_zca`, `_zcd`, `_zcf` and `_zba_zbb_zbs`. The variant `rv32im/ilp32` is the default of the compiler, so it is installed at the root of `lib` and has no directory of its own.
 
 | Variant of section 2.1 | Directory |
 | :--- | :--- |
