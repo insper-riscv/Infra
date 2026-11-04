@@ -79,6 +79,30 @@ The ABI decides where `float` and `double` are passed, so a library only links w
 
 `ilp32` and `ilp32e` are soft-float ABIs. With F or D present the arithmetic inside a function still uses the hardware, and only the calls between functions pass the values in integer registers. RV32E has only `ilp32e`, so there is no E variant of `ilp32f` or `ilp32d`, and the compiler rejects D with `ilp32e`, so the E variants go up to F. The Q extension has no ABI in RV32 and no variant.
 
+### 2.4. Names in the installed tree
+
+The compiler writes the name of each variant in a normalized form, and that name is the directory of the variant under `lib` in the sysroot and the one `-print-multi-lib` lists. It keeps the letters of the name and adds the extensions they imply.
+
+| Letter in the name | What the compiler adds |
+| :--- | :--- |
+| `f` | `_zicsr` |
+| `m` | `_zmmul` |
+| `a` | `_zaamo_zalrsc` |
+| `c` | `_zca`, plus `_zcf` with F and `_zcd` with D |
+| the group B | nothing, the name already has `_zba_zbb_zbs` |
+
+The added extensions come after the letters in the order `_zicsr`, `_zmmul`, `_zaamo_zalrsc`, `_zca`, `_zcd`, `_zcf` and `_zba_zbb_zbs`. The variant `rv32im/ilp32` is the default of the compiler, so it is installed at the root of `lib` and has no directory of its own.
+
+| Variant of section 2.1 | Directory |
+| :--- | :--- |
+| `rv32if/ilp32` | `rv32if_zicsr/ilp32` |
+| `rv32imc/ilp32` | `rv32imc_zmmul_zca/ilp32` |
+| `rv32ec/ilp32e` | `rv32ec_zca/ilp32e` |
+| `rv32ea/ilp32e` | `rv32ea_zaamo_zalrsc/ilp32e` |
+| `rv32ifdc/ilp32d` | `rv32ifdc_zicsr_zca_zcd_zcf/ilp32d` |
+| `rv32imc_zba_zbb_zbs/ilp32` | `rv32imc_zmmul_zca_zba_zbb_zbs/ilp32` |
+| `rv32imafdc/ilp32d` | `rv32imafdc_zicsr_zmmul_zaamo_zalrsc_zca_zcd_zcf/ilp32d` |
+
 ## 3. How the GCC chooses the variant
 
 The compiler receives `-march` and `-mabi`, or uses the default of the build (`rv32im` with `ilp32`) when they are absent. It then takes the variant by these rules, and `--specs=picolibc.specs` finds `libc.a` in the directory of that same variant.
@@ -88,7 +112,7 @@ The compiler receives `-march` and `-mabi`, or uses the default of the build (`r
 3. The variant and the request must agree on A, because the code of the support libraries changes with and without atomics.
 4. Among the variants that satisfy the rules above, the one with the most extensions in common with the request is taken.
 
-The extensions that have no variant of their own, such as Zicsr, Zifencei, Zicntr, Zihpm and Zicclsm, do not stop a request from taking a variant, and the request takes the one without them. The compiler writes the names of the variants normalized (`rv32if` becomes `rv32if_zicsr`, and `rv32im` becomes `rv32im_zmmul`), and the table uses the names of section 2.1.
+The extensions that have no variant of their own, such as Zicsr, Zifencei, Zicntr, Zihpm and Zicclsm, do not stop a request from taking a variant, and the request takes the one without them. The table uses the names of section 2.1, and section 2.4 gives the normalized names the compiler uses.
 
 | Request | Variant used | Reason |
 | :--- | :--- | :--- |

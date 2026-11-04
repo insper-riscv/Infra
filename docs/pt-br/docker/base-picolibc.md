@@ -79,6 +79,30 @@ O ABI decide onde `float` e `double` são passados, então uma biblioteca só se
 
 `ilp32` e `ilp32e` são ABIs soft-float. Com F ou D presentes a aritmética dentro de uma função continua usando o hardware, e só as chamadas entre funções passam os valores em registradores inteiros. O RV32E tem só o `ilp32e`, então não existe variante E de `ilp32f` nem de `ilp32d`, e o compilador rejeita o D com `ilp32e`, então as variantes E vão até o F. A extensão Q não tem ABI em RV32 e não tem variante.
 
+### 2.4. Nomes na árvore instalada
+
+O compilador escreve o nome de cada variante de forma normalizada, e esse nome é o diretório da variante sob `lib` no sysroot e o que `-print-multi-lib` lista. Ele mantém as letras do nome e acrescenta as extensões que elas implicam.
+
+| Letra no nome | O que o compilador acrescenta |
+| :--- | :--- |
+| `f` | `_zicsr` |
+| `m` | `_zmmul` |
+| `a` | `_zaamo_zalrsc` |
+| `c` | `_zca`, mais `_zcf` com F e `_zcd` com D |
+| o grupo B | nada, o nome já tem `_zba_zbb_zbs` |
+
+As extensões acrescentadas vêm depois das letras, na ordem `_zicsr`, `_zmmul`, `_zaamo_zalrsc`, `_zca`, `_zcd`, `_zcf` e `_zba_zbb_zbs`. A variante `rv32im/ilp32` é o padrão do compilador, então é instalada na raiz de `lib` e não tem diretório próprio.
+
+| Variante da seção 2.1 | Diretório |
+| :--- | :--- |
+| `rv32if/ilp32` | `rv32if_zicsr/ilp32` |
+| `rv32imc/ilp32` | `rv32imc_zmmul_zca/ilp32` |
+| `rv32ec/ilp32e` | `rv32ec_zca/ilp32e` |
+| `rv32ea/ilp32e` | `rv32ea_zaamo_zalrsc/ilp32e` |
+| `rv32ifdc/ilp32d` | `rv32ifdc_zicsr_zca_zcd_zcf/ilp32d` |
+| `rv32imc_zba_zbb_zbs/ilp32` | `rv32imc_zmmul_zca_zba_zbb_zbs/ilp32` |
+| `rv32imafdc/ilp32d` | `rv32imafdc_zicsr_zmmul_zaamo_zalrsc_zca_zcd_zcf/ilp32d` |
+
 ## 3. Como o GCC escolhe a variante
 
 O compilador recebe `-march` e `-mabi`, ou usa o padrão do build (`rv32im` com `ilp32`) quando faltam. Ele então toma a variante por estas regras, e o `--specs=picolibc.specs` acha o `libc.a` no diretório dessa mesma variante.
@@ -88,7 +112,7 @@ O compilador recebe `-march` e `-mabi`, ou usa o padrão do build (`rv32im` com 
 3. A variante e o pedido têm de concordar no A, porque o código das bibliotecas de suporte muda com e sem atômicas.
 4. Entre as variantes que cumprem as regras acima, vale a que tem mais extensões em comum com o pedido.
 
-As extensões que não têm variante própria, como Zicsr, Zifencei, Zicntr, Zihpm e Zicclsm, não impedem o pedido de tomar uma variante, e o pedido pega a que não as tem. O compilador escreve os nomes das variantes normalizados (`rv32if` vira `rv32if_zicsr`, e `rv32im` vira `rv32im_zmmul`), e a tabela usa os nomes da seção 2.1.
+As extensões que não têm variante própria, como Zicsr, Zifencei, Zicntr, Zihpm e Zicclsm, não impedem o pedido de tomar uma variante, e o pedido pega a que não as tem. A tabela usa os nomes da seção 2.1, e a seção 2.4 traz os nomes normalizados que o compilador usa.
 
 | Pedido | Variante usada | Motivo |
 | :--- | :--- | :--- |
