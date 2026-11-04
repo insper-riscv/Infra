@@ -57,6 +57,8 @@ jobs:
       packages: read
     outputs:
       commit: ${{ steps.pin.outputs.commit }}
+      version: ${{ steps.pin.outputs.version }}
+      sby_version: ${{ steps.pin.outputs.sby_version }}
       sby: ${{ steps.pin.outputs.sby }}
       build: ${{ steps.pin.outputs.build }}
 
@@ -128,8 +130,15 @@ jobs:
               exit 1
             fi
           done
-          echo "commit=$commit" >> "$GITHUB_OUTPUT"
-          echo "sby=$sby" >> "$GITHUB_OUTPUT"
+          # the version of the release whose tag points at each commit (empty for a commit that is not a
+          # release), which the image writes in its .tag files
+          . .github/scripts/name-of.sh
+          {
+            echo "commit=$commit"
+            echo "sby=$sby"
+            echo "version=$(version_of "$YOSYS_UPSTREAM" "$commit")"
+            echo "sby_version=$(version_of "$SBY_UPSTREAM" "$sby")"
+          } >> "$GITHUB_OUTPUT"
 
           if [ "$force" != "true" ] && docker buildx imagetools inspect "$IMAGE:$commit-$sby" > /dev/null 2>&1; then
             echo "::notice::$IMAGE:$commit-$sby already exists; nothing to build (run again with force to rebuild)."
@@ -156,10 +165,14 @@ jobs:
       timeout-minutes: 120
       build-args: |
         YOSYS_COMMIT=${{ needs.pin.outputs.commit }}
+        YOSYS_VERSION=${{ needs.pin.outputs.version }}
         SBY_COMMIT=${{ needs.pin.outputs.sby }}
+        SBY_VERSION=${{ needs.pin.outputs.sby_version }}
       labels: |
         yosys.commit=${{ needs.pin.outputs.commit }}
+        yosys.version=${{ needs.pin.outputs.version }}
         sby.commit=${{ needs.pin.outputs.sby }}
+        sby.version=${{ needs.pin.outputs.sby_version }}
       tags: |
         ${{ needs.pin.outputs.commit }}-${{ needs.pin.outputs.sby }}
         latest
