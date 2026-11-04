@@ -13,15 +13,18 @@
 
 ### 1.1. Variantes
 
-| `-march` | `-mabi` | Multiplicação e divisão inteiras | Ponto flutuante |
-| :--- | :--- | :--- | :--- |
-| `rv32i` | `ilp32` | em software | em software |
-| `rv32i_zmmul` | `ilp32` | multiplicação em hardware, divisão em software | em software |
-| `rv32im` (o padrão) | `ilp32` | em hardware | em software |
-| `rv32imf` | `ilp32f` | em hardware | precisão simples em hardware |
-| `rv32imfd` | `ilp32d` | em hardware | precisão simples e dupla em hardware |
+| Base e ponto flutuante | `-march` (cada um sem multiplicação, `_zmmul` e `m`) | `-mabi` |
+| :--- | :--- | :--- |
+| I, sem ponto flutuante | `rv32i`, `rv32i_zmmul`, `rv32im` | `ilp32` |
+| I com F | `rv32if`, `rv32if_zmmul`, `rv32imf` | `ilp32`, `ilp32f` |
+| I com F e D | `rv32ifd`, `rv32ifd_zmmul`, `rv32imfd` | `ilp32`, `ilp32f`, `ilp32d` |
+| E, sem ponto flutuante | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` |
+| E com F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` |
+| E com F e D | `rv32efd`, `rv32efd_zmmul`, `rv32emfd` | `ilp32e` |
 
-Uma biblioteca feita para menos extensões roda num núcleo com mais extensões, e o contrário não vale, então cada núcleo usa a variante que corresponde ao que ele tem, ou qualquer variante que seja subconjunto dela. O compilador escolhe a variante pelo `-march` e `-mabi` informados e pega a maior variante que seja subconjunto do pedido: `rv32ic` pega a `rv32i`, e `rv32imc` e `rv32ima` pegam a `rv32im`. As variantes com ponto flutuante não se ligam com as inteiras, porque o ABI muda como `float` e `double` são passados. A `libgcc` é construída para cada variante. O compilador mostra a variante com F com `zicsr` e `zmmul` no nome, porque o F exige o Zicsr; os nomes são normalizados pelo compilador, e `-print-multi-lib` os lista.
+São 27 variantes, com `rv32im/ilp32` como padrão. `_zmmul` é multiplicação em hardware e divisão em software, `m` é as duas em hardware, e o nome sem nenhum dos dois tem as duas em software. O RV32E permite só o ABI `ilp32e` (soft-float, então `float` e `double` passam em registradores inteiros mesmo com F ou D), e os ABIs hard-float `ilp32f` e `ilp32d` existem só para o I. A extensão Q não tem ABI em RV32, então não tem variante.
+
+Uma biblioteca feita para menos extensões roda num núcleo com mais extensões, e o contrário não vale, então cada núcleo usa a variante que corresponde ao que ele tem, ou qualquer variante que seja subconjunto dela. O compilador escolhe a variante pelo `-march` e `-mabi` informados e pega a maior variante que seja subconjunto do pedido: `rv32ic` pega a `rv32i`, e `rv32imc` e `rv32ima` pegam a `rv32im`. As variantes E (16 registradores) usam o ABI `ilp32e`, o único que o RV32E permite, e não se ligam com as I, e `rv32ec` pega a `rv32e`. As variantes com ponto flutuante não se ligam com as inteiras, porque o ABI muda como `float` e `double` são passados. A `libgcc` é construída para cada variante. O compilador mostra a variante com F com `zicsr` e `zmmul` no nome, porque o F exige o Zicsr; os nomes são normalizados pelo compilador, e `-print-multi-lib` os lista.
 
 O build instala o binutils e o primeiro compilador da configuração da picolibc, e depois constrói a libgcc com ele; o segundo estágio do `riscv-gnu-toolchain`, que refaria o compilador e a libgcc contra a picolibc, não é executado. O `cc1` liga com `libmpc3` e `libmpfr6`, instaladas na `ci-elf`. A imagem não tem biblioteca C nem libstdc++. A picolibc vem da `base-picolibc`, e programas C++ que precisem da biblioteca padrão estão fora de escopo. Os executáveis se chamam `riscv32-unknown-elf-*`, sem conflito com o `gcc` do host.
 

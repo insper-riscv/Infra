@@ -13,15 +13,18 @@
 
 ### 1.1. Variants
 
-| `-march` | `-mabi` | Integer multiply and divide | Floating point |
-| :--- | :--- | :--- | :--- |
-| `rv32i` | `ilp32` | in software | in software |
-| `rv32i_zmmul` | `ilp32` | multiply in hardware, divide in software | in software |
-| `rv32im` (the default) | `ilp32` | in hardware | in software |
-| `rv32imf` | `ilp32f` | in hardware | single precision in hardware |
-| `rv32imfd` | `ilp32d` | in hardware | single and double precision in hardware |
+| Base and floating point | `-march` (each with no multiply, `_zmmul` and `m`) | `-mabi` |
+| :--- | :--- | :--- |
+| I, no floating point | `rv32i`, `rv32i_zmmul`, `rv32im` | `ilp32` |
+| I with F | `rv32if`, `rv32if_zmmul`, `rv32imf` | `ilp32`, `ilp32f` |
+| I with F and D | `rv32ifd`, `rv32ifd_zmmul`, `rv32imfd` | `ilp32`, `ilp32f`, `ilp32d` |
+| E, no floating point | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` |
+| E with F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` |
+| E with F and D | `rv32efd`, `rv32efd_zmmul`, `rv32emfd` | `ilp32e` |
 
-A library built for a smaller set of extensions runs on a core with more of them, and not the other way around, so a core uses the variant that matches what it has and any other variant a subset of it. The compiler selects the variant by the `-march` and `-mabi` given and takes the largest variant that is a subset of what was asked: `rv32ic` takes `rv32i`, and `rv32imc` and `rv32ima` take `rv32im`. The floating point variants do not link with the integer ones, because the ABI changes how `float` and `double` are passed. `libgcc` is built for each variant. The compiler reports a variant that has F with `zicsr` and `zmmul` in its name, because F needs Zicsr; the names are normalized by the compiler, and `-print-multi-lib` lists them.
+That makes 27 variants, with `rv32im/ilp32` the default. `_zmmul` is multiply in hardware and divide in software, `m` is both in hardware, and the name with neither has both in software. RV32E allows only the `ilp32e` ABI (soft-float, so `float` and `double` are passed in integer registers even when F or D is present), and the hard-float ABIs `ilp32f` and `ilp32d` exist only for I. The Q extension has no RV32 ABI, so it has no variant.
+
+A library built for a smaller set of extensions runs on a core with more of them, and not the other way around, so a core uses the variant that matches what it has and any other variant a subset of it. The compiler selects the variant by the `-march` and `-mabi` given and takes the largest variant that is a subset of what was asked: `rv32ic` takes `rv32i`, and `rv32imc` and `rv32ima` take `rv32im`. The E variants (16 registers) use the `ilp32e` ABI, the only one RV32E allows, and do not link with the I ones; `rv32ec` takes `rv32e`. The floating point variants do not link with the integer ones, because the ABI changes how `float` and `double` are passed. `libgcc` is built for each variant. The compiler reports a variant that has F with `zicsr` and `zmmul` in its name, because F needs Zicsr; the names are normalized by the compiler, and `-print-multi-lib` lists them.
 
 The build installs binutils and the first compiler of the picolibc configuration, then builds libgcc with it; the second stage of `riscv-gnu-toolchain`, which would rebuild the compiler and libgcc against picolibc, is not run. `cc1` links against `libmpc3` and `libmpfr6`, installed in `ci-elf`. The image has no C library and no libstdc++. picolibc comes from `base-picolibc`, and C++ programs that need the standard library are out of scope. The executables are named `riscv32-unknown-elf-*`, so they do not clash with the host `gcc`.
 
