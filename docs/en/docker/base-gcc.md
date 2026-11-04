@@ -20,9 +20,8 @@
 | I with F and D | `rv32ifd`, `rv32ifd_zmmul`, `rv32imfd` | `ilp32`, `ilp32f`, `ilp32d` |
 | E, no floating point | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` |
 | E with F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` |
-| E with F and D | `rv32efd`, `rv32efd_zmmul`, `rv32emfd` | `ilp32e` |
 
-That makes 27 variants, with `rv32im/ilp32` the default. `_zmmul` is multiply in hardware and divide in software, `m` is both in hardware, and the name with neither has both in software. RV32E allows only the `ilp32e` ABI (soft-float, so `float` and `double` are passed in integer registers even when F or D is present), and the hard-float ABIs `ilp32f` and `ilp32d` exist only for I. The Q extension has no RV32 ABI, so it has no variant.
+That makes 24 variants, with `rv32im/ilp32` the default. `_zmmul` is multiply in hardware and divide in software, `m` is both in hardware, and the name with neither has both in software. RV32E allows only the `ilp32e` ABI (soft-float, so `float` is passed in integer registers even when F is present), and that ABI does not support D, so there is no E variant with D. The hard-float ABIs `ilp32f` and `ilp32d` exist only for I. The Q extension has no RV32 ABI, so it has no variant.
 
 A library built for a smaller set of extensions runs on a core with more of them, and not the other way around, so a core uses the variant that matches what it has and any other variant a subset of it. The compiler selects the variant by the `-march` and `-mabi` given and takes the largest variant that is a subset of what was asked: `rv32ic` takes `rv32i`, and `rv32imc` and `rv32ima` take `rv32im`. The E variants (16 registers) use the `ilp32e` ABI, the only one RV32E allows, and do not link with the I ones; `rv32ec` takes `rv32e`. The floating point variants do not link with the integer ones, because the ABI changes how `float` and `double` are passed. `libgcc` is built for each variant. The compiler reports a variant that has F with `zicsr` and `zmmul` in its name, because F needs Zicsr; the names are normalized by the compiler, and `-print-multi-lib` lists them.
 

@@ -6,7 +6,7 @@
 
 | Item | Detalhe |
 | :--- | :--- |
-| picolibc | a biblioteca C compilada pelo GCC da `base-gcc` mais recente, instalada no sysroot, uma vez para cada uma das 27 variantes desse GCC (seção 2.1) |
+| picolibc | a biblioteca C compilada pelo GCC da `base-gcc` mais recente, instalada no sysroot, uma vez para cada uma das 24 variantes desse GCC (seção 2.1) |
 
 A picolibc é compilada por um cross compiler, então o build usa a imagem de GCC mais recente. A imagem leva o commit desse GCC no rótulo `riscv-gnu-toolchain.commit`, e um GCC novo gera um build novo da picolibc.
 
@@ -38,13 +38,10 @@ Cada linha é uma biblioteca instalada no sysroot. Uma operação marcada como s
 | `rv32imfd` | `ilp32d` | 32 | hardware | hardware | hardware | hardware |
 | `rv32e` | `ilp32e` | 16 | software | software | software | software |
 | `rv32ef` | `ilp32e` | 16 | software | software | hardware | software |
-| `rv32efd` | `ilp32e` | 16 | software | software | hardware | hardware |
 | `rv32e_zmmul` | `ilp32e` | 16 | hardware | software | software | software |
 | `rv32ef_zmmul` | `ilp32e` | 16 | hardware | software | hardware | software |
-| `rv32efd_zmmul` | `ilp32e` | 16 | hardware | software | hardware | hardware |
 | `rv32em` | `ilp32e` | 16 | hardware | hardware | software | software |
 | `rv32emf` | `ilp32e` | 16 | hardware | hardware | hardware | software |
-| `rv32emfd` | `ilp32e` | 16 | hardware | hardware | hardware | hardware |
 
 As colunas decorrem do nome do `-march`.
 
@@ -68,7 +65,7 @@ O ABI decide onde `float` e `double` são passados, então uma biblioteca só se
 | `ilp32d` | I | registradores de ponto flutuante | registradores de ponto flutuante | F e D |
 | `ilp32e` | E | registradores inteiros | pares de registradores inteiros | nada |
 
-`ilp32` e `ilp32e` são ABIs soft-float. Com F ou D presentes a aritmética dentro de uma função continua usando o hardware, e só as chamadas entre funções passam os valores em registradores inteiros. O RV32E tem só o `ilp32e`, então não existe variante E de `ilp32f` nem de `ilp32d`. A extensão Q não tem ABI em RV32 e não tem variante.
+`ilp32` e `ilp32e` são ABIs soft-float. Com F ou D presentes a aritmética dentro de uma função continua usando o hardware, e só as chamadas entre funções passam os valores em registradores inteiros. O RV32E tem só o `ilp32e`, então não existe variante E de `ilp32f` nem de `ilp32d`, e o compilador rejeita o D com `ilp32e`, então as variantes E vão até o F. A extensão Q não tem ABI em RV32 e não tem variante.
 
 ## 3. Como o GCC escolhe a variante
 

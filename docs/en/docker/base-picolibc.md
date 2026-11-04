@@ -6,7 +6,7 @@
 
 | Item | Detail |
 | :--- | :--- |
-| picolibc | the C library compiled by the GCC of the latest `base-gcc`, installed into the sysroot, once for each of the 27 variants of that GCC (section 2.1) |
+| picolibc | the C library compiled by the GCC of the latest `base-gcc`, installed into the sysroot, once for each of the 24 variants of that GCC (section 2.1) |
 
 picolibc is compiled by a cross compiler, so the build uses the latest GCC image. The image carries the commit of that GCC in the label `riscv-gnu-toolchain.commit`, and a new GCC makes a new picolibc build.
 
@@ -38,13 +38,10 @@ Every row is one library installed into the sysroot. An operation marked softwar
 | `rv32imfd` | `ilp32d` | 32 | hardware | hardware | hardware | hardware |
 | `rv32e` | `ilp32e` | 16 | software | software | software | software |
 | `rv32ef` | `ilp32e` | 16 | software | software | hardware | software |
-| `rv32efd` | `ilp32e` | 16 | software | software | hardware | hardware |
 | `rv32e_zmmul` | `ilp32e` | 16 | hardware | software | software | software |
 | `rv32ef_zmmul` | `ilp32e` | 16 | hardware | software | hardware | software |
-| `rv32efd_zmmul` | `ilp32e` | 16 | hardware | software | hardware | hardware |
 | `rv32em` | `ilp32e` | 16 | hardware | hardware | software | software |
 | `rv32emf` | `ilp32e` | 16 | hardware | hardware | hardware | software |
-| `rv32emfd` | `ilp32e` | 16 | hardware | hardware | hardware | hardware |
 
 The columns follow from the name of `-march`.
 
@@ -68,7 +65,7 @@ The ABI decides where `float` and `double` are passed, so a library only links w
 | `ilp32d` | I | floating point registers | floating point registers | F and D |
 | `ilp32e` | E | integer registers | pairs of integer registers | nothing |
 
-`ilp32` and `ilp32e` are soft-float ABIs. With F or D present the arithmetic inside a function still uses the hardware, and only the calls between functions pass the values in integer registers. RV32E has only `ilp32e`, so there is no E variant of `ilp32f` or `ilp32d`. The Q extension has no ABI in RV32 and no variant.
+`ilp32` and `ilp32e` are soft-float ABIs. With F or D present the arithmetic inside a function still uses the hardware, and only the calls between functions pass the values in integer registers. RV32E has only `ilp32e`, so there is no E variant of `ilp32f` or `ilp32d`, and the compiler rejects D with `ilp32e`, so the E variants go up to F. The Q extension has no ABI in RV32 and no variant.
 
 ## 3. How the GCC chooses the variant
 
