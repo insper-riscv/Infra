@@ -1,5 +1,5 @@
-# The RISC-V GCC for rv32i, rv32i_zmmul and rv32im with ilp32 and the hard-float variants
-# rv32imf/ilp32f and rv32imfd/ilp32d, alone: binutils, the compiler and libgcc, with no C library. base-picolibc is compiled with this compiler and added to the same prefix. See
+# The RISC-V GCC for every combination of the I and E bases, multiply (none, Zmmul, M), F and D with the
+# ABIs each allows (27 variants), alone: binutils, the compiler and libgcc, with no C library. base-picolibc is compiled with this compiler and added to the same prefix. See
 # docs/en/docker/base-gcc.md.
 #
 #   docker build -f docker/base/gcc/Dockerfile -t base-gcc \
@@ -28,9 +28,9 @@ RUN git init /src \
 # binutils from riscv-gnu-toolchain, then the compiler configured here (its picolibc rule disables
 # multilib): C and C++ front ends, installed, and libgcc built with it for each variant. The host
 # programs are stripped of their symbols, which are most of the size of the install. The
-# variants are the soft-float ABI with the integer base, with multiply only and with multiply and
-# divide, and the two hard-float ones, rv32im/ilp32 being the default.
-ARG MULTILIB="rv32i-ilp32--;rv32i_zmmul-ilp32--;rv32im-ilp32--;rv32imf-ilp32f--;rv32imfd-ilp32d--"
+# variants are every combination of the I and E bases, multiply (none, Zmmul, M), F and D with the
+# ABIs each allows, rv32im/ilp32 being the default.
+ARG MULTILIB="rv32i-ilp32--;rv32if-ilp32--;rv32if-ilp32f--;rv32ifd-ilp32--;rv32ifd-ilp32f--;rv32ifd-ilp32d--;rv32i_zmmul-ilp32--;rv32if_zmmul-ilp32--;rv32if_zmmul-ilp32f--;rv32ifd_zmmul-ilp32--;rv32ifd_zmmul-ilp32f--;rv32ifd_zmmul-ilp32d--;rv32im-ilp32--;rv32imf-ilp32--;rv32imf-ilp32f--;rv32imfd-ilp32--;rv32imfd-ilp32f--;rv32imfd-ilp32d--;rv32e-ilp32e--;rv32ef-ilp32e--;rv32efd-ilp32e--;rv32e_zmmul-ilp32e--;rv32ef_zmmul-ilp32e--;rv32efd_zmmul-ilp32e--;rv32em-ilp32e--;rv32emf-ilp32e--;rv32emfd-ilp32e--"
 RUN prefix=/opt/riscv-foundation/riscv32-elf \
  && mkdir /build \
  && cd /build \
@@ -60,7 +60,8 @@ RUN prefix=/opt/riscv-foundation/riscv32-elf \
 RUN export PATH="/opt/riscv-foundation/riscv32-elf/bin:${PATH}" \
  && riscv32-unknown-elf-gcc --version \
  && riscv32-unknown-elf-gcc -print-multi-lib \
- && for v in "-march=rv32i -mabi=ilp32" "-march=rv32i_zmmul -mabi=ilp32" "-march=rv32im -mabi=ilp32" "-march=rv32imf -mabi=ilp32f" "-march=rv32imfd -mabi=ilp32d"; do \
+ && riscv32-unknown-elf-gcc -print-multi-lib | while read -r line; do \
+      v="$(printf '%s' "${line#*;}" | sed 's/@/ -/g')"; \
       test -s "$(riscv32-unknown-elf-gcc $v -print-libgcc-file-name)" || exit 1; \
     done
 

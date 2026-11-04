@@ -75,9 +75,10 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     export PATH=/opt/riscv-foundation/riscv32-elf/bin:$PATH; \
     printf '%s\n' '#include <picolibc.h>' '#include <stdio.h>' \
       'int main(void) { printf("%s\n", __PICOLIBC_VERSION__); return 0; }' > t.c; \
-    for v in "-march=rv32i -mabi=ilp32" "-march=rv32i_zmmul -mabi=ilp32" "-march=rv32im -mabi=ilp32" "-march=rv32imf -mabi=ilp32f" "-march=rv32imfd -mabi=ilp32d"; do \
+    riscv32-unknown-elf-gcc -print-multi-lib | while read -r line; do \
+      v="$(printf '%s' "${line#*;}" | sed 's/@/ -/g')"; \
       riscv32-unknown-elf-gcc $v --specs=picolibc.specs -T/dev/null -c t.c -o t.o; \
-      test -s "$(riscv32-unknown-elf-gcc $v --specs=picolibc.specs -print-file-name=libc.a)"; \
+      test -s "$(riscv32-unknown-elf-gcc $v --specs=picolibc.specs -print-file-name=libc.a)" || exit 1; \
     done; \
     grep -h "__PICOLIBC_VERSION__" /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h | head -n 1; \
     cd /; rm -rf "$d"
