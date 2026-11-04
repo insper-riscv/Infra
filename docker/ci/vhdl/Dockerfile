@@ -113,9 +113,10 @@ RUN python="$(uv python find "${PYTHON_VERSION}")" \
 # riscv-tools, from the commit of Tools given, in its own environment with the executable in
 # /usr/local/bin (the source is public, so no credentials are needed).
 ARG TOOLS_COMMIT
+ARG TOOLS_VERSION=
 RUN UV_TOOL_DIR=/opt/riscv-tools UV_TOOL_BIN_DIR=/usr/local/bin \
     uv tool install "git+https://github.com/insper-riscv/Tools@${TOOLS_COMMIT}" \
- && echo "${TOOLS_COMMIT}" > /opt/riscv-tools/.tag \
+ && { echo "${TOOLS_COMMIT}"; echo "${TOOLS_VERSION:-unknown} ($(echo "${TOOLS_COMMIT}" | cut -c1-7))"; } > /opt/riscv-tools/.tag \
  && chmod -R a+rX /opt/riscv-tools
 
 # Fail the build here, not in a user's CI: GHDL runs a VHDL-2008 design, and sby proves a property with
@@ -128,7 +129,7 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
       'architecture a of t is signal s : std_logic := '"'"'1'"'"'; begin' \
       '  process begin assert s = '"'"'1'"'"' severity failure; report "ghdl ok"; wait; end process;' \
       'end;' > t.vhd; \
-    echo "ghdl      $(ghdl --version | head -n 1) (commit $(cat /opt/ghdl/.tag))"; \
+    echo "ghdl      $(ghdl --version | head -n 1) (.tag $(tail -n 1 /opt/ghdl/.tag))"; \
     ghdl -a --std=08 t.vhd; \
     ghdl --elab-run --std=08 t; \
     printf '%s\n' \
@@ -136,7 +137,7 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
       'entity p is port (a, b : in std_logic; y : out std_logic); end;' \
       'architecture r of p is begin y <= a and b; end;' > p.vhd; \
     yosys -q -m ghdl -p 'ghdl --std=08 p.vhd -e p; hierarchy -top p; proc; select -assert-count 1 t:$and'; \
-    echo "yosys     $(yosys -V) (commit $(cat /opt/yosys/.tag))"; \
+    echo "yosys     $(yosys -V) (.tag $(tail -n 1 /opt/yosys/.tag))"; \
     echo "uv        $(uv --version)"; \
     python3 -c "import sys, cocotb; assert sys.version_info[:2] == (3, 14); print('python   ', sys.version.split()[0], 'cocotb', cocotb.__version__)"; \
     echo "gcc host  $(gcc --version | head -n 1)"; \
@@ -144,11 +145,11 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
       echo "$t  $("$t" --version 2>&1 | head -n 1)"; \
     done; \
     riscv-tools --help > /dev/null; \
-    echo "tools     riscv-tools (commit $(cat /opt/riscv-tools/.tag))"; \
-    echo "sby       $(sby --version 2>&1 | head -n 1) (commit $(cat /opt/yosys/.sby.tag))"; \
-    echo "yices     $(yices-smt2 --version | head -n 1) (commit $(cat /opt/yices/.tag))"; \
-    echo "bitwuzla  $(bitwuzla --version) (commit $(cat /opt/bitwuzla/.tag))"; \
-    echo "boolector $(boolector --version) (commit $(cat /opt/boolector/.tag))"; \
+    echo "tools     riscv-tools (.tag $(tail -n 1 /opt/riscv-tools/.tag))"; \
+    echo "sby       $(sby --version 2>&1 | head -n 1) (.tag $(tail -n 1 /opt/yosys/.sby.tag))"; \
+    echo "yices     $(yices-smt2 --version | head -n 1) (.tag $(tail -n 1 /opt/yices/.tag))"; \
+    echo "bitwuzla  $(bitwuzla --version) (.tag $(tail -n 1 /opt/bitwuzla/.tag))"; \
+    echo "boolector $(boolector --version) (.tag $(tail -n 1 /opt/boolector/.tag))"; \
     printf '%s\n' \
       'module t (input clk, input en);' \
       '  reg [3:0] c = 0;' \

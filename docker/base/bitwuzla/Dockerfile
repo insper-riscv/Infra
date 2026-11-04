@@ -11,6 +11,7 @@ ARG BASE_IMAGE=ubuntu:26.04
 
 FROM ${BASE_IMAGE} AS build
 ARG BITWUZLA_COMMIT
+ARG BITWUZLA_VERSION=
 
 RUN test -n "${BITWUZLA_COMMIT}" \
  || { echo "pass --build-arg BITWUZLA_COMMIT=<commit>"; exit 1; }
@@ -36,7 +37,7 @@ RUN cd /src \
  && ninja install \
  && find /opt/bitwuzla -mindepth 1 -maxdepth 1 ! -name bin -exec rm -rf {} + \
  && strip /opt/bitwuzla/bin/bitwuzla \
- && echo "${BITWUZLA_COMMIT}" > /opt/bitwuzla/.tag \
+ && { echo "${BITWUZLA_COMMIT}"; echo "${BITWUZLA_VERSION:-unknown} ($(echo "${BITWUZLA_COMMIT}" | cut -c1-7))"; } > /opt/bitwuzla/.tag \
  && rm -rf /src
 
 # Fail the build, before anything is published, if the executable does not run or does not solve:

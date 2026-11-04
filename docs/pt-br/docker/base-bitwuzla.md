@@ -7,7 +7,7 @@
 | Item | Detalhe |
 | :--- | :--- |
 | Bitwuzla | construído a partir do código-fonte; só o executável `bitwuzla`, sem cabeçalhos nem bibliotecas |
-| `/opt/bitwuzla/.tag` | o commit de que a instalação foi construída |
+| `/opt/bitwuzla/.tag` | duas linhas. A primeira é o commit de que a instalação foi construída, e a segunda é a versão da release cuja tag aponta para ele e o commit curto (`0.9.1 (...)`) |
 
 O executável é estático, então quem copia o diretório não instala nenhuma biblioteca.
 

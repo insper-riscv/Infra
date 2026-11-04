@@ -15,6 +15,7 @@ ARG BASE_IMAGE=ubuntu:26.04
 
 FROM ${BASE_IMAGE} AS build
 ARG BOOLECTOR_COMMIT
+ARG BOOLECTOR_VERSION=
 
 RUN test -n "${BOOLECTOR_COMMIT}" \
  || { echo "pass --build-arg BOOLECTOR_COMMIT=<commit>"; exit 1; }
@@ -45,7 +46,7 @@ RUN cd /src \
  && find /src/deps/btor2tools -name btorsim -type f -exec install -m 0755 {} /opt/boolector/bin/btorsim \; \
  && find /opt/boolector -mindepth 1 -maxdepth 1 ! -name bin -exec rm -rf {} + \
  && strip /opt/boolector/bin/* \
- && echo "${BOOLECTOR_COMMIT}" > /opt/boolector/.tag \
+ && { echo "${BOOLECTOR_COMMIT}"; echo "${BOOLECTOR_VERSION:-unknown} ($(echo "${BOOLECTOR_COMMIT}" | cut -c1-7))"; } > /opt/boolector/.tag \
  && rm -rf /src
 
 # Fail the build, before anything is published, if an executable does not run, or if Boolector does
