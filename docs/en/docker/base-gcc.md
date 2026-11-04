@@ -21,9 +21,22 @@
 | E, no floating point | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` |
 | E with F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` |
 
-That makes 24 variants, with `rv32im/ilp32` the default. `_zmmul` is multiply in hardware and divide in software, `m` is both in hardware, and the name with neither has both in software. RV32E allows only the `ilp32e` ABI (soft-float, so `float` is passed in integer registers even when F is present), and that ABI does not support D, so there is no E variant with D. The hard-float ABIs `ilp32f` and `ilp32d` exist only for I. The Q extension has no RV32 ABI, so it has no variant.
+`_zmmul` is multiply in hardware and divide in software, `m` is both in hardware, and the name with neither has both in software. RV32E allows only the `ilp32e` ABI (soft-float, so `float` is passed in integer registers even when F is present), and that ABI does not support D, so there is no E variant with D. The hard-float ABIs `ilp32f` and `ilp32d` exist only for I. The Q extension has no RV32 ABI, so it has no variant.
 
-A library built for a smaller set of extensions runs on a core with more of them, and not the other way around, so a core uses the variant that matches what it has and any other variant a subset of it. The compiler selects the variant by the `-march` and `-mabi` given and takes the largest variant that is a subset of what was asked: `rv32ic` takes `rv32i`, and `rv32imc` and `rv32ima` take `rv32im`. The E variants (16 registers) use the `ilp32e` ABI, the only one RV32E allows, and do not link with the I ones; `rv32ec` takes `rv32e`. The floating point variants do not link with the integer ones, because the ABI changes how `float` and `double` are passed. `libgcc` is built for each variant. The compiler reports a variant that has F with `zicsr` and `zmmul` in its name, because F needs Zicsr; the names are normalized by the compiler, and `-print-multi-lib` lists them.
+The 24 combinations of base, multiply and floating point are each built without or with three more choices, which gives 24 × 2 × 2 × 2 = 192 variants, with `rv32im/ilp32` the default. `scripts/gcc-multilib.sh` lists them.
+
+| Axis | Choices |
+| :--- | :--- |
+| Base | I, E |
+| Multiply | none, Zmmul, M |
+| Floating point | none, F, F and D (D not with E) |
+| A | without, with (atomic instructions) |
+| C | without, with (compressed instructions) |
+| B | without, with the group Zba, Zbb and Zbs together |
+
+The name of a variant adds the letters `a` and `c` and the suffix `_zba_zbb_zbs` to the name of the base combination, so `rv32im` gives `rv32im`, `rv32ima`, `rv32imc`, `rv32imac` and the four of them with `_zba_zbb_zbs`.
+
+How the compiler chooses among the variants is in section 3 of [base-picolibc.md](base-picolibc.md). `libgcc` is built for each variant. The compiler writes a variant that has F with `zicsr` in its name, because F needs Zicsr, and one that has Zmmul without M as `_zmmul`; the names are normalized by the compiler, and `-print-multi-lib` lists them.
 
 The build installs binutils and the first compiler of the picolibc configuration, then builds libgcc with it; the second stage of `riscv-gnu-toolchain`, which would rebuild the compiler and libgcc against picolibc, is not run. `cc1` links against `libmpc3` and `libmpfr6`, installed in `ci-elf`. The image has no C library and no libstdc++. picolibc comes from `base-picolibc`, and C++ programs that need the standard library are out of scope. The executables are named `riscv32-unknown-elf-*`, so they do not clash with the host `gcc`.
 
@@ -61,7 +74,7 @@ The build takes from tens of minutes to over an hour, depending on the machine.
 | :--- | :--- | :--- |
 | `BASE_IMAGE` | `ubuntu:26.04` | base image (multi-architecture) |
 | `RISCV_GNU_TOOLCHAIN_COMMIT` | none | the `riscv-gnu-toolchain` commit |
-| `MULTILIB` | the variants above | the variants, in the format of the GCC option `--with-multilib-generator` |
+| `MULTILIB` | the list of `scripts/gcc-multilib.sh` | the variants, in the format of the GCC option `--with-multilib-generator` |
 
 ---
 

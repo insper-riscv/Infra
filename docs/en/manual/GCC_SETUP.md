@@ -183,8 +183,8 @@ qemu, spike, pk, dejagnu, uclibc-ng) are left out. The result takes about
 ### 3.1. Variants
 
 The build produces a library for each of these variants. A library built for fewer extensions runs on a core
-with more of them, and not the other way around; the compiler takes the largest variant that is a subset of
-the `-march` it is given.
+with more of them, and not the other way around; the compiler picks the variant by the `-march` and `-mabi` it is
+given (section 3 of `docs/en/docker/base-picolibc.md` of the Infra repository).
 
 | Base and floating point | `-march` (each with no multiply, `_zmmul` and `m`) | `-mabi` |
 | :--- | :--- | :--- |
@@ -194,7 +194,20 @@ the `-march` it is given.
 | E, no floating point | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` |
 | E with F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` |
 
-That makes 24 variants, with `rv32im/ilp32` the default. `_zmmul` is multiply in hardware and divide in software, `m` is both in hardware, and the name with neither has both in software. RV32E allows only the `ilp32e` ABI (soft-float, so `float` is passed in integer registers even when F is present), and that ABI does not support D, so there is no E variant with D. The hard-float ABIs `ilp32f` and `ilp32d` exist only for I. The Q extension has no RV32 ABI, so it has no variant.
+`_zmmul` is multiply in hardware and divide in software, `m` is both in hardware, and the name with neither has both in software. RV32E allows only the `ilp32e` ABI (soft-float, so `float` is passed in integer registers even when F is present), and that ABI does not support D, so there is no E variant with D. The hard-float ABIs `ilp32f` and `ilp32d` exist only for I. The Q extension has no RV32 ABI, so it has no variant.
+
+The 24 combinations of base, multiply and floating point are each built without or with three more choices, which gives 24 × 2 × 2 × 2 = 192 variants, with `rv32im/ilp32` the default. `scripts/gcc-multilib.sh` lists them.
+
+| Axis | Choices |
+| :--- | :--- |
+| Base | I, E |
+| Multiply | none, Zmmul, M |
+| Floating point | none, F, F and D (D not with E) |
+| A | without, with (atomic instructions) |
+| C | without, with (compressed instructions) |
+| B | without, with the group Zba, Zbb and Zbs together |
+
+The name of a variant adds the letters `a` and `c` and the suffix `_zba_zbb_zbs` to the name of the base combination, so `rv32im` gives `rv32im`, `rv32ima`, `rv32imc`, `rv32imac` and the four of them with `_zba_zbb_zbs`.
 
 ### 3.2. Build
 
@@ -205,7 +218,8 @@ needs updating and, if so, builds and installs:
 set -euo pipefail
 CACHE_DIR=/opt/riscv-foundation/riscv32-elf
 SRC_DIR=/opt/riscv-foundation/riscv-gnu-toolchain
-MULTILIB="rv32i-ilp32--;rv32if-ilp32--;rv32if-ilp32f--;rv32ifd-ilp32--;rv32ifd-ilp32f--;rv32ifd-ilp32d--;rv32i_zmmul-ilp32--;rv32if_zmmul-ilp32--;rv32if_zmmul-ilp32f--;rv32ifd_zmmul-ilp32--;rv32ifd_zmmul-ilp32f--;rv32ifd_zmmul-ilp32d--;rv32im-ilp32--;rv32imf-ilp32--;rv32imf-ilp32f--;rv32imfd-ilp32--;rv32imfd-ilp32f--;rv32imfd-ilp32d--;rv32e-ilp32e--;rv32ef-ilp32e--;rv32e_zmmul-ilp32e--;rv32ef_zmmul-ilp32e--;rv32em-ilp32e--;rv32emf-ilp32e--"
+INFRA_DIR=/path/to/Infra
+MULTILIB="$(bash "$INFRA_DIR/scripts/gcc-multilib.sh")"
 COMMIT=$(git -C "$SRC_DIR" rev-parse HEAD)
 
 if [ "$(cat "$CACHE_DIR/.tag" 2>/dev/null)" = "$COMMIT" ]; then

@@ -6,7 +6,7 @@
 
 | Component | Detail | Path |
 | :--- | :--- | :--- |
-| RISC-V GCC | `riscv32-unknown-elf` target, with the 24 library variants of [`base-gcc`](base-gcc.md) | `/opt/riscv-foundation/riscv32-elf` |
+| RISC-V GCC | `riscv32-unknown-elf` target, with the 192 library variants of [`base-gcc`](base-gcc.md) | `/opt/riscv-foundation/riscv32-elf` |
 | picolibc | the C library of that GCC, from `base-picolibc`, compiled with it | `/opt/riscv-foundation/riscv32-elf` |
 | Spike | with its debug module at `0x70000000` | `/opt/riscv-foundation/spike` |
 | `libmpc3` and `libmpfr6` | the libraries `cc1` of the RISC-V GCC links against, from Ubuntu | `/usr/lib` |

@@ -1,6 +1,6 @@
 name: GCC image
 
-# Builds the RISC-V GCC (the 24 RV32 variants, rv32im/ilp32 the default: binutils, the compiler and libgcc, with no C library) alone
+# Builds the RISC-V GCC (the 192 RV32 variants, rv32im/ilp32 the default: binutils, the compiler and libgcc, with no C library) alone
 # and publishes it as base-gcc for linux/amd64 and linux/arm64, tagged with the riscv-gnu-toolchain
 # commit and as latest. The Picolibc image workflow compiles picolibc with it.
 #
@@ -131,7 +131,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/base-gcc
       dockerfile: docker/base/gcc/Dockerfile
       title: RISC-V GCC (rv32im)
-      description: The RISC-V GCC for every combination of the I and E bases, multiply, F and D with the ABIs each allows (24 variants, D only with the I base), built from source, with no C library. Only the install directory, /opt/riscv-foundation/riscv32-elf.
+      description: The RISC-V GCC for every combination of the I and E bases, multiply, F and D with the ABIs each allows, and without or with A, C and B (192 variants, D only with the I base), built from source, with no C library. Only the install directory, /opt/riscv-foundation/riscv32-elf.
       timeout-minutes: 360
       build-args: |
         RISCV_GNU_TOOLCHAIN_COMMIT=${{ needs.pin.outputs.commit }}

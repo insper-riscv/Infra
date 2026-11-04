@@ -1,2 +1,3 @@
 *
 !docker/ci/vhdl/static-analysis.txt
+!scripts/gcc-multilib.sh

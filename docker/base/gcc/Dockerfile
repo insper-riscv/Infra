@@ -1,7 +1,7 @@
 # The RISC-V GCC for every combination of the I and E bases, multiply (none, Zmmul, M), F and D with
-# the ABIs each allows (24 variants, D only with the I base), alone: binutils, the compiler and
-# libgcc, with no C library. base-picolibc is compiled with this compiler and added to the same
-# prefix. See docs/en/docker/base-gcc.md.
+# the ABIs each allows, and without or with A, C and B (192 variants, D only with the I base), alone:
+# binutils, the compiler and libgcc, with no C library. base-picolibc is compiled with this compiler
+# and added to the same prefix. See docs/en/docker/base-gcc.md.
 #
 #   docker build -f docker/base/gcc/Dockerfile -t base-gcc \
 #     --build-arg RISCV_GNU_TOOLCHAIN_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .
@@ -29,10 +29,12 @@ RUN git init /src \
 # binutils from riscv-gnu-toolchain, then the compiler configured here (its picolibc rule disables
 # multilib): C and C++ front ends, installed, and libgcc built with it for each variant. The host
 # programs are stripped of their symbols, which are most of the size of the install. The
-# variants are every combination of the I and E bases, multiply (none, Zmmul, M), F and D with the
-# ABIs each allows, rv32im/ilp32 being the default.
-ARG MULTILIB="rv32i-ilp32--;rv32if-ilp32--;rv32if-ilp32f--;rv32ifd-ilp32--;rv32ifd-ilp32f--;rv32ifd-ilp32d--;rv32i_zmmul-ilp32--;rv32if_zmmul-ilp32--;rv32if_zmmul-ilp32f--;rv32ifd_zmmul-ilp32--;rv32ifd_zmmul-ilp32f--;rv32ifd_zmmul-ilp32d--;rv32im-ilp32--;rv32imf-ilp32--;rv32imf-ilp32f--;rv32imfd-ilp32--;rv32imfd-ilp32f--;rv32imfd-ilp32d--;rv32e-ilp32e--;rv32ef-ilp32e--;rv32e_zmmul-ilp32e--;rv32ef_zmmul-ilp32e--;rv32em-ilp32e--;rv32emf-ilp32e--"
-RUN prefix=/opt/riscv-foundation/riscv32-elf \
+# variants are listed by scripts/gcc-multilib.sh, rv32im/ilp32 being the default; the build argument
+# MULTILIB replaces that list, in the format of --with-multilib-generator.
+COPY scripts/gcc-multilib.sh /usr/local/bin/gcc-multilib.sh
+ARG MULTILIB=""
+RUN multilib="${MULTILIB:-$(bash /usr/local/bin/gcc-multilib.sh)}" \
+ && prefix=/opt/riscv-foundation/riscv32-elf \
  && mkdir /build \
  && cd /build \
  && /src/configure --prefix=$prefix --with-arch=rv32im --enable-picolibc \
@@ -44,7 +46,7 @@ RUN prefix=/opt/riscv-foundation/riscv32-elf \
       --with-sysroot=$prefix/riscv32-unknown-elf \
       --disable-libmudflap --disable-libssp --disable-libquadmath --disable-libgomp --disable-nls \
       --disable-tm-clone-registry --src=/src/gcc \
-      --with-multilib-generator="${MULTILIB}" \
+      --with-multilib-generator="${multilib}" \
       --with-arch=rv32im --with-abi=ilp32 --with-isa-spec=20191213 --enable-languages=c,c++ \
       CFLAGS_FOR_TARGET="-Os -mcmodel=medlow" CXXFLAGS_FOR_TARGET="-Os -mcmodel=medlow" \
  && make -j"$(nproc)" all-gcc \

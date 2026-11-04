@@ -6,7 +6,7 @@
 
 | Item | Detalhe |
 | :--- | :--- |
-| picolibc | a biblioteca C compilada pelo GCC da `base-gcc` mais recente, instalada no sysroot, uma vez para cada uma das 24 variantes desse GCC (seção 2.1) |
+| picolibc | a biblioteca C compilada pelo GCC da `base-gcc` mais recente, instalada no sysroot, uma vez para cada uma das 192 variantes desse GCC (seção 2.1) |
 
 A picolibc é compilada por um cross compiler, então o build usa a imagem de GCC mais recente. A imagem leva o commit desse GCC no rótulo `riscv-gnu-toolchain.commit`, e um GCC novo gera um build novo da picolibc.
 
@@ -14,7 +14,7 @@ A picolibc é compilada por um cross compiler, então o build usa a imagem de GC
 
 ### 2.1. O que roda em hardware e o que roda em software
 
-Cada linha é uma biblioteca instalada no sysroot. Uma operação marcada como software é uma chamada a uma rotina da `libgcc` (por exemplo `__mulsi3`, `__divsi3`, `__addsf3` e `__adddf3`), então um núcleo sem a extensão ainda executa o programa, só que mais devagar.
+Cada linha é uma combinação de base, multiplicação e ponto flutuante, construída em oito versões (seção 2.2), e cada versão é uma biblioteca instalada no sysroot. Uma operação marcada como software é uma chamada a uma rotina da `libgcc` (por exemplo `__mulsi3`, `__divsi3`, `__addsf3` e `__adddf3`), então um núcleo sem a extensão ainda executa o programa, só que mais devagar.
 
 | `-march` | `-mabi` | Registradores inteiros | Multiplicação | Divisão | Precisão simples (`float`) | Precisão dupla (`double`) |
 | :--- | :--- | :---: | :--- | :--- | :--- | :--- |
@@ -54,7 +54,19 @@ As colunas decorrem do nome do `-march`.
 | `f` | precisão simples em hardware (traz também o `zicsr`, que o compilador acrescenta ao nome) |
 | `fd` | precisão simples e dupla em hardware |
 
-### 2.2. ABIs
+### 2.2. As extensões A, C e B
+
+Cada linha da seção 2.1 é construída em oito versões, uma para cada escolha de A, C e B. Uma variante com uma extensão tem código que a usa, então roda só num núcleo que tenha essa extensão.
+
+| Extensão | O que o código da biblioteca usa | Efeito |
+| :--- | :--- | :--- |
+| A | instruções atômicas (`lr`, `sc` e a família `amo`) | um pedido com A pega só uma variante com A, e um pedido sem A pega só uma variante sem A |
+| C | instruções compactas de 16 bits | código menor |
+| B | as instruções de Zba, Zbb e Zbs, como soma com deslocamento, rotação, contagem de bits e operações de um bit | código menor e mais rápido nas rotinas que as usam |
+
+As três extensões do B são uma escolha só, então uma variante tem todas ou nenhuma, e um pedido só com Zba e Zbb pega a variante sem B.
+
+### 2.3. ABIs
 
 O ABI decide onde `float` e `double` são passados, então uma biblioteca só se liga com código feito para o mesmo ABI.
 
@@ -73,24 +85,22 @@ O compilador recebe `-march` e `-mabi`, ou usa o padrão do build (`rv32im` com 
 
 1. O ABI tem de ser o da variante. Não há conversão entre ABIs.
 2. O `-march` da variante tem de ser subconjunto do `-march` pedido. Uma biblioteca feita para menos extensões roda num núcleo com mais extensões, e o contrário não vale.
-3. Entre as variantes que cumprem as duas regras, vale a que tem mais extensões em comum com o pedido.
+3. A variante e o pedido têm de concordar no A, porque o código das bibliotecas de suporte muda com e sem atômicas.
+4. Entre as variantes que cumprem as regras acima, vale a que tem mais extensões em comum com o pedido.
 
-C, B (Zba, Zbb e afins), Zifencei e Zicntr não têm variante própria e são ignorados, então um pedido que os tenha pega a variante sem eles. As bibliotecas são compiladas sem C, então não têm instruções compactas: rodam num núcleo com C, só que maiores do que seriam num build com C. A extensão A é diferente. O compilador dá nota zero a uma variante quando ela e o pedido diferem no A (o código das bibliotecas de suporte muda com e sem atômicas), e nenhuma variante tem A, então um pedido com A não casa com nada e toma o diretório padrão, `rv32im/ilp32`, seja qual for o `-mabi`. Para usar `ilp32f`, `ilp32d` ou `ilp32e`, ou um núcleo sem M, o `-march` não pode ter A.
-
-O compilador escreve os nomes das variantes normalizados (`rv32if` vira `rv32if_zicsr`, e `rv32im` vira `rv32im_zmmul`), e a tabela usa os nomes da seção 2.1.
+As extensões que não têm variante própria, como Zicsr, Zifencei, Zicntr, Zihpm e Zicclsm, não impedem o pedido de tomar uma variante, e o pedido pega a que não as tem. O compilador escreve os nomes das variantes normalizados (`rv32if` vira `rv32if_zicsr`, e `rv32im` vira `rv32im_zmmul`), e a tabela usa os nomes da seção 2.1.
 
 | Pedido | Variante usada | Motivo |
 | :--- | :--- | :--- |
-| `-march=rv32i -mabi=ilp32` | `rv32i/ilp32` | correspondência exata |
-| `-march=rv32imc -mabi=ilp32` | `rv32im/ilp32` | o C é ignorado |
-| `-march=rv32ec -mabi=ilp32e` | `rv32e/ilp32e` | o C é ignorado |
-| `-march=rv32ic_zmmul -mabi=ilp32` | `rv32i_zmmul/ilp32` | a multiplicação é mantida, o C é ignorado |
-| `-march=rv32imfc -mabi=ilp32f` | `rv32imf/ilp32f` | o F é mantido |
-| `-march=rv32imf_zba_zbb -mabi=ilp32f` | `rv32imf/ilp32f` | Zba e Zbb são ignorados |
+| `-march=rv32im -mabi=ilp32` | `rv32im/ilp32` | correspondência exata |
+| `-march=rv32imc -mabi=ilp32` | `rv32imc/ilp32` | o C tem variante própria |
+| `-march=rv32ima -mabi=ilp32` | `rv32ima/ilp32` | o A tem variante própria |
+| `-march=rv32imac_zicsr_zifencei -mabi=ilp32` | `rv32imac/ilp32` | Zicsr e Zifencei são ignorados |
+| `-march=rv32imc_zba_zbb -mabi=ilp32` | `rv32imc/ilp32` | o B exige Zba, Zbb e Zbs juntos |
+| `-march=rv32imc_zba_zbb_zbs -mabi=ilp32` | `rv32imc_zba_zbb_zbs/ilp32` | as três extensões do B |
+| `-march=rv32imafdc -mabi=ilp32d` | `rv32imafdc/ilp32d` | correspondência exata |
 | `-march=rv32imfd -mabi=ilp32f` | `rv32imfd/ilp32f` | a biblioteca usa o D em hardware e passa só `float` em registradores |
-| `-march=rv32imfd -mabi=ilp32` | `rv32imfd/ilp32` | ABI soft-float com a aritmética D em hardware |
-| `-march=rv32imac -mabi=ilp32` | `rv32im/ilp32` | não casa por causa do A, vale o diretório padrão |
-| `-march=rv32imafc -mabi=ilp32f` | `rv32im/ilp32` | não casa por causa do A, e o ABI do diretório padrão não é `ilp32f` |
+| `-march=rv32ec -mabi=ilp32e` | `rv32ec/ilp32e` | a base E com C |
 | `-march=rv32imf -mabi=ilp32e` | `rv32im/ilp32` | nenhuma variante tem `ilp32e` com a base I, o compilador aceita e toma o diretório padrão |
 | `-march=rv32im -mabi=ilp32f` | nenhuma, o compilador dá erro | o `ilp32f` exige F |
 | `-march=rv32efd -mabi=ilp32e` | nenhuma, o compilador dá erro | o `ilp32e` não suporta D |
