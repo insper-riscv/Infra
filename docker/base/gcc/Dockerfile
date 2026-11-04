@@ -1,5 +1,6 @@
-# The RISC-V GCC for every combination of the I and E bases, multiply (none, Zmmul, M), F and D with the
-# ABIs each allows (27 variants), alone: binutils, the compiler and libgcc, with no C library. base-picolibc is compiled with this compiler and added to the same prefix. See
+# The RISC-V GCC for every combination of the I and E bases, multiply (none, Zmmul, M), F and D with
+# the ABIs each allows (27 variants), alone: binutils, the compiler and libgcc, with no C library.
+# base-picolibc is compiled with this compiler and added to the same prefix. See
 # docs/en/docker/base-gcc.md.
 #
 #   docker build -f docker/base/gcc/Dockerfile -t base-gcc \
