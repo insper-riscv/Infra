@@ -6,7 +6,7 @@
 
 | Componente | Detalhe | Caminho |
 | :--- | :--- | :--- |
-| GCC RISC-V | alvo `riscv32-unknown-elf`, com as variantes de biblioteca `rv32i/ilp32`, `rv32i_zmmul/ilp32`, `rv32im/ilp32`, `rv32imf/ilp32f` e `rv32imfd/ilp32d` | `/opt/riscv-foundation/riscv32-elf` |
+| GCC RISC-V | alvo `riscv32-unknown-elf`, com as 27 variantes de biblioteca da [`base-gcc`](base-gcc.md) | `/opt/riscv-foundation/riscv32-elf` |
 | picolibc | a biblioteca C desse GCC, vinda da `base-picolibc`, compilada com ele | `/opt/riscv-foundation/riscv32-elf` |
 | Spike | com o módulo de depuração em `0x70000000` | `/opt/riscv-foundation/spike` |
 | `libmpc3` e `libmpfr6` | as bibliotecas que o `cc1` do GCC RISC-V liga, do Ubuntu | `/usr/lib` |
