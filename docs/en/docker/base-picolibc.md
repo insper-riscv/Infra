@@ -75,19 +75,25 @@ The compiler receives `-march` and `-mabi`, or uses the default of the build (`r
 2. The `-march` of the variant must be a subset of the `-march` asked for. A library built for fewer extensions runs on a core with more of them, and not the other way around.
 3. Among the variants that satisfy both, the one with the most extensions in common with the request is taken.
 
-So an extension that has no variant of its own, such as C, A, B, Zifencei and Zicntr, does not stop a request from using a smaller variant, and the request takes the one without it.
+C, B (Zba, Zbb and the like), Zifencei and Zicntr have no variant of their own and are ignored, so a request that has them takes the variant without them. The libraries are built without C, so they hold no compressed instructions: they run on a core with C, only larger than a build with C would be. The A extension is different. The compiler gives a variant no score when it and the request differ in A (the code of the support libraries changes with and without atomics), and no variant has A, so a request that has A matches nothing and takes the default directory, `rv32im/ilp32`, whatever `-mabi` says. To use `ilp32f`, `ilp32d` or `ilp32e`, or a core without M, `-march` must not have A.
+
+The compiler writes the names of the variants normalized (`rv32if` becomes `rv32if_zicsr`, and `rv32im` becomes `rv32im_zmmul`), and the table uses the names of section 2.1.
 
 | Request | Variant used | Reason |
 | :--- | :--- | :--- |
 | `-march=rv32i -mabi=ilp32` | `rv32i/ilp32` | exact match |
-| `-march=rv32imac -mabi=ilp32` | `rv32im/ilp32` | C and A do not change the library |
+| `-march=rv32imc -mabi=ilp32` | `rv32im/ilp32` | C is ignored |
 | `-march=rv32ec -mabi=ilp32e` | `rv32e/ilp32e` | C is ignored |
 | `-march=rv32ic_zmmul -mabi=ilp32` | `rv32i_zmmul/ilp32` | multiply is kept, C is ignored |
 | `-march=rv32imfc -mabi=ilp32f` | `rv32imf/ilp32f` | F is kept |
+| `-march=rv32imf_zba_zbb -mabi=ilp32f` | `rv32imf/ilp32f` | Zba and Zbb are ignored |
 | `-march=rv32imfd -mabi=ilp32f` | `rv32imfd/ilp32f` | the library uses D in hardware and passes only `float` in registers |
 | `-march=rv32imfd -mabi=ilp32` | `rv32imfd/ilp32` | soft-float ABI with the D arithmetic in hardware |
+| `-march=rv32imac -mabi=ilp32` | `rv32im/ilp32` | no match because of A, the default directory is used |
+| `-march=rv32imafc -mabi=ilp32f` | `rv32im/ilp32` | no match because of A, and the ABI of the default directory is not `ilp32f` |
+| `-march=rv32imf -mabi=ilp32e` | `rv32im/ilp32` | no variant has `ilp32e` with the I base, the compiler accepts it and takes the default directory |
 | `-march=rv32im -mabi=ilp32f` | none, the compiler reports an error | `ilp32f` requires F |
-| `-march=rv32imf -mabi=ilp32e` | none, the compiler reports an error | the E ABI requires the E base |
+| `-march=rv32efd -mabi=ilp32e` | none, the compiler reports an error | `ilp32e` does not support D |
 
 The variant chosen for a build can be read with the commands below.
 
