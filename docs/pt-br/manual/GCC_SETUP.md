@@ -179,8 +179,8 @@ de 2,9 GB e fica em disco permanentemente em `SRC_DIR`.
 ### 3.1. Variantes
 
 O build gera uma biblioteca para cada uma destas variantes. Uma biblioteca feita para menos extensões roda num
-núcleo com mais extensões, e o contrário não vale; o compilador pega a maior variante que seja subconjunto do
-`-march` informado.
+núcleo com mais extensões, e o contrário não vale; o compilador escolhe a variante pelo `-march` e `-mabi`
+informados (seção 3 do `docs/pt-br/docker/base-picolibc.md` do repositório Infra).
 
 | Base e ponto flutuante | `-march` (cada um sem multiplicação, `_zmmul` e `m`) | `-mabi` |
 | :--- | :--- | :--- |
@@ -190,7 +190,20 @@ núcleo com mais extensões, e o contrário não vale; o compilador pega a maior
 | E, sem ponto flutuante | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` |
 | E com F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` |
 
-São 24 variantes, com `rv32im/ilp32` como padrão. `_zmmul` é multiplicação em hardware e divisão em software, `m` é as duas em hardware, e o nome sem nenhum dos dois tem as duas em software. O RV32E permite só o ABI `ilp32e` (soft-float, então `float` passa em registradores inteiros mesmo com F), e esse ABI não suporta o D, então não há variante E com D. Os ABIs hard-float `ilp32f` e `ilp32d` existem só para o I. A extensão Q não tem ABI em RV32, então não tem variante.
+`_zmmul` é multiplicação em hardware e divisão em software, `m` é as duas em hardware, e o nome sem nenhum dos dois tem as duas em software. O RV32E permite só o ABI `ilp32e` (soft-float, então `float` passa em registradores inteiros mesmo com F), e esse ABI não suporta o D, então não há variante E com D. Os ABIs hard-float `ilp32f` e `ilp32d` existem só para o I. A extensão Q não tem ABI em RV32, então não tem variante.
+
+As 24 combinações de base, multiplicação e ponto flutuante são construídas cada uma sem ou com mais três escolhas, o que dá 24 × 2 × 2 × 2 = 192 variantes, com `rv32im/ilp32` como padrão. O `scripts/gcc-multilib.sh` as lista.
+
+| Eixo | Escolhas |
+| :--- | :--- |
+| Base | I, E |
+| Multiplicação | nenhuma, Zmmul, M |
+| Ponto flutuante | nenhum, F, F e D (D não com E) |
+| A | sem, com (instruções atômicas) |
+| C | sem, com (instruções compactas) |
+| B | sem, com o grupo Zba, Zbb e Zbs juntos |
+
+O nome de uma variante acrescenta as letras `a` e `c` e o sufixo `_zba_zbb_zbs` ao nome da combinação de base, então `rv32im` gera `rv32im`, `rv32ima`, `rv32imc`, `rv32imac` e as quatro com `_zba_zbb_zbs`.
 
 ### 3.2. Build
 
@@ -201,7 +214,8 @@ atualização e, se precisar, compila e instala:
 set -euo pipefail
 CACHE_DIR=/opt/riscv-foundation/riscv32-elf
 SRC_DIR=/opt/riscv-foundation/riscv-gnu-toolchain
-MULTILIB="rv32i-ilp32--;rv32if-ilp32--;rv32if-ilp32f--;rv32ifd-ilp32--;rv32ifd-ilp32f--;rv32ifd-ilp32d--;rv32i_zmmul-ilp32--;rv32if_zmmul-ilp32--;rv32if_zmmul-ilp32f--;rv32ifd_zmmul-ilp32--;rv32ifd_zmmul-ilp32f--;rv32ifd_zmmul-ilp32d--;rv32im-ilp32--;rv32imf-ilp32--;rv32imf-ilp32f--;rv32imfd-ilp32--;rv32imfd-ilp32f--;rv32imfd-ilp32d--;rv32e-ilp32e--;rv32ef-ilp32e--;rv32e_zmmul-ilp32e--;rv32ef_zmmul-ilp32e--;rv32em-ilp32e--;rv32emf-ilp32e--"
+INFRA_DIR=/path/to/Infra
+MULTILIB="$(bash "$INFRA_DIR/scripts/gcc-multilib.sh")"
 COMMIT=$(git -C "$SRC_DIR" rev-parse HEAD)
 
 if [ "$(cat "$CACHE_DIR/.tag" 2>/dev/null)" = "$COMMIT" ]; then
