@@ -123,7 +123,7 @@ The rules that hold for the assembled images (`ci-*` and `dev_tools`), which `CI
 
 **A change of a `Dockerfile` or of a workflow builds nothing.** An image is built when a version changes, not when its recipe changes, so a recipe change that is not a new version does not rebuild, for nothing, images that take up to an hour. When a recipe changes on `main`, the `Recipe changed` workflow lists the affected images, and rebuilding is a manual run (`force` in a component, `from_level` in `CI images`).
 
-Each architecture is built on a runner of its own (`ubuntu-26.04` for `linux/amd64` and `ubuntu-24.04-arm` for `linux/arm64`), because the GCC and GHDL builds take hours under emulation. A final job joins the two images into one manifest with the tags, so `docker pull` gives each machine its own.
+Each architecture is built on a runner of its own (`ubuntu-26.04` for `linux/amd64` and `ubuntu-26.04-arm` for `linux/arm64`), because the GCC and GHDL builds take hours under emulation. A final job joins the two images into one manifest with the tags, so `docker pull` gives each machine its own.
 
 ### 4.1. Manual runs
 

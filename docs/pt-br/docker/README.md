@@ -123,7 +123,7 @@ As regras que valem para as imagens montadas (`ci-*` e `dev_tools`), que o `CI i
 
 **Mudar um `Dockerfile` ou um workflow não constrói nada.** Uma imagem é construída quando uma versão muda, não quando a receita muda, para que uma mudança de receita sem versão nova não reconstrua para nada imagens que levam até uma hora. Quando uma receita muda na `main`, o workflow `Recipe changed` lista as imagens afetadas, e a reconstrução é um run manual (`force` num componente, `from_level` no `CI images`).
 
-Cada arquitetura é construída num runner próprio (`ubuntu-26.04` para `linux/amd64` e `ubuntu-24.04-arm` para `linux/arm64`), porque os builds do GCC e do GHDL levam horas sob emulação. Um job final junta as duas imagens num manifesto único com as tags, e `docker pull` entrega a cada máquina a sua.
+Cada arquitetura é construída num runner próprio (`ubuntu-26.04` para `linux/amd64` e `ubuntu-26.04-arm` para `linux/arm64`), porque os builds do GCC e do GHDL levam horas sob emulação. Um job final junta as duas imagens num manifesto único com as tags, e `docker pull` entrega a cada máquina a sua.
 
 ### 4.1. Execução manual
 
