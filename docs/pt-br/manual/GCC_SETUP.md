@@ -189,9 +189,8 @@ núcleo com mais extensões, e o contrário não vale; o compilador pega a maior
 | I com F e D | `rv32ifd`, `rv32ifd_zmmul`, `rv32imfd` | `ilp32`, `ilp32f`, `ilp32d` |
 | E, sem ponto flutuante | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` |
 | E com F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` |
-| E com F e D | `rv32efd`, `rv32efd_zmmul`, `rv32emfd` | `ilp32e` |
 
-São 27 variantes, com `rv32im/ilp32` como padrão. `_zmmul` é multiplicação em hardware e divisão em software, `m` é as duas em hardware, e o nome sem nenhum dos dois tem as duas em software. O RV32E permite só o ABI `ilp32e` (soft-float, então `float` e `double` passam em registradores inteiros mesmo com F ou D), e os ABIs hard-float `ilp32f` e `ilp32d` existem só para o I. A extensão Q não tem ABI em RV32, então não tem variante.
+São 24 variantes, com `rv32im/ilp32` como padrão. `_zmmul` é multiplicação em hardware e divisão em software, `m` é as duas em hardware, e o nome sem nenhum dos dois tem as duas em software. O RV32E permite só o ABI `ilp32e` (soft-float, então `float` passa em registradores inteiros mesmo com F), e esse ABI não suporta o D, então não há variante E com D. Os ABIs hard-float `ilp32f` e `ilp32d` existem só para o I. A extensão Q não tem ABI em RV32, então não tem variante.
 
 ### 3.2. Build
 
@@ -202,7 +201,7 @@ atualização e, se precisar, compila e instala:
 set -euo pipefail
 CACHE_DIR=/opt/riscv-foundation/riscv32-elf
 SRC_DIR=/opt/riscv-foundation/riscv-gnu-toolchain
-MULTILIB="rv32i-ilp32--;rv32if-ilp32--;rv32if-ilp32f--;rv32ifd-ilp32--;rv32ifd-ilp32f--;rv32ifd-ilp32d--;rv32i_zmmul-ilp32--;rv32if_zmmul-ilp32--;rv32if_zmmul-ilp32f--;rv32ifd_zmmul-ilp32--;rv32ifd_zmmul-ilp32f--;rv32ifd_zmmul-ilp32d--;rv32im-ilp32--;rv32imf-ilp32--;rv32imf-ilp32f--;rv32imfd-ilp32--;rv32imfd-ilp32f--;rv32imfd-ilp32d--;rv32e-ilp32e--;rv32ef-ilp32e--;rv32efd-ilp32e--;rv32e_zmmul-ilp32e--;rv32ef_zmmul-ilp32e--;rv32efd_zmmul-ilp32e--;rv32em-ilp32e--;rv32emf-ilp32e--;rv32emfd-ilp32e--"
+MULTILIB="rv32i-ilp32--;rv32if-ilp32--;rv32if-ilp32f--;rv32ifd-ilp32--;rv32ifd-ilp32f--;rv32ifd-ilp32d--;rv32i_zmmul-ilp32--;rv32if_zmmul-ilp32--;rv32if_zmmul-ilp32f--;rv32ifd_zmmul-ilp32--;rv32ifd_zmmul-ilp32f--;rv32ifd_zmmul-ilp32d--;rv32im-ilp32--;rv32imf-ilp32--;rv32imf-ilp32f--;rv32imfd-ilp32--;rv32imfd-ilp32f--;rv32imfd-ilp32d--;rv32e-ilp32e--;rv32ef-ilp32e--;rv32e_zmmul-ilp32e--;rv32ef_zmmul-ilp32e--;rv32em-ilp32e--;rv32emf-ilp32e--"
 COMMIT=$(git -C "$SRC_DIR" rev-parse HEAD)
 
 if [ "$(cat "$CACHE_DIR/.tag" 2>/dev/null)" = "$COMMIT" ]; then
