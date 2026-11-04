@@ -505,6 +505,8 @@ jobs:
             echo "gcc_name=$(name_of https://github.com/riscv-collab/riscv-gnu-toolchain "$gcc")"
             echo "picolibc_name=$(name_of https://github.com/picolibc/picolibc "$picolibc")"
             echo "spike_name=$(name_of https://github.com/riscv-software-src/riscv-isa-sim "$spike")"
+            echo "gcc_date=$(commit_date https://github.com/riscv-collab/riscv-gnu-toolchain "$gcc")"
+            echo "spike_date=$(commit_date https://github.com/riscv-software-src/riscv-isa-sim "$spike")"
             # the library variants the recipe of the GCC defines, which the check of the ELF image
             # then finds installed
             echo "variants=$(bash scripts/gcc-multilib.sh --count)"
@@ -539,23 +541,27 @@ jobs:
           MISSING: ${{ steps.pins.outputs.missing }}
           BUILD: ${{ steps.plan.outputs.build }}
           SHORT: ${{ steps.plan.outputs.short }}
-          GCC: ${{ steps.pins.outputs.gcc_name }}
+          GCC_COMMIT: ${{ steps.pins.outputs.gcc }}
+          GCC_DATE: ${{ steps.pins.outputs.gcc_date }}
           PICOLIBC: ${{ steps.pins.outputs.picolibc_name }}
-          SPIKE: ${{ steps.pins.outputs.spike_name }}
+          SPIKE_COMMIT: ${{ steps.pins.outputs.spike }}
+          SPIKE_DATE: ${{ steps.pins.outputs.spike_date }}
           VARIANTS: ${{ steps.pins.outputs.variants }}
         run: |
           if [ "$MISSING" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
-          echo "::notice title=Stage 2, ELF::GCC $GCC, picolibc $PICOLIBC, Spike $SPIKE, $VARIANTS library variants. ${decision^}."
+          gcc="$GCC_DATE (${GCC_COMMIT:0:7})"
+          spike="$SPIKE_DATE (${SPIKE_COMMIT:0:7})"
+          echo "::notice title=Stage 2, ELF::GCC $gcc, picolibc $PICOLIBC, Spike $spike, $VARIANTS library variants. ${decision^}."
           {
             echo "### Stage 2, ELF (level 2)"
             echo
             echo "| Component | Selected |"
             echo "| :--- | :--- |"
-            echo "| RISC-V GCC (riscv-gnu-toolchain) | $GCC |"
+            echo "| RISC-V GCC (riscv-gnu-toolchain), date and commit | $gcc |"
             echo "| picolibc | $PICOLIBC |"
-            echo "| Spike | $SPIKE |"
+            echo "| Spike, date and commit | $spike |"
             echo "| Library variants of the GCC | $VARIANTS |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
@@ -590,9 +596,9 @@ jobs:
         ${{ needs.plan-elf.outputs.short }}
       check: |
         expect() { if [ "$2" = "$3" ]; then echo "ok    $1 $3"; else echo "WRONG $1: expected $2, found $3"; exit 1; fi; }
-        expect gcc      "${{ needs.plan-elf.outputs.gcc }}"                  "$(cat /opt/riscv-foundation/riscv32-elf/.tag)"
+        expect gcc      "${{ needs.plan-elf.outputs.gcc }}"                  "$(head -n 1 /opt/riscv-foundation/riscv32-elf/.tag)"
         expect picolibc "${{ needs.plan-elf.outputs.picolibc }}"             "$(cat /opt/riscv-foundation/riscv32-elf/.picolibc.tag)"
-        expect spike    "${{ needs.plan-elf.outputs.spike }}-debug-start"    "$(cat /opt/riscv-foundation/spike/.tag)"
+        expect spike    "${{ needs.plan-elf.outputs.spike }}-debug-start"    "$(head -n 1 /opt/riscv-foundation/spike/.tag)"
         ghdl --version | head -n 1
         riscv32-unknown-elf-gcc --version | head -n 1
         riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null
@@ -719,6 +725,18 @@ jobs:
           echo "::error::ACT4 $green requires Sail '$required', the image has Sail $SAIL_VERSION, and the published ci-act4 has no ACT4 commit that matches it"
           exit 1
 
+      - name: Read the version of ACT4
+        # The version the framework of that commit declares, the one the image writes in its .tag.
+        # Only reported, so a commit whose layout changed shows "unknown" and does not stop the run.
+        id: act4version
+        if: steps.sail.outputs.missing != 'true'
+        env:
+          ACT4: ${{ steps.act4.outputs.commit }}
+        run: |
+          version=$(curl -fsSL "https://raw.githubusercontent.com/$ACT4_REPO/$ACT4/framework/pyproject.toml" 2>/dev/null \
+                    | sed -n 's/^version *= *"\(.*\)"/\1/p' | head -n 1) || true
+          echo "version=${version:-unknown}" >> "$GITHUB_OUTPUT"
+
       - name: Name the combination
         id: plan
         if: steps.sail.outputs.missing != 'true'
@@ -747,22 +765,25 @@ jobs:
           MISSING: ${{ steps.sail.outputs.missing }}
           BUILD: ${{ steps.plan.outputs.build }}
           SHORT: ${{ steps.plan.outputs.short }}
-          SAIL: ${{ steps.sail.outputs.sail_name }}
+          SAIL_COMMIT: ${{ steps.sail.outputs.sail }}
           SAIL_VERSION: ${{ steps.sail.outputs.sail_version }}
           ACT4: ${{ steps.act4.outputs.commit }}
+          ACT4_VERSION: ${{ steps.act4version.outputs.version }}
         run: |
           if [ "$MISSING" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
-          echo "::notice title=Stage 3, ACT4::Sail $SAIL (version $SAIL_VERSION), ACT4 ${ACT4:0:7}. ${decision^}."
+          sail="$SAIL_VERSION (${SAIL_COMMIT:0:7})"
+          act4="$ACT4_VERSION (${ACT4:0:7})"
+          echo "::notice title=Stage 3, ACT4::Sail $sail, ACT4 $act4. ${decision^}."
           {
             echo "### Stage 3, ACT4 (level 3)"
             echo
             echo "| Component | Selected |"
             echo "| :--- | :--- |"
-            echo "| Sail (sail-riscv) | $SAIL |"
-            echo "| Sail version the image holds | $SAIL_VERSION |"
-            echo "| ACT4 (riscv-arch-test) | ${ACT4:-none} |"
+            echo "| Sail (sail-riscv), version and commit | $sail |"
+            echo "| ACT4 (riscv-arch-test), version and commit | $act4 |"
+            echo "| ACT4 commit | ${ACT4:-none} |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -793,6 +814,9 @@ jobs:
         sha-${{ github.sha }}
         ${{ needs.plan-act4.outputs.short }}
       check: |
+        expect() { if [ "$2" = "$3" ]; then echo "ok    $1 $3"; else echo "WRONG $1: expected $2, found $3"; exit 1; fi; }
+        expect act4     "${{ needs.plan-act4.outputs.act4 }}"           "$(head -n 1 /opt/riscv-foundation/act4/.tag)"
+        echo "act4 $(tail -n 1 /opt/riscv-foundation/act4/.tag)"
         ruby --version
         bundle --version
         sail_riscv_sim --version
@@ -853,6 +877,10 @@ jobs:
             echo "gtkwave=$gtkwave"
             echo "gtkwave_name=$(name_of https://github.com/gtkwave/gtkwave "$gtkwave")"
           } >> "$GITHUB_OUTPUT"
+          # the version the source declares, the one the image writes in its .tag; only reported
+          version=$(curl -fsSL "https://raw.githubusercontent.com/gtkwave/gtkwave/$gtkwave/gtkwave3-gtk3/configure.ac" 2>/dev/null \
+                    | sed -n 's/^AC_INIT(gtkwave-gtk3, *\([0-9.]*\),.*/\1/p' | head -n 1) || true
+          echo "version=${version:-unknown}" >> "$GITHUB_OUTPUT"
 
       - name: Name the combination
         id: plan
@@ -883,18 +911,20 @@ jobs:
           MISSING: ${{ steps.gtkwave.outputs.missing }}
           BUILD: ${{ steps.plan.outputs.build }}
           SHORT: ${{ steps.plan.outputs.short }}
-          GTKWAVE: ${{ steps.gtkwave.outputs.gtkwave_name }}
+          GTKWAVE_COMMIT: ${{ steps.gtkwave.outputs.gtkwave }}
+          GTKWAVE_VERSION: ${{ steps.gtkwave.outputs.version }}
         run: |
           if [ "$MISSING" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
-          echo "::notice title=Stage 4, dev tools::GTKWave $GTKWAVE. ${decision^}."
+          gtkwave="$GTKWAVE_VERSION (${GTKWAVE_COMMIT:0:7})"
+          echo "::notice title=Stage 4, dev tools::GTKWave $gtkwave. ${decision^}."
           {
             echo "### Stage 4, dev tools (level 4)"
             echo
             echo "| Component | Selected |"
             echo "| :--- | :--- |"
-            echo "| GTKWave | $GTKWAVE |"
+            echo "| GTKWave, version and commit | $gtkwave |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
           } >> "$GITHUB_STEP_SUMMARY"
