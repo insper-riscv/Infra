@@ -32,7 +32,7 @@ RUN mkdir /build \
  && /src/configure --prefix=/opt/riscv-foundation/spike \
  && make -j"$(nproc)" \
  && make install \
- && echo "${RISCV_ISA_SIM_COMMIT}-debug-start" > /opt/riscv-foundation/spike/.tag \
+ && { echo "${RISCV_ISA_SIM_COMMIT}-debug-start"; echo "$(git -C /src log -1 --format=%cs) ($(echo "${RISCV_ISA_SIM_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/spike/.tag \
  && rm -rf /build /src
 
 # Fail the build, before anything is published, if the debug module still

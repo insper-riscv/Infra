@@ -81,6 +81,9 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
       test -s "$(riscv32-unknown-elf-gcc $v --specs=picolibc.specs -print-file-name=libc.a)" || exit 1; \
     done; \
     grep -h "__PICOLIBC_VERSION__" /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h | head -n 1; \
+    ver="$(sed -n 's/.*__PICOLIBC_VERSION__ "\(.*\)".*/\1/p' /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h | head -n 1)"; \
+    n="$(riscv32-unknown-elf-gcc -print-multi-lib | wc -l)"; \
+    printf '%s (%.7s), %s variants\n' "$ver" "${PICOLIBC_COMMIT}" "$n" >> /out/opt/riscv-foundation/riscv32-elf/.picolibc.tag; \
     cd /; rm -rf "$d"
 
 

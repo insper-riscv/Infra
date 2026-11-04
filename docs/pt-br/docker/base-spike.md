@@ -7,7 +7,7 @@
 | Item | Detalhe |
 | :--- | :--- |
 | Spike | com o módulo de depuração movido do endereço `0x0` para `0x70000000`, para não sobrepor a memória do programa |
-| `/opt/riscv-foundation/spike/.tag` | o commit do `riscv-isa-sim` de que a instalação foi construída, com o sufixo `-debug-start` |
+| `/opt/riscv-foundation/spike/.tag` | duas linhas. A primeira é o commit do `riscv-isa-sim` de que a instalação foi construída, com o sufixo `-debug-start`, e a segunda é a data desse commit e o commit curto (`2026-11-03 (2ca5489)`) |
 
 ## 2. Publicação
 
