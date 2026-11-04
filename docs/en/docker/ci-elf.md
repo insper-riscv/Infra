@@ -25,7 +25,7 @@ The GCC, picolibc and Spike are already on the `PATH`. The executables of the RI
 
 The picolibc is the latest `base-picolibc`. The workflow assembles only when that picolibc image was compiled with the latest `base-gcc`; if a `GCC image` or a `Picolibc image` run is going, it waits.
 
-Before publishing, the workflow checks that the commits left in the image (the `.tag` files) are the pinned ones, that the GCC compiles with picolibc, that it has the five library variants, and that Spike does not place its debug module at address `0`.
+Before publishing, the workflow checks that the commits left in the image (the `.tag` files) are the pinned ones, that the GCC compiles with picolibc, that it has a libgcc and a libc for every library variant it lists, and that Spike does not place its debug module at address `0`.
 
 ## 3. Manual run
 
@@ -56,7 +56,7 @@ docker run --rm ci-elf riscv32-unknown-elf-gcc -print-multi-lib
 docker run --rm ci-elf spike --help
 ```
 
-The second command should print five lines, one for each variant.
+The second command prints one line for each library variant of [`base-gcc`](base-gcc.md).
 
 ---
 
