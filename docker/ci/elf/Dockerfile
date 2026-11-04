@@ -31,13 +31,17 @@ COPY --from=spike /opt/riscv-foundation/spike /opt/riscv-foundation/spike
 ENV PATH=/opt/riscv-foundation/riscv32-elf/bin:/opt/riscv-foundation/spike/bin:$PATH
 
 # Fail the build here, not in a user's CI: the GCC compiles with picolibc and has libgcc, it has the
-# five library variants, and Spike runs.
+# a libgcc and a libc for every library variant it lists, and Spike runs.
 RUN set -e; \
     echo "gcc       $(riscv32-unknown-elf-gcc --version | head -n 1) (riscv-gnu-toolchain $(cat /opt/riscv-foundation/riscv32-elf/.tag))"; \
     riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null; \
     test -s "$(riscv32-unknown-elf-gcc -print-libgcc-file-name)"; \
     echo "picolibc  $(sed -n 's/.*__PICOLIBC_VERSION__ "\(.*\)"/\1/p' /opt/riscv-foundation/riscv32-elf/riscv32-unknown-elf/include/picolibc.h) (commit $(cat /opt/riscv-foundation/riscv32-elf/.picolibc.tag))"; \
-    test "$(riscv32-unknown-elf-gcc -print-multi-lib | wc -l)" = 5; \
+    riscv32-unknown-elf-gcc -print-multi-lib | while read -r line; do \
+      v="$(printf '%s' "${line#*;}" | sed 's/@/ -/g')"; \
+      test -s "$(riscv32-unknown-elf-gcc $v -print-libgcc-file-name)" || exit 1; \
+      test -s "$(riscv32-unknown-elf-gcc $v --specs=picolibc.specs -print-file-name=libc.a)" || exit 1; \
+    done; \
     test -s /opt/riscv-foundation/spike/.tag; \
     echo "spike     $(spike --help 2>&1 | head -n 1) (commit $(sed 's/-debug-start$//' /opt/riscv-foundation/spike/.tag))"
 
