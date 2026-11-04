@@ -4,6 +4,10 @@
 # network:  bash .github/scripts/test-green-commit.sh
 set -euo pipefail
 
+# green-commit.sh writes a block to the summary of the run, and in a workflow that is the summary of
+# the job that runs this test: the canned scenarios would fill it with commits that do not exist.
+unset GITHUB_STEP_SUMMARY
+
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 script="$here/green-commit.sh"
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
