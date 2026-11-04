@@ -11,7 +11,7 @@
 | gems do ACT4 (as gems do UDB e suas dependências) | instaladas em `/opt/act-bundle` | as que o commit do rótulo `act4.commit` registra |
 | pacotes Python do ACT4 | no cache do `uv`, em `/opt/act-uv-cache` | os que esse commit registra |
 | programas auxiliares e a biblioteca Z3 que as gems do UDB baixam | em `/opt/act-cache` | os que as gems pedem |
-| `/opt/riscv-foundation/act4/.tag` | duas linhas. A primeira é o commit do ACT4, e a segunda é a versão que o framework dele declara em `framework/pyproject.toml` e o commit curto (`0.3.0 (1e712a7)`) | o commit do rótulo `act4.commit` |
+| `/opt/riscv-foundation/act4/.tag` | duas linhas. A primeira é o commit do ACT4, e a segunda é a release a que o commit pertence, o número de commits depois dela e o commit curto (`4.1.0+596 (1e712a7)`). A release é a primeira versão do `CHANGELOG.md` daquele commit, e o workflow passa a versão inteira ao build; um build sem ela grava só a release | o commit do rótulo `act4.commit` |
 
 Os três diretórios de cache podem ser escritos por qualquer usuário do contêiner.
 
