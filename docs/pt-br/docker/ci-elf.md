@@ -25,7 +25,7 @@ O GCC, a picolibc e o Spike já estão no `PATH`. Os executáveis do GCC RISC-V 
 
 A picolibc é a `base-picolibc` mais recente. O workflow só monta quando essa imagem de picolibc foi compilada com a `base-gcc` mais recente; se uma `GCC image` ou uma `Picolibc image` está em execução, ele espera.
 
-Antes de publicar, o workflow confere que os commits deixados na imagem (os arquivos `.tag`) são os fixados, que o GCC compila com a picolibc, que ele tem as cinco variantes de biblioteca e que o Spike não coloca o módulo de depuração no endereço `0`.
+Antes de publicar, o workflow confere que os commits deixados na imagem (os arquivos `.tag`) são os fixados, que o GCC compila com a picolibc, que ele tem uma libgcc e uma libc para cada variante de biblioteca que lista e que o Spike não coloca o módulo de depuração no endereço `0`.
 
 ## 3. Execução manual
 
@@ -56,7 +56,7 @@ docker run --rm ci-elf riscv32-unknown-elf-gcc -print-multi-lib
 docker run --rm ci-elf spike --help
 ```
 
-O segundo comando deve imprimir cinco linhas, uma para cada variante.
+O segundo comando imprime uma linha para cada variante de biblioteca da [`base-gcc`](base-gcc.md).
 
 ---
 
