@@ -188,7 +188,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/base-picolibc
       dockerfile: docker/base/picolibc/Dockerfile
       title: picolibc for the RISC-V GCC
-      description: picolibc, the C library of the RISC-V GCC (every combination of I or E, multiply none, Zmmul or M, F and D, with the ABIs each allows: 27 variants). Only the files it installs into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
+      description: picolibc, the C library of the RISC-V GCC (every combination of I or E, multiply none, Zmmul or M, F and D, with the ABIs each allows, 27 variants in all). Only the files it installs into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
       timeout-minutes: 120
       build-args: |
         GCC_IMAGE=${{ needs.pin.outputs.gcc_image }}
