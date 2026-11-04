@@ -10,7 +10,7 @@ Yosys and SymbiYosys (`sby`), built from source from the latest `v0.N` release o
 | `yosys-witness` | Converts and inspects the witness traces of a proof |
 | `yosys-config` | Prints the flags to build Yosys plug-ins |
 | `yosys-filterlib` | Filters Liberty cell libraries |
-| `sby` | SymbiYosys: runs Yosys and the solvers (`z3`, `boolector`) to prove properties of a block |
+| `sby` | SymbiYosys: runs Yosys and the solvers (`yices`, `bitwuzla`, `boolector`) to prove properties of a block |
 
 ## 1. Dependencies
 
@@ -20,7 +20,8 @@ The commands were run on Ubuntu 26.04.
 
 ```bash
 sudo apt-get install -y build-essential cmake git ca-certificates python3 pkg-config gawk \
-  bison flex libreadline-dev libffi-dev libfl-dev tcl-dev zlib1g-dev python3-click z3 boolector
+  bison flex libreadline-dev libffi-dev libfl-dev tcl-dev zlib1g-dev python3-click \
+  autoconf gperf libgmp-dev libmpfr-dev meson ninja-build curl wget m4
 ```
 
 ### 1.2. RHEL-like (`dnf`/`yum`)
@@ -36,11 +37,10 @@ sudo dnf config-manager --set-enabled crb
 
 On RHEL itself, `epel-release` is not in the base repositories: enable EPEL as described in its [documentation](https://docs.fedoraproject.org/en-US/epel/).
 
-`boolector` has no package in these repositories. The proof of this guide uses `z3`, and the `boolector` engine of `sby` only runs if `boolector` is installed by other means.
-
 ```bash
 sudo dnf install -y gcc gcc-c++ make cmake git ca-certificates python3 pkgconf-pkg-config \
-  gawk bison flex flex-devel readline-devel libffi-devel tcl-devel zlib-devel python3-click z3
+  gawk bison flex flex-devel readline-devel libffi-devel tcl-devel zlib-devel python3-click \
+  autoconf gperf gmp-devel mpfr-devel meson ninja-build curl wget m4
 ```
 
 ## 2. Build and install
@@ -76,12 +76,47 @@ cmake --install build --strip
 git clone --depth 1 --branch "$TAG" https://github.com/YosysHQ/sby "$BUILD_DIR/sby"
 make -C "$BUILD_DIR/sby" install PREFIX="$PREFIX" YOSYS_RELEASE_VERSION="SBY $TAG"
 
+# Yices, the latest 2.N.P release
+YICES_TAG=$(git ls-remote --tags --refs https://github.com/SRI-CSL/yices2 'Yices-2.*' | sed 's|.*refs/tags/||' \
+            | grep -E '^Yices-2\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+git clone --depth 1 --branch "$YICES_TAG" https://github.com/SRI-CSL/yices2 "$BUILD_DIR/yices2"
+cd "$BUILD_DIR/yices2"
+autoconf
+./configure --prefix="$PREFIX"
+make -j"$(nproc)"
+make install
+
+# Bitwuzla, the latest 0.N.P release
+BITWUZLA_TAG=$(git ls-remote --tags --refs https://github.com/bitwuzla/bitwuzla '0.*' | sed 's|.*refs/tags/||' \
+               | grep -E '^0\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+git clone --depth 1 --branch "$BITWUZLA_TAG" https://github.com/bitwuzla/bitwuzla "$BUILD_DIR/bitwuzla"
+cd "$BUILD_DIR/bitwuzla"
+python3 configure.py --prefix "$PREFIX"
+cd build
+ninja
+ninja install
+
+# Boolector, the latest 3.N.P release, with the btorsim of btor2tools
+BOOLECTOR_TAG=$(git ls-remote --tags --refs https://github.com/Boolector/boolector '3.*' | sed 's|.*refs/tags/||' \
+                | grep -E '^3\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+git clone --depth 1 --branch "$BOOLECTOR_TAG" https://github.com/Boolector/boolector "$BUILD_DIR/boolector"
+cd "$BUILD_DIR/boolector"
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+./contrib/setup-cadical.sh
+./contrib/setup-btor2tools.sh
+./configure.sh --prefix "$PREFIX"
+cd build
+make -j"$(nproc)"
+make install
+find "$BUILD_DIR/boolector/deps/btor2tools" -name btorsim -type f -exec install -m 0755 {} "$PREFIX/bin/btorsim" \;
+
 echo "$TAG" > "$PREFIX/.tag"
 ```
 
 - `-DYOSYS_WITHOUT_SLANG=ON` leaves out the SystemVerilog front end based on Slang, the largest part of the build; the properties are read with the built-in `read_verilog -formal -sv`.
 - `-DYOSYS_USE_BUNDLED_LIBS=ON` uses the libraries Yosys carries as submodules (`cxxopts`, `fmt`, `tomlplusplus`), and `abc` and `symfpu` are the other submodules a build without Slang needs.
 - `sby` is Python and installs next to Yosys; `python3-click` is the library it imports, and `YOSYS_RELEASE_VERSION` gives it the version string a clone without history cannot compute.
+- The solvers that `sby` runs (`yices-smt2`, `bitwuzla` and `boolector`, with `btormc` and `btorsim` for the `btor` engine) are built from the latest release of each series and installed in `$PREFIX`, next to Yosys; `sby` calls them through the `PATH`.
 - The build runs in `/var/tmp`, not in `/tmp`, which is often a tmpfs too small for the build tree, and the directory is deleted at the end.
 - `.tag` is written last: an interrupted build leaves the install without `.tag`, so the next run rebuilds instead of trusting an incomplete install, and a run at the version already installed does nothing.
 
@@ -103,7 +138,7 @@ cat > f.sby <<'EOF'
 mode prove
 depth 5
 [engines]
-smtbmc z3
+smtbmc yices
 [script]
 read_verilog -formal -sv f.sv
 prep -top t
