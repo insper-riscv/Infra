@@ -462,6 +462,7 @@ jobs:
       gcc: ${{ steps.pins.outputs.gcc }}
       picolibc: ${{ steps.pins.outputs.picolibc }}
       spike: ${{ steps.pins.outputs.spike }}
+      variants: ${{ steps.pins.outputs.variants }}
     steps:
       - uses: actions/checkout@v7.0.1
 
@@ -488,12 +489,16 @@ jobs:
           picolibc=$(label "$OWNER/base-picolibc:latest" picolibc.commit)
           picolibc_gcc=$(label "$OWNER/base-picolibc:latest" riscv-gnu-toolchain.commit)
           spike=$(label "$OWNER/base-spike:latest" riscv-isa-sim.commit)
-          if [ -z "$gcc" ] || [ -z "$picolibc" ] || [ "$picolibc_gcc" != "$gcc" ] || [ -z "$spike" ]; then
+          # the number of library variants of the GCC, and the one the picolibc was compiled for: they
+          # must be the same (both empty for images published before the number was recorded)
+          variants=$(label "$OWNER/base-gcc:latest" riscv-gnu-toolchain.variants)
+          picolibc_variants=$(label "$OWNER/base-picolibc:latest" riscv-gnu-toolchain.variants)
+          if [ -z "$gcc" ] || [ -z "$picolibc" ] || [ "$picolibc_gcc" != "$gcc" ] || [ "$picolibc_variants" != "$variants" ] || [ -z "$spike" ]; then
             if [ "$EVENT" = "workflow_dispatch" ]; then
               echo "::error::could not read the latest GCC, picolibc and Spike images, or the picolibc image was not compiled with the latest GCC; run the workflows of those images first"
               exit 1
             fi
-            echo "::notice::the GCC, picolibc and Spike images are not all published yet (or the picolibc image was not compiled with the latest GCC); their runs trigger this workflow when they finish."
+            echo "::notice::the GCC, picolibc and Spike images are not all published yet (or the picolibc image was not compiled with the latest GCC and its number of variants); their runs trigger this workflow when they finish."
             echo "missing=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -507,9 +512,9 @@ jobs:
             echo "spike_name=$(name_of https://github.com/riscv-software-src/riscv-isa-sim "$spike")"
             echo "gcc_date=$(commit_date https://github.com/riscv-collab/riscv-gnu-toolchain "$gcc")"
             echo "spike_date=$(commit_date https://github.com/riscv-software-src/riscv-isa-sim "$spike")"
-            # the library variants the recipe of the GCC defines, which the check of the ELF image
-            # then finds installed
-            echo "variants=$(bash scripts/gcc-multilib.sh --count)"
+            # the number of library variants the GCC image was built with, which the check of the
+            # ELF image then finds installed
+            echo "variants=$variants"
           } >> "$GITHUB_OUTPUT"
 
       - name: Name the combination
@@ -521,11 +526,15 @@ jobs:
           GCC_NAME: ${{ steps.pins.outputs.gcc_name }}
           PICOLIBC_NAME: ${{ steps.pins.outputs.picolibc_name }}
           SPIKE_NAME: ${{ steps.pins.outputs.spike_name }}
+          VARIANTS: ${{ steps.pins.outputs.variants }}
           FROM: ${{ needs.plan-vhdl.outputs.from }}
         run: |
           vhdl="${BUILT:-$(docker buildx imagetools inspect "$OWNER/ci-vhdl:$VHDL_SHORT" --format '{{.Manifest.Digest}}')}"
           [ -n "$vhdl" ] || { echo "::error::no ci-vhdl image for $VHDL_SHORT"; exit 1; }
           short="vhdl-$(printf '%s' "$vhdl" | sed 's/^sha256://' | cut -c1-12)-gcc-${GCC_NAME}-picolibc-${PICOLIBC_NAME}-spike-${SPIKE_NAME}"
+          # the number of library variants is part of the combination, so a GCC rebuilt with another
+          # number makes a new ELF image, and the levels above it follow
+          if [ -n "$VARIANTS" ]; then short="${short}-variants-${VARIANTS}"; fi
           {
             echo "vhdl=$vhdl"
             echo "short=$short"
@@ -553,7 +562,7 @@ jobs:
           else decision="the image of this combination is reused"; fi
           gcc="$GCC_DATE (${GCC_COMMIT:0:7})"
           spike="$SPIKE_DATE (${SPIKE_COMMIT:0:7})"
-          echo "::notice title=Stage 2, ELF::GCC $gcc, picolibc $PICOLIBC, Spike $spike, $VARIANTS library variants. ${decision^}."
+          echo "::notice title=Stage 2, ELF::GCC $gcc, picolibc $PICOLIBC, Spike $spike, ${VARIANTS:-unknown} library variants. ${decision^}."
           {
             echo "### Stage 2, ELF (level 2)"
             echo
@@ -562,7 +571,7 @@ jobs:
             echo "| RISC-V GCC (riscv-gnu-toolchain), date and commit | $gcc |"
             echo "| picolibc | $PICOLIBC |"
             echo "| Spike, date and commit | $spike |"
-            echo "| Library variants of the GCC | $VARIANTS |"
+            echo "| Library variants of the GCC and the picolibc | ${VARIANTS:-unknown} |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -597,12 +606,15 @@ jobs:
       check: |
         expect() { if [ "$2" = "$3" ]; then echo "ok    $1 $3"; else echo "WRONG $1: expected $2, found $3"; exit 1; fi; }
         expect gcc      "${{ needs.plan-elf.outputs.gcc }}"                  "$(head -n 1 /opt/riscv-foundation/riscv32-elf/.tag)"
-        expect picolibc "${{ needs.plan-elf.outputs.picolibc }}"             "$(cat /opt/riscv-foundation/riscv32-elf/.picolibc.tag)"
+        expect picolibc "${{ needs.plan-elf.outputs.picolibc }}"             "$(head -n 1 /opt/riscv-foundation/riscv32-elf/.picolibc.tag)"
         expect spike    "${{ needs.plan-elf.outputs.spike }}-debug-start"    "$(head -n 1 /opt/riscv-foundation/spike/.tag)"
         ghdl --version | head -n 1
         riscv32-unknown-elf-gcc --version | head -n 1
         riscv32-unknown-elf-gcc --specs=picolibc.specs -E -x c /dev/null -o /dev/null
         echo "library variants: $(riscv32-unknown-elf-gcc -print-multi-lib | wc -l)"
+        if [ -n "${{ needs.plan-elf.outputs.variants }}" ]; then
+          expect variants "${{ needs.plan-elf.outputs.variants }}" "$(riscv32-unknown-elf-gcc -print-multi-lib | wc -l)"
+        fi
         riscv32-unknown-elf-gcc -print-multi-lib | while read -r line; do
           v="$(printf '%s' "${line#*;}" | sed 's/@/ -/g')"
           test -s "$(riscv32-unknown-elf-gcc $v -print-libgcc-file-name)" || exit 1
