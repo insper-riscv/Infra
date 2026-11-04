@@ -116,9 +116,18 @@ Um run constrói **só se a imagem para aquela versão ainda não existir**; sem
 
 As regras que valem para as imagens montadas (`ci-*` e `dev_tools`), que o `CI images` aplica em cada nível:
 
-1. Ele lê os commits nos rótulos dos componentes que copia e, em cada nível, o digest da imagem do nível abaixo (a que acabou de ser construída no run, ou a publicada para a combinação).
-2. Se algum componente ainda não foi publicado, termina com um aviso, sem falhar, e roda quando eles terminarem. Um run manual sem eles falha, com uma mensagem que aponta os workflows a rodar antes.
-3. Se um workflow de que ela depende está na fila ou em execução, ela pula com um aviso, e o fim desse run a dispara de novo; o último a terminar faz a única montagem. Um run manual nunca adia.
+Cada nível tem um estágio antes dele, e o estágio diz o que escolheu numa anotação do run e no resumo dele.
+
+| Estágio | Nível | O que escolhe e informa |
+| :--- | :--- | :--- |
+| `plan-vhdl` | 1, `ci-vhdl` | as versões de uv, Python, cocotb, click e Tools e os commits de GHDL, Yosys, SymbiYosys, Yices, Bitwuzla e Boolector |
+| `plan-elf` | 2, `ci-elf` | os commits do GCC, da picolibc e do Spike, e o número de variantes de biblioteca do GCC |
+| `plan-act4` | 3, `ci-act4` | o commit do Sail e a versão dele, e o commit do ACT4 |
+| `plan-dev_tools` | 4, `dev_tools` | o commit do GTKWave |
+
+1. Cada estágio lê os commits nos rótulos dos componentes do seu nível e o digest da imagem do nível abaixo (a que acabou de ser construída no run, ou a publicada para a combinação). Com eles nomeia a combinação e decide se o nível é construído.
+2. Se um componente de um nível ainda não foi publicado, o estágio dele termina com um aviso, sem falhar, e esse nível e os de cima não rodam até os componentes terminarem. Um run manual sem eles falha, com uma mensagem que aponta os workflows a rodar antes.
+3. Se um workflow de que ela depende está na fila ou em execução, o `plan-vhdl` pula todos os estágios com um aviso, e o fim desse run a dispara de novo; o último a terminar faz a única montagem. Um run manual nunca adia.
 4. Cada nível publica só para uma combinação que ainda não existe. Um nível pulado por esse motivo não impede o seguinte, porque a imagem abaixo dele pode ter mudado; um nível que falha impede os de cima.
 
 **Mudar um `Dockerfile` ou um workflow não constrói nada.** Uma imagem é construída quando uma versão muda, não quando a receita muda, para que uma mudança de receita sem versão nova não reconstrua para nada imagens que levam até uma hora. Quando uma receita muda na `main`, o workflow `Recipe changed` lista as imagens afetadas, e a reconstrução é um run manual (`force` num componente, `from_level` no `CI images`).

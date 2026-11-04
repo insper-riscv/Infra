@@ -50,7 +50,7 @@ The image is rebuilt only when GHDL, Yosys, SymbiYosys, Yices, Bitwuzla, Boolect
 | Item | Value |
 | :--- | :--- |
 | Recipe | `docker/ci/vhdl/Dockerfile` |
-| Workflow | `CI images`, job `vhdl` |
+| Workflow | `CI images`, jobs `plan-vhdl` and `vhdl` |
 | Tags | `latest`, `sha-<Infra commit>`, `ghdl-<version>-yosys-<version>-sby-<version>-yices-<version>-bitwuzla-<version>-boolector-<version>-tools-<version>-uv-<version>` |
 | Labels | `ghdl.commit`, `yosys.commit`, `sby.commit`, `yices.commit`, `bitwuzla.commit`, `boolector.commit`, `tools.commit`, `uv.version`, `python.version`, `cocotb.version` and `click.version` |
 | Schedule | every day, 03:00 UTC, and when `GHDL image`, `Yosys image`, `Yices image`, `Bitwuzla image` or `Boolector image` finishes (the first level of `CI images`) |

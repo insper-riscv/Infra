@@ -116,9 +116,18 @@ A run builds **only if the image for that version does not exist yet**; when not
 
 The rules that hold for the assembled images (`ci-*` and `dev_tools`), which `CI images` applies at each level:
 
-1. It reads the commits in the labels of the components it copies, and, at each level, the digest of the image of the level below (the one just built in the run, or the one published for the combination).
-2. If any component is not published yet, it ends with a notice, without failing, and runs when they finish. A manual run without them fails, with a message that points at the workflows to run first.
-3. If a workflow it depends on is queued or going, it skips with a notice, and the end of that run triggers it again; the last one to finish does the single assembly. A manual run never defers.
+Each level has a stage before it, and the stage says what it selected in an annotation of the run and in its summary.
+
+| Stage | Level | What it selects and reports |
+| :--- | :--- | :--- |
+| `plan-vhdl` | 1, `ci-vhdl` | the versions of uv, Python, cocotb, click and Tools and the commits of GHDL, Yosys, SymbiYosys, Yices, Bitwuzla and Boolector |
+| `plan-elf` | 2, `ci-elf` | the commits of the GCC, picolibc and Spike, and the number of library variants of the GCC |
+| `plan-act4` | 3, `ci-act4` | the commit of Sail and its version, and the commit of ACT4 |
+| `plan-dev_tools` | 4, `dev_tools` | the commit of GTKWave |
+
+1. Each stage reads the commits in the labels of the components of its level and the digest of the image of the level below (the one just built in the run, or the one published for the combination). It names the combination with them and decides whether the level is built.
+2. If a component of a level is not published yet, its stage ends with a notice, without failing, and that level and the ones above it do not run until the components finish. A manual run without them fails, with a message that points at the workflows to run first.
+3. If a workflow it depends on is queued or going, `plan-vhdl` skips every stage with a notice, and the end of that run triggers it again; the last one to finish does the single assembly. A manual run never defers.
 4. Each level publishes only for a combination that does not exist yet. A level that is skipped for that reason does not stop the next one, because the image below it may have changed; a level that fails stops the ones above it.
 
 **A change of a `Dockerfile` or of a workflow builds nothing.** An image is built when a version changes, not when its recipe changes, so a recipe change that is not a new version does not rebuild, for nothing, images that take up to an hour. When a recipe changes on `main`, the `Recipe changed` workflow lists the affected images, and rebuilding is a manual run (`force` in a component, `from_level` in `CI images`).

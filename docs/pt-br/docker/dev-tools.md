@@ -55,7 +55,7 @@ Num daemon do Docker que remapeia user namespaces (`userns-remap`), o usuário d
 | Item | Valor |
 | :--- | :--- |
 | Receita | `docker/dev-tools/Dockerfile` |
-| Workflow | `CI images`, job `devtools` |
+| Workflow | `CI images`, jobs `plan-dev_tools` e `devtools` |
 | Tags | `latest`, `sha-<commit do Infra>` e `act4-<12 do digest da ci-act4>-gtkwave-<nome>` |
 | Rótulo | `gtkwave.commit` |
 | Agenda | no mesmo run da `ci-act4`, logo depois dela; um GTKWave novo entra no run das 03:00 UTC |

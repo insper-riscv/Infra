@@ -46,7 +46,7 @@ Com a configuração `config/sail/sail-rv32-max` do ACT4, trocando apenas os doi
 | Item | Valor |
 | :--- | :--- |
 | Receita | `docker/ci/act4/Dockerfile` |
-| Workflow | `CI images`, job `act4` |
+| Workflow | `CI images`, jobs `plan-act4` e `act4` |
 | Tags | `latest`, `sha-<commit do Infra>` e `elf-<12 do digest da ci-elf>-sail-<nome>-act4-<7 do commit do ACT4>` |
 | Rótulos | `act4.commit` e `sail-riscv.commit` |
 | Agenda | no mesmo run da `ci-elf`, logo depois dela: todo dia, 03:00 UTC, e quando `Sail image` termina |
