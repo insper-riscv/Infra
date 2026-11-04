@@ -114,6 +114,8 @@ Cada imagem base tem um workflow que roda todo dia (UTC), sem campo a preencher.
 
 Um run constrói **só se a imagem para aquela versão ainda não existir**; sem novidade, termina em segundos com um aviso.
 
+Os componentes que seguem um commit em vez de uma release (`GCC image`, `Spike image` e `Sail image`) escolhem o commit mais novo em que os workflows do upstream que eles exigem passaram. O resumo do run deles mostra, para o commit examinado, os workflows do upstream exigidos, os commits examinados com a data e o resultado de cada um (`green`, `failed`, `pending` ou `none`), e o commit escolhido. O `Spike image` exige o `continuous-integration.yml` (Continuous Integration) e o `debug-smoke.yml` (Debug Quick Test) do upstream.
+
 As regras que valem para as imagens montadas (`ci-*` e `dev_tools`), que o `CI images` aplica em cada nível:
 
 Cada nível tem um estágio antes dele, e o estágio diz o que escolheu numa anotação do run e no resumo dele.

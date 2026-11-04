@@ -114,6 +114,8 @@ Each base image has a workflow that runs every day (UTC) with no field to fill i
 
 A run builds **only if the image for that version does not exist yet**; when nothing changed it ends in seconds with a notice.
 
+The components that follow a commit instead of a release (`GCC image`, `Spike image` and `Sail image`) choose the newest commit on which the upstream workflows they require succeeded. The summary of their run shows, for the commit it looked at, the upstream workflows required, the commits examined with the date and the result of each (`green`, `failed`, `pending` or `none`), and the commit chosen. `Spike image` requires `continuous-integration.yml` (Continuous Integration) and `debug-smoke.yml` (Debug Quick Test) of the upstream.
+
 The rules that hold for the assembled images (`ci-*` and `dev_tools`), which `CI images` applies at each level:
 
 Each level has a stage before it, and the stage says what it selected in an annotation of the run and in its summary.
