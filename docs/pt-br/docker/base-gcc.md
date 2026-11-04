@@ -36,7 +36,7 @@ As 24 combinações de base, multiplicação e ponto flutuante são construídas
 
 O nome de uma variante acrescenta as letras `a` e `c` e o sufixo `_zba_zbb_zbs` ao nome da combinação de base, então `rv32im` gera `rv32im`, `rv32ima`, `rv32imc`, `rv32imac` e as quatro com `_zba_zbb_zbs`.
 
-Como o compilador escolhe entre as variantes está na seção 3 de [base-picolibc.md](base-picolibc.md). A `libgcc` é construída para cada variante. O compilador escreve a variante com F com `zicsr` no nome, porque o F exige o Zicsr, e a que tem Zmmul sem M como `_zmmul`; os nomes são normalizados pelo compilador, e `-print-multi-lib` os lista.
+Como o compilador escolhe entre as variantes está na seção 3 de [base-picolibc.md](base-picolibc.md). A `libgcc` é construída para cada variante. O compilador escreve os nomes das variantes de forma normalizada, que a seção 2.4 desse documento descreve, e `-print-multi-lib` os lista.
 
 O build instala o binutils e o primeiro compilador da configuração da picolibc, e depois constrói a libgcc com ele; o segundo estágio do `riscv-gnu-toolchain`, que refaria o compilador e a libgcc contra a picolibc, não é executado. O `cc1` liga com `libmpc3` e `libmpfr6`, instaladas na `ci-elf`. A imagem não tem biblioteca C nem libstdc++. A picolibc vem da `base-picolibc`, e programas C++ que precisem da biblioteca padrão estão fora de escopo. Os executáveis se chamam `riscv32-unknown-elf-*`, sem conflito com o `gcc` do host.
 
