@@ -8,6 +8,8 @@
 | :--- | :--- |
 | picolibc | the C library compiled by the GCC of the latest `base-gcc`, installed into the sysroot, once for each of the 192 variants of that GCC (section 2.1) |
 
+The file `/opt/riscv-foundation/riscv32-elf/.picolibc.tag` has two lines. The first is the picolibc commit, and the second is the version, the short commit and the number of library variants (`1.8.12 (2ae376c), 192 variants`).
+
 picolibc is compiled by a cross compiler, so the build uses the latest GCC image. The image carries the commit of that GCC in the label `riscv-gnu-toolchain.commit`, and a new GCC makes a new picolibc build.
 
 ## 2. Variants
@@ -144,10 +146,10 @@ riscv32-unknown-elf-gcc -print-multi-lib
 | Recipe | `docker/base/picolibc/Dockerfile` |
 | Workflow | `Picolibc image` |
 | Tags | `<picolibc commit>-<GCC commit>` and `latest` |
-| Labels | `picolibc.commit` and `riscv-gnu-toolchain.commit` |
+| Labels | `picolibc.commit`, `riscv-gnu-toolchain.commit` and `riscv-gnu-toolchain.variants` (the number of variants of that GCC) |
 | Schedule | every day, 03:10 UTC, and when `GCC image` finishes |
 
-The workflow follows series 1 (`SERIES`), so the scheduled run takes the latest `1.x.y` release tag. The scheduled run waits for a `GCC image` run that is going, and the end of that run triggers this workflow again with the new GCC.
+The workflow follows series 1 (`SERIES`), so the scheduled run takes the latest `1.x.y` release tag. The scheduled run waits for a `GCC image` run that is going, and the end of that run triggers this workflow again with the new GCC. The tag has the two commits only, so the run also compares the number of variants in the label of the image of that tag with the one of the GCC, and builds again when they differ.
 
 ## 5. Manual run
 

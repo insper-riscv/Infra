@@ -11,6 +11,7 @@ ARG BASE_IMAGE=ubuntu:26.04
 
 FROM ${BASE_IMAGE} AS build
 ARG YICES_COMMIT
+ARG YICES_VERSION=
 
 RUN test -n "${YICES_COMMIT}" \
  || { echo "pass --build-arg YICES_COMMIT=<commit>"; exit 1; }
@@ -35,7 +36,7 @@ RUN cd /src \
  && make install \
  && find /opt/yices -mindepth 1 -maxdepth 1 ! -name bin -exec rm -rf {} + \
  && strip /opt/yices/bin/* \
- && echo "${YICES_COMMIT}" > /opt/yices/.tag \
+ && { echo "${YICES_COMMIT}"; echo "${YICES_VERSION:-unknown} ($(echo "${YICES_COMMIT}" | cut -c1-7))"; } > /opt/yices/.tag \
  && rm -rf /src
 
 # Fail the build, before anything is published, if the executable does not run or does not solve:

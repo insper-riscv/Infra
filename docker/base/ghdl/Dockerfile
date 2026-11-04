@@ -12,6 +12,7 @@ ARG BASE_IMAGE=ubuntu:26.04
 
 FROM ${BASE_IMAGE} AS build
 ARG GHDL_COMMIT
+ARG GHDL_VERSION=
 
 RUN test -n "${GHDL_COMMIT}" \
  || { echo "pass --build-arg GHDL_COMMIT=<commit>"; exit 1; }
@@ -31,7 +32,7 @@ RUN mkdir /build \
  && /src/configure --with-llvm-config --prefix=/opt/ghdl \
  && make -j"$(nproc)" \
  && make install \
- && echo "${GHDL_COMMIT}" > /opt/ghdl/.tag \
+ && { echo "${GHDL_COMMIT}"; echo "${GHDL_VERSION:-unknown} ($(echo "${GHDL_COMMIT}" | cut -c1-7))"; } > /opt/ghdl/.tag \
  && rm -rf /build /src
 
 # Fail the build, before anything is published, if GHDL cannot analyze, elaborate and run a

@@ -17,6 +17,7 @@ FROM ${SAIL_IMAGE} AS sail
 
 FROM ${ELF_IMAGE}
 ARG ACT4_COMMIT
+ARG ACT4_VERSION=
 # The Bundler version the Gemfile.lock of ACT4 records ("BUNDLED WITH").
 ARG BUNDLER_VERSION=4.0.23
 
@@ -48,11 +49,14 @@ RUN git init /tmp/act4 \
  && git -C /tmp/act4 checkout FETCH_HEAD \
  && cd /tmp/act4/framework/src/act/data && bundle install --jobs 4 \
  && cd /tmp/act4 && uv sync --frozen --all-packages \
+ && mkdir -p /opt/riscv-foundation/act4 \
+ && { echo "${ACT4_COMMIT}"; echo "${ACT4_VERSION:-$(sed -n 's/^## \[\([0-9][0-9.]*\)\].*/\1/p' /tmp/act4/CHANGELOG.md | head -n 1)} ($(echo "${ACT4_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/act4/.tag \
  && rm -rf /tmp/act4 \
  && chmod -R a+rwX /opt/act-bundle /opt/act-uv-cache /opt/act-cache
 
 # Fail the build if a tool of the environment does not answer or lacks a library.
-RUN ruby --version && bundle --version && sail_riscv_sim --version \
+RUN echo "act4      $(tail -n 1 /opt/riscv-foundation/act4/.tag)" \
+ && ruby --version && bundle --version && sail_riscv_sim --version \
  && ! ldd /opt/riscv-foundation/sail/bin/sail_riscv_sim | grep "not found"
 
 LABEL act4.commit="${ACT4_COMMIT}"

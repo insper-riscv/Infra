@@ -9,7 +9,7 @@
 | Boolector | construído a partir do código-fonte, com o SAT solver CaDiCaL; só os executáveis, sem cabeçalhos nem bibliotecas |
 | `boolector` e `btormc` | o solver e o verificador de modelos, ambos estáticos |
 | `btorsim` | o simulador de BTOR2 que o `sby` chama para reproduzir um contraexemplo do engine `btor` |
-| `/opt/boolector/.tag` | o commit de que a instalação foi construída |
+| `/opt/boolector/.tag` | duas linhas. A primeira é o commit de que a instalação foi construída, e a segunda é a versão da release cuja tag aponta para ele e o commit curto (`3.2.4 (...)`) |
 
 O Boolector é construído aqui porque o pacote do Ubuntu é o Boolector 1.5, que não roda no modo SMT-LIB incremental (`--smt2 -i`) que o `yosys-smtbmc` usa. O `btorsim` liga dinamicamente com a `libstdc++` e a `libgcc_s` do sistema, então quem copia o diretório as instala.
 

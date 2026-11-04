@@ -9,7 +9,7 @@
 | binutils | o assembler, o linker e o arquivador para o alvo `riscv32-unknown-elf` |
 | GCC RISC-V | alvo `riscv32-unknown-elf`, front ends C e C++, com as variantes de biblioteca da seção 1.1 |
 | libgcc | a biblioteca de apoio do compilador, construída com esse compilador |
-| `/opt/riscv-foundation/riscv32-elf/.tag` | o commit do `riscv-gnu-toolchain` de que a instalação foi construída |
+| `/opt/riscv-foundation/riscv32-elf/.tag` | duas linhas. A primeira é o commit do `riscv-gnu-toolchain` de que a instalação foi construída, e a segunda é a data desse commit, o commit curto e o número de variantes de biblioteca (`2026-10-28 (317ee3d), 192 variants`) |
 
 ### 1.1. Variantes
 
@@ -47,10 +47,10 @@ O build instala o binutils e o primeiro compilador da configuração da picolibc
 | Receita | `docker/base/gcc/Dockerfile` |
 | Workflow | `GCC image` |
 | Tags | `<commit do GCC>` e `latest` |
-| Rótulo | `riscv-gnu-toolchain.commit` |
+| Rótulos | `riscv-gnu-toolchain.commit` e `riscv-gnu-toolchain.variants` (o número de variantes de biblioteca) |
 | Agenda | todo dia, 03:00 UTC |
 
-O GCC não tem release a seguir, então o run agendado usa o commit mais recente da branch `master` do `riscv-gnu-toolchain` em que o workflow `Build` dele passou, e constrói só se a imagem para esse commit não existe. O `Build` do upstream leva horas, então esse commit costuma estar cerca de um dia atrás da ponta, e um commit ainda em execução é pulado, não esperado. Um commit cujo `Build` falhou ou foi cancelado também é pulado.
+O GCC não tem release a seguir, então o run agendado usa o commit mais recente da branch `master` do `riscv-gnu-toolchain` em que o workflow `Build` dele passou, e constrói só se a imagem para esse commit não existe. O `Build` do upstream leva horas, então esse commit costuma estar cerca de um dia atrás da ponta, e um commit ainda em execução é pulado, não esperado. Um commit cujo `Build` falhou ou foi cancelado também é pulado. O número de variantes de biblioteca fica num rótulo porque o commit sozinho não o diz: um run com `force` que reconstrua o mesmo commit com outro número de variantes faz o `Picolibc image` e o `CI images` construírem de novo, como o `README.md` descreve.
 
 ## 3. Execução manual
 

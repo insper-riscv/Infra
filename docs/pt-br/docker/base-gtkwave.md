@@ -7,6 +7,7 @@
 | Item | Detalhe |
 | :--- | :--- |
 | GTKWave | a ponta da branch `lts` (linha de manutenção 3.3, árvore GTK 3), que roda nativamente no Wayland e no X11 |
+| `/opt/gtkwave/.tag` | duas linhas. A primeira é o commit do GTKWave, e a segunda é a versão que esse commit declara em `configure.ac` e o commit curto (`3.3.129 (73c1d6b)`) |
 
 O GTKWave liga com o GTK 3, e a `dev_tools` instala as bibliotecas necessárias.
 

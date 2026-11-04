@@ -18,7 +18,7 @@ O GCC, a picolibc e o Spike já estão no `PATH`. Os executáveis do GCC RISC-V 
 | Item | Valor |
 | :--- | :--- |
 | Receita | `docker/ci/elf/Dockerfile` |
-| Workflow | `CI images`, job `elf` |
+| Workflow | `CI images`, jobs `plan-elf` e `elf` |
 | Tags | `latest`, `sha-<commit do Infra>` e `vhdl-<12 do digest>-gcc-<nome>-picolibc-<nome>-spike-<nome>` |
 | Rótulos | `riscv-gnu-toolchain.commit`, `picolibc.commit` e `riscv-isa-sim.commit` |
 | Agenda | no mesmo run da `ci-vhdl`, logo depois dela: todo dia, 03:00 UTC, e quando `GCC image`, `Picolibc image` ou `Spike image` termina |

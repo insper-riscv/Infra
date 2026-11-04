@@ -53,7 +53,7 @@ RUN multilib="${MULTILIB:-$(bash /usr/local/bin/gcc-multilib.sh)}" \
  && make install-gcc \
  && make -j"$(nproc)" all-target-libgcc \
  && make install-target-libgcc \
- && echo "${RISCV_GNU_TOOLCHAIN_COMMIT}" > $prefix/.tag \
+ && { echo "${RISCV_GNU_TOOLCHAIN_COMMIT}"; echo "$(git -C /src log -1 --format=%cs) ($(echo "${RISCV_GNU_TOOLCHAIN_COMMIT}" | cut -c1-7)), $(echo "${multilib}" | tr ';' '\n' | wc -l) variants"; } > $prefix/.tag \
  && find $prefix/bin $prefix/libexec $prefix/riscv32-unknown-elf/bin -type f -perm /111 \
       -exec sh -c 'for f; do [ "$(head -c 4 "$f" | tail -c 3)" = ELF ] && strip --strip-unneeded "$f"; done; true' sh {} + \
  && rm -rf /build /src
@@ -63,6 +63,7 @@ RUN multilib="${MULTILIB:-$(bash /usr/local/bin/gcc-multilib.sh)}" \
 RUN export PATH="/opt/riscv-foundation/riscv32-elf/bin:${PATH}" \
  && riscv32-unknown-elf-gcc --version \
  && riscv32-unknown-elf-gcc -print-multi-lib \
+ && test "$(riscv32-unknown-elf-gcc -print-multi-lib | wc -l)" = "$(tail -n 1 /opt/riscv-foundation/riscv32-elf/.tag | sed 's/.*, \([0-9][0-9]*\) variants$/\1/')" \
  && riscv32-unknown-elf-gcc -print-multi-lib | while read -r line; do \
       v="$(printf '%s' "${line#*;}" | sed 's/@/ -/g')"; \
       test -s "$(riscv32-unknown-elf-gcc $v -print-libgcc-file-name)" || exit 1; \

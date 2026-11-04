@@ -57,6 +57,7 @@ jobs:
     outputs:
       commit: ${{ steps.pin.outputs.commit }}
       build: ${{ steps.pin.outputs.build }}
+      variants: ${{ steps.pin.outputs.variants }}
 
     steps:
       - name: Authorize manual run
@@ -109,6 +110,9 @@ jobs:
             exit 1
           fi
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          # the number of library variants the recipe builds: it goes in a label of the image, which
+          # the picolibc and the CI images workflows compare, so a change of it reaches them
+          echo "variants=$(bash scripts/gcc-multilib.sh --count)" >> "$GITHUB_OUTPUT"
 
           if [ "$INPUT_FORCE" != "true" ] && docker buildx imagetools inspect "$IMAGE:$commit" > /dev/null 2>&1; then
             echo "::notice::$IMAGE:$commit already exists; nothing to build (run again with force to rebuild)."
@@ -137,6 +141,7 @@ jobs:
         RISCV_GNU_TOOLCHAIN_COMMIT=${{ needs.pin.outputs.commit }}
       labels: |
         riscv-gnu-toolchain.commit=${{ needs.pin.outputs.commit }}
+        riscv-gnu-toolchain.variants=${{ needs.pin.outputs.variants }}
       tags: |
         ${{ needs.pin.outputs.commit }}
         latest

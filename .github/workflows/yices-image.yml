@@ -50,6 +50,7 @@ jobs:
       packages: read
     outputs:
       commit: ${{ steps.pin.outputs.commit }}
+      version: ${{ steps.pin.outputs.version }}
       build: ${{ steps.pin.outputs.build }}
 
     steps:
@@ -114,6 +115,10 @@ jobs:
             exit 1
           fi
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          # the version of the release whose tag points at the commit (empty for a commit that is not a release),
+          # which the image writes in its .tag
+          . .github/scripts/name-of.sh
+          echo "version=$(version_of "$UPSTREAM" "$commit")" >> "$GITHUB_OUTPUT"
 
           if [ "$force" != "true" ] && docker buildx imagetools inspect "$IMAGE:$commit" > /dev/null 2>&1; then
             echo "::notice::$IMAGE:$commit already exists; nothing to build (run again with force to rebuild)."
@@ -140,8 +145,10 @@ jobs:
       timeout-minutes: 60
       build-args: |
         YICES_COMMIT=${{ needs.pin.outputs.commit }}
+        YICES_VERSION=${{ needs.pin.outputs.version }}
       labels: |
         yices.commit=${{ needs.pin.outputs.commit }}
+        yices.version=${{ needs.pin.outputs.version }}
       tags: |
         ${{ needs.pin.outputs.commit }}
         latest

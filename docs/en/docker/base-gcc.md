@@ -9,7 +9,7 @@
 | binutils | the assembler, linker and archiver for the `riscv32-unknown-elf` target |
 | RISC-V GCC | `riscv32-unknown-elf` target, C and C++ front ends, with the library variants of section 1.1 |
 | libgcc | the compiler's support library, built with that compiler |
-| `/opt/riscv-foundation/riscv32-elf/.tag` | the `riscv-gnu-toolchain` commit the install was built from |
+| `/opt/riscv-foundation/riscv32-elf/.tag` | two lines. The first is the `riscv-gnu-toolchain` commit the install was built from, and the second is the date of that commit, its short commit and the number of library variants (`2026-10-28 (317ee3d), 192 variants`) |
 
 ### 1.1. Variants
 
@@ -47,10 +47,10 @@ The build installs binutils and the first compiler of the picolibc configuration
 | Recipe | `docker/base/gcc/Dockerfile` |
 | Workflow | `GCC image` |
 | Tags | `<GCC commit>` and `latest` |
-| Label | `riscv-gnu-toolchain.commit` |
+| Labels | `riscv-gnu-toolchain.commit` and `riscv-gnu-toolchain.variants` (the number of library variants) |
 | Schedule | every day, 03:00 UTC |
 
-The GCC has no release to follow, so the scheduled run takes the latest commit of the `master` branch of `riscv-gnu-toolchain` on which its `Build` workflow succeeded, and builds only if the image for that commit does not exist. The upstream `Build` takes hours, so that commit is usually about a day behind the head, and a commit still running is skipped, not waited for. A commit whose `Build` failed or was cancelled is skipped too. The image depends on no other image.
+The GCC has no release to follow, so the scheduled run takes the latest commit of the `master` branch of `riscv-gnu-toolchain` on which its `Build` workflow succeeded, and builds only if the image for that commit does not exist. The upstream `Build` takes hours, so that commit is usually about a day behind the head, and a commit still running is skipped, not waited for. A commit whose `Build` failed or was cancelled is skipped too. The image depends on no other image. The number of library variants is in a label because the commit alone does not say it: a run with `force` that rebuilds the same commit with another number of variants makes `Picolibc image` and `CI images` build again, as `README.md` describes.
 
 ## 3. Manual run
 

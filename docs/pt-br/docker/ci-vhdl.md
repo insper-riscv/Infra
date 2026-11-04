@@ -19,7 +19,7 @@
 | cocotb | 2.1.0, instalado nesse Python | `/opt/uv/python` |
 | `click` | 8.5.0, a biblioteca Python que o `sby` importa, instalada pelo `uv` | `/opt/uv/python` |
 | Ferramentas de análise estática | `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone` e `semgrep`, as que o job `python-static-analysis` do workflow `ci` do Tools roda, com versões fixas em `docker/ci/vhdl/static-analysis.txt` | `/opt/static-analysis`, executáveis em `/usr/local/bin` |
-| `riscv-tools` | a CLI do repositório Tools, instalada pelo `uv tool` a partir do commit que o workflow escolhe (`TOOLS_COMMIT`) | `/opt/riscv-tools`, executável em `/usr/local/bin` |
+| `riscv-tools` | a CLI do repositório Tools, instalada pelo `uv tool` a partir do commit que o workflow escolhe (`TOOLS_COMMIT`); o `.tag` dela tem duas linhas, o commit e depois a versão da release cuja tag aponta para ele com o commit curto (`1.6.0 (...)`) | `/opt/riscv-tools`, executável em `/usr/local/bin` |
 
 O `gcc` e o `g++` do host também estão na imagem. O backend LLVM liga com o `gcc` o executável que elabora, e o cocotb é compilado com o `g++` no `arm64`, onde não tem wheel para Linux; o `uv sync` de cada projeto o compila lá também. A imagem não tem `pip`; um projeto instala o restante das suas dependências com `uv sync`, que encontra este Python em vez de baixar outro.
 
@@ -50,7 +50,7 @@ A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o B
 | Item | Valor |
 | :--- | :--- |
 | Receita | `docker/ci/vhdl/Dockerfile` |
-| Workflow | `CI images`, job `vhdl` |
+| Workflow | `CI images`, jobs `plan-vhdl` e `vhdl` |
 | Tags | `latest`, `sha-<commit do Infra>`, `ghdl-<versão>-yosys-<versão>-sby-<versão>-yices-<versão>-bitwuzla-<versão>-boolector-<versão>-tools-<versão>-uv-<versão>` |
 | Rótulos | `ghdl.commit`, `yosys.commit`, `sby.commit`, `yices.commit`, `bitwuzla.commit`, `boolector.commit`, `tools.commit`, `uv.version`, `python.version`, `cocotb.version` e `click.version` |
 | Agenda | todo dia, 03:00 UTC, e quando `GHDL image`, `Yosys image`, `Yices image`, `Bitwuzla image` ou `Boolector image` termina (o primeiro nível do `CI images`) |

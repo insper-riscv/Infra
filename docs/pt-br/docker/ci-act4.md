@@ -11,6 +11,7 @@
 | gems do ACT4 (as gems do UDB e suas dependências) | instaladas em `/opt/act-bundle` | as que o commit do rótulo `act4.commit` registra |
 | pacotes Python do ACT4 | no cache do `uv`, em `/opt/act-uv-cache` | os que esse commit registra |
 | programas auxiliares e a biblioteca Z3 que as gems do UDB baixam | em `/opt/act-cache` | os que as gems pedem |
+| `/opt/riscv-foundation/act4/.tag` | duas linhas. A primeira é o commit do ACT4, e a segunda é a release a que o commit pertence, o número de commits depois dela e o commit curto (`4.1.0+596 (1e712a7)`). A release é a primeira versão do `CHANGELOG.md` daquele commit, e o workflow passa a versão inteira ao build; um build sem ela grava só a release | o commit do rótulo `act4.commit` |
 
 Os três diretórios de cache podem ser escritos por qualquer usuário do contêiner.
 
@@ -46,7 +47,7 @@ Com a configuração `config/sail/sail-rv32-max` do ACT4, trocando apenas os doi
 | Item | Valor |
 | :--- | :--- |
 | Receita | `docker/ci/act4/Dockerfile` |
-| Workflow | `CI images`, job `act4` |
+| Workflow | `CI images`, jobs `plan-act4` e `act4` |
 | Tags | `latest`, `sha-<commit do Infra>` e `elf-<12 do digest da ci-elf>-sail-<nome>-act4-<7 do commit do ACT4>` |
 | Rótulos | `act4.commit` e `sail-riscv.commit` |
 | Agenda | no mesmo run da `ci-elf`, logo depois dela: todo dia, 03:00 UTC, e quando `Sail image` termina |
