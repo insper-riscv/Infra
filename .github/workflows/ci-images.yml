@@ -643,6 +643,7 @@ jobs:
       short: ${{ steps.plan.outputs.short }}
       sail: ${{ steps.sail.outputs.sail }}
       act4: ${{ steps.act4.outputs.commit }}
+      version: ${{ steps.act4version.outputs.version }}
     steps:
       - uses: actions/checkout@v7.0.1
 
@@ -738,16 +739,26 @@ jobs:
           exit 1
 
       - name: Read the version of ACT4
-        # The version the framework of that commit declares, the one the image writes in its .tag.
-        # Only reported, so a commit whose layout changed shows "unknown" and does not stop the run.
+        # The release the commit is on top of and how many commits it has after it, in the form of
+        # git describe (4.1.0+596). The release is the first version of the CHANGELOG of that commit,
+        # and its tag has the same name. The image writes this in its .tag. Only reported, so a
+        # commit whose layout changed shows "unknown" and does not stop the run.
         id: act4version
         if: steps.sail.outputs.missing != 'true'
         env:
           ACT4: ${{ steps.act4.outputs.commit }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(curl -fsSL "https://raw.githubusercontent.com/$ACT4_REPO/$ACT4/framework/pyproject.toml" 2>/dev/null \
-                    | sed -n 's/^version *= *"\(.*\)"/\1/p' | head -n 1) || true
-          echo "version=${version:-unknown}" >> "$GITHUB_OUTPUT"
+          release=$(curl -fsSL "https://raw.githubusercontent.com/$ACT4_REPO/$ACT4/CHANGELOG.md" 2>/dev/null \
+                    | sed -n 's/^## \[\([0-9][0-9.]*\)\].*/\1/p' | head -n 1) || true
+          ahead=""
+          if [ -n "$release" ]; then
+            ahead=$(gh api "repos/$ACT4_REPO/compare/$release...$ACT4" --jq .ahead_by 2>/dev/null) || true
+          fi
+          if [ -z "$release" ]; then version="unknown";
+          elif [ -n "$ahead" ] && [ "$ahead" -gt 0 ]; then version="$release+$ahead";
+          else version="$release"; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Name the combination
         id: plan
@@ -794,7 +805,7 @@ jobs:
             echo "| Component | Selected |"
             echo "| :--- | :--- |"
             echo "| Sail (sail-riscv), version and commit | $sail |"
-            echo "| ACT4 (riscv-arch-test), version and commit | $act4 |"
+            echo "| ACT4 (riscv-arch-test), release plus commits after it, and commit | $act4 |"
             echo "| ACT4 commit | ${ACT4:-none} |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
@@ -818,8 +829,10 @@ jobs:
         ELF_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-elf@${{ needs.plan-act4.outputs.elf }}
         SAIL_IMAGE=ghcr.io/${{ github.repository_owner }}/base-sail:${{ needs.plan-act4.outputs.sail }}
         ACT4_COMMIT=${{ needs.plan-act4.outputs.act4 }}
+        ACT4_VERSION=${{ needs.plan-act4.outputs.version }}
       labels: |
         act4.commit=${{ needs.plan-act4.outputs.act4 }}
+        act4.version=${{ needs.plan-act4.outputs.version }}
         sail-riscv.commit=${{ needs.plan-act4.outputs.sail }}
       tags: |
         latest
