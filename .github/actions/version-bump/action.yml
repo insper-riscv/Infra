@@ -1,0 +1,32 @@
+name: Version bump
+description: >
+  Fails a pull request that changes the repository without raising the version in pyproject.toml (and the
+  same version in uv.lock) above the one on the base branch. A pull request that changes only submodule
+  pointers, documentation or CI files is exempt.
+
+inputs:
+  base:
+    description: Git ref of the base branch to compare with (already fetched)
+    required: false
+    default: origin/main
+  exempt:
+    description: Globs (one per line) of the paths that do not ask for a bump, besides the submodule pointers
+    required: false
+    default: |
+      docs/**
+      **/*.md
+      LICENSE
+      AUTHORS*
+      CITATION.cff
+      codeclone.baseline.json
+      ci-images.lock
+      .github/**
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        BASE: ${{ inputs.base }}
+        EXEMPT: ${{ inputs.exempt }}
+      run: python3 -I "$GITHUB_ACTION_PATH/check_version_bump.py" --base "$BASE" --exempt "$EXEMPT"

@@ -1,0 +1,84 @@
+name: Tools watch
+
+# Rebuilds the CI images soon after a new release of insper-riscv/Tools, so that the pull requests that
+# need the new Tools do not wait for the nightly run of CI images. Every 20 minutes it compares the latest
+# stable release (vX.Y.Z) of Tools with the tools.commit label of ci-vhdl:latest and, when they differ,
+# dispatches CI images (from the VHDL level, which is where Tools is installed) with the GITHUB_TOKEN of
+# this repository. CI images accepts that dispatch without the confirmation secret (see its step
+# "Authorize manual run"). It does nothing while an image run is queued or running, nor for three hours
+# after a failed run (the nightly run tries again), so a release that does not build is not retried forever.
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: tools-watch
+  cancel-in-progress: false
+
+env:
+  OWNER: ghcr.io/${{ github.repository_owner }}
+  TOOLS_REPO: insper-riscv/Tools
+  # seconds without a new attempt after a failed run of CI images
+  BACKOFF: "10800"
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    name: watch
+    # a scheduled run only makes sense on the default branch of the repository itself
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+      packages: read
+
+    steps:
+      - name: Compare the latest release of Tools with the published image
+        id: compare
+        run: |
+          upstream="https://github.com/$TOOLS_REPO"
+          tag=$(git ls-remote --tags --refs "$upstream" 'v*' | sed 's|.*refs/tags/||' \
+                | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+          [ -n "$tag" ] || { echo "::error::no release tag (vX.Y.Z) in $upstream"; exit 1; }
+          commit=$(git ls-remote "$upstream" "refs/tags/$tag" "refs/tags/$tag^{}" | tail -n 1 | cut -f1)
+          printf '%s' "$commit" | grep -Eq '^[0-9a-f]{40}$' || { echo "::error::could not resolve $tag: '$commit'"; exit 1; }
+          published=$(docker buildx imagetools inspect "$OWNER/ci-vhdl:latest" --format '{{json .Image}}' 2>/dev/null \
+                | jq -r '."linux/amd64".config.Labels["tools.commit"] // empty' 2>/dev/null || true)
+          echo "release $tag ($commit); image has ${published:-nothing}"
+          if [ -z "$published" ]; then
+            echo "::warning::could not read tools.commit from $OWNER/ci-vhdl:latest; leaving it to the nightly run"
+            echo "dispatch=false" >> "$GITHUB_OUTPUT"
+          elif [ "$published" = "$commit" ]; then
+            echo "dispatch=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+            echo "dispatch=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch CI images
+        if: ${{ steps.compare.outputs.dispatch == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.compare.outputs.tag }}
+        run: |
+          busy=0
+          for status in queued in_progress; do
+            busy=$((busy + $(gh run list --workflow ci-images.yml --status "$status" --json databaseId --jq length)))
+          done
+          if [ "$busy" -gt 0 ]; then
+            echo "::notice::CI images is already running or queued; $TAG is picked up by it or by the next watch."
+            exit 0
+          fi
+          failed=$(gh run list --workflow ci-images.yml --limit 20 --json conclusion,createdAt \
+            --jq "[.[] | select(.conclusion == \"failure\" and ((.createdAt | fromdateiso8601) > (now - $BACKOFF)))] | length")
+          if [ "$failed" -gt 0 ]; then
+            echo "::warning::a run of CI images failed in the last $((BACKOFF / 3600)) hours; not trying $TAG again before that."
+            exit 0
+          fi
+          gh workflow run ci-images.yml --ref main -f confirm=tools-watch -f from_level=vhdl
+          echo "::notice::Dispatched CI images for Tools $TAG."

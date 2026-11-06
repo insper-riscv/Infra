@@ -1,0 +1,98 @@
+name: Pin CI images
+
+# After CI images publishes, writes the digests of ci-vhdl, ci-elf, ci-act4 and dev_tools in the file
+# ci-images.lock of each repository that already has one, by a pull request of the GitHub App (branch
+# bot/pin-ci-images; an open pull request of that branch is updated, not duplicated). The CI of every
+# repository reads the digests from that file and never uses `:latest`. A pull request of the App
+# triggers the CI of the repository, unlike one made with the GITHUB_TOKEN, so the check runs by itself
+# and the change is mergeable once reviewed.
+#
+# Needs the repository variable PIN_APP_CLIENT_ID and the secret PIN_APP_PRIVATE_KEY of a GitHub App
+# installed in the organization with Contents and Pull requests write on these repositories (not
+# Workflows: the lock is not under .github). Without the variable the job is skipped.
+on:
+  workflow_run:
+    workflows: ["CI images"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: pin-ci-images
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  ORG: insper-riscv
+  REPOS: Common-Components Core Memory Peripherals Insper-RISC-V Tools Tests Certification Infra
+  IMAGES: ci-vhdl ci-elf ci-act4 dev_tools
+  BRANCH: bot/pin-ci-images
+  LOCK: ci-images.lock
+
+jobs:
+  pin:
+    name: pin
+    if: ${{ vars.PIN_APP_CLIENT_ID != '' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/create-github-app-token@v3.3.0
+        id: app
+        with:
+          client-id: ${{ vars.PIN_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PIN_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Resolve the digests
+        id: digests
+        run: |
+          {
+            echo "# Digests of the CI images of insper-riscv/Infra. Do not edit by hand: the pull request of"
+            echo "# the workflow Pin CI images (insper-riscv/Infra) rewrites this file when the images change."
+            for image in $IMAGES; do
+              digest=$(docker buildx imagetools inspect "ghcr.io/$ORG/$image:latest" | awk '/^Digest:/ {print $2; exit}')
+              printf '%s' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$' || { echo "::error::no digest for $image: '$digest'" >&2; exit 1; }
+              echo "$image=$digest"
+            done
+          } > "$RUNNER_TEMP/lock"
+          cat "$RUNNER_TEMP/lock"
+
+      - name: Open or update the pull request of each repository
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          new=$(base64 -w0 < "$RUNNER_TEMP/lock")
+          status=0
+          for repo in $REPOS; do
+            r="$ORG/$repo"
+            cur=$(gh api "repos/$r/contents/$LOCK?ref=main" 2>/dev/null || true)
+            if [ -z "$cur" ]; then echo "::notice::$repo has no $LOCK on main: not adopted yet, skipped."; continue; fi
+            if [ "$(jq -r .content <<< "$cur" | tr -d '\n')" = "$new" ]; then echo "$repo: up to date"; continue; fi
+            main_sha=$(gh api "repos/$r/git/ref/heads/main" --jq .object.sha)
+            open=$(gh pr list -R "$r" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+            if gh api "repos/$r/git/ref/heads/$BRANCH" > /dev/null 2>&1; then
+              if [ -z "$open" ]; then
+                gh api -X DELETE "repos/$r/git/refs/heads/$BRANCH" > /dev/null   # a branch left by a merged or closed pull request
+                gh api "repos/$r/git/refs" -f "ref=refs/heads/$BRANCH" -f "sha=$main_sha" > /dev/null
+              fi
+            else
+              gh api "repos/$r/git/refs" -f "ref=refs/heads/$BRANCH" -f "sha=$main_sha" > /dev/null
+            fi
+            file_sha=$(gh api "repos/$r/contents/$LOCK?ref=$BRANCH" --jq .sha)
+            gh api -X PUT "repos/$r/contents/$LOCK" -f "message=chore: fixa as imagens do CI nos digests novos" \
+              -f "content=$new" -f "sha=$file_sha" -f "branch=$BRANCH" > /dev/null || { status=1; continue; }
+            if [ -z "$open" ]; then
+              gh pr create -R "$r" --base main --head "$BRANCH" --title "chore: fixa as imagens do CI nos digests novos" \
+                --body "Atualiza $LOCK com os digests das imagens ci-vhdl, ci-elf, ci-act4 e dev_tools publicadas pelo workflow CI images de $ORG/Infra." || status=1
+            fi
+            echo "$repo: updated"
+          done
+          exit "$status"

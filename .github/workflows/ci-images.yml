@@ -112,8 +112,11 @@ jobs:
         # but on a repo shared with people who shouldn't publish the image, this adds a second
         # check: only someone who separately knows IMAGE_PUBLISH_SECRET can run it. A scheduled
         # run skips this: branch protection on main is the gate for that path instead, and a
-        # workflow_run follows a run that was already authorized.
-        if: github.event_name == 'workflow_dispatch'
+        # workflow_run follows a run that was already authorized. The same goes for the dispatch
+        # that the workflow Tools watch makes with the GITHUB_TOKEN of this repository (actor
+        # github-actions[bot], from main): the secret is not handed to it, because an input of
+        # a dispatch is readable in the run.
+        if: github.event_name == 'workflow_dispatch' && !(github.actor == 'github-actions[bot]' && github.ref == 'refs/heads/main')
         env:
           CONFIRM: ${{ inputs.confirm }}
           SECRET: ${{ secrets.IMAGE_PUBLISH_SECRET }}
@@ -215,8 +218,8 @@ jobs:
         # A manual run takes the commit it is given. The others take the commit of the latest
         # stable release of Tools (the highest vX.Y.Z tag). The release workflow of Tools publishes
         # it only after its ci workflow finished green on the commit it tags, so the image never
-        # gets a Tools that its own CI rejected. Tools has no image workflow to trigger this one,
-        # so a new release is picked up by the next scheduled run.
+        # gets a Tools that its own CI rejected. The workflow Tools watch notices a new release
+        # within minutes and dispatches this one; the scheduled run is the safety net.
         id: tools
         env:
           INPUT_TOOLS: ${{ inputs.tools_commit }}
