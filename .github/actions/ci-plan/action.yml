@@ -1,20 +1,19 @@
 name: CI plan
 description: >
-  Reads the image digests pinned in ci-images.lock and decides, for each gate, whether a pass of the same
-  inputs already exists (an artifact ci-pass-<gate>-<key> uploaded by a job that passed), so that the
-  job can be skipped. Used by the job `reuse` of the CI of each repository.
+  Resolves the CI images (always the tag latest, so the automatic rebuild of the images reaches every
+  repository without any edit) and decides, for each gate, whether a pass of the same inputs already exists
+  (an artifact ci-pass-<gate>-<key> uploaded by a job that passed), so that the job can be skipped. The
+  digest that latest has at the moment of the run goes into the key of the gate, so a new image never
+  reuses a pass of the old one. Used by the job `reuse` of the CI of each repository.
 
 inputs:
-  lock:
-    description: "File with one line image=sha256:digest per image (ci-vhdl, ci-elf, ci-act4, dev_tools)"
-    required: false
-    default: ci-images.lock
   gates:
     description: >
       One gate per line, "name|image|tokens". The key of a gate is the hash of the git index entries (mode,
       object, path; a submodule is its commit) of the tokens plus the digest of the image. A token without
       "!" is a path that goes in (none: the whole tree); a token with "!" is a glob that leaves out.
-    required: true
+    required: false
+    default: ""
   token:
     description: Token that reads the artifacts of the repository
     required: false
@@ -22,7 +21,7 @@ inputs:
 
 outputs:
   images:
-    description: 'JSON {"ci-vhdl": "ghcr.io/<owner>/ci-vhdl@sha256:...", ...}'
+    description: 'JSON {"ci-vhdl": "ghcr.io/<owner>/ci-vhdl:latest", ...}'
     value: ${{ steps.plan.outputs.images }}
   gates:
     description: 'JSON {"<gate>": {"key": "...", "artifact": "ci-pass-<gate>-<key>", "skip": "true|false"}}'
@@ -34,7 +33,6 @@ runs:
     - id: plan
       shell: bash
       env:
-        LOCK: ${{ inputs.lock }}
         GATES: ${{ inputs.gates }}
         GH_TOKEN: ${{ inputs.token }}
       run: bash "$GITHUB_ACTION_PATH/plan.sh"

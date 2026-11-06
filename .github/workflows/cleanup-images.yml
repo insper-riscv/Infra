@@ -72,7 +72,7 @@ jobs:
           PACKAGES: ${{ inputs.packages }}
           DELETE: ${{ inputs.delete }}
         run: |
-          flags=(--keep-pinned)
+          flags=()
           [ "$DELETE" = "true" ] && flags+=(--delete)
           # PACKAGES is split on purpose: one argument per package name
           # shellcheck disable=SC2086

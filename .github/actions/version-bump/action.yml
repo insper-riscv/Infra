@@ -19,7 +19,6 @@ inputs:
       AUTHORS*
       CITATION.cff
       codeclone.baseline.json
-      ci-images.lock
       .github/**
 
 runs:
