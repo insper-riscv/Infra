@@ -1,8 +1,9 @@
 # Level 3 of the images: what the ACT4 (riscv-arch-test) certification suite needs. The ELF image
 # (docker/ci/elf/Dockerfile, whose RISC-V GCC builds the ELFs) plus Sail (the
 # model ACT4 runs to compute the expected result of each test), Ruby and Bundler (ACT4 reads its
-# configuration through the UDB Ruby gems), and the Ruby gems and Python packages of one commit of
-# ACT4, installed ahead of time so that running the suite needs no network.
+# configuration through the UDB Ruby gems), and one commit of ACT4 itself: its checkout, with the tests, in
+# /opt/riscv-foundation/act4/riscv-arch-test, and the Ruby gems and Python packages of that same commit,
+# installed ahead of time so that running the suite needs no network and no other copy of the tests.
 #
 # The commit of riscv/riscv-arch-test whose dependencies are installed has no default; the CI images
 # workflow passes the latest commit of the act4 branch whose upstream CI is green:
@@ -36,8 +37,9 @@ COPY --from=sail /opt/riscv-foundation/sail /opt/riscv-foundation/sail
 ENV PATH=/opt/riscv-foundation/sail/bin:$PATH
 
 # The gems and the Python packages go to fixed directories that any user of the container can
-# write, so that a project's own checkout of ACT4 finds them and can still add what its commit
-# needs, whatever the user id of the container.
+# write, so that the checkout of the image finds them and can still add what it needs, whatever the
+# user id of the container. The checkout is writable for the same reason: the suite writes its `work/`
+# directory inside it.
 # The UDB gems download their helper programs and the Z3 library when they are installed, into
 # the cache directory below.
 ENV BUNDLE_PATH=/opt/act-bundle \
@@ -51,8 +53,9 @@ RUN git init /tmp/act4 \
  && cd /tmp/act4 && uv sync --frozen --all-packages \
  && mkdir -p /opt/riscv-foundation/act4 \
  && { echo "${ACT4_COMMIT}"; echo "${ACT4_VERSION:-$(sed -n 's/^## \[\([0-9][0-9.]*\)\].*/\1/p' /tmp/act4/CHANGELOG.md | head -n 1)} ($(echo "${ACT4_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/act4/.tag \
- && rm -rf /tmp/act4 \
- && chmod -R a+rwX /opt/act-bundle /opt/act-uv-cache /opt/act-cache
+ && rm -rf /tmp/act4/.venv \
+ && mv /tmp/act4 /opt/riscv-foundation/act4/riscv-arch-test \
+ && chmod -R a+rwX /opt/act-bundle /opt/act-uv-cache /opt/act-cache /opt/riscv-foundation/act4/riscv-arch-test
 
 # Fail the build if a tool of the environment does not answer or lacks a library.
 RUN echo "act4      $(tail -n 1 /opt/riscv-foundation/act4/.tag)" \

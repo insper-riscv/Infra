@@ -11,17 +11,18 @@
 | Ruby gems of ACT4 (the UDB gems and their dependencies) | installed in `/opt/act-bundle` | the ones the commit in the label `act4.commit` records |
 | Python packages of ACT4 | in the `uv` cache `/opt/act-uv-cache` | the ones that commit records |
 | helper programs and the Z3 library that the UDB gems download | in `/opt/act-cache` | the ones the gems ask for |
+| ACT4 (the tests and the framework) | the checkout of the commit in the label `act4.commit`, offline, in `/opt/riscv-foundation/act4/riscv-arch-test` | the same commit as the gems and packages above |
 | `/opt/riscv-foundation/act4/.tag` | two lines. The first is the ACT4 commit, and the second is the release the commit is on top of, the number of commits after it and the short commit (`4.1.0+596 (1e712a7)`). The release is the first version of the `CHANGELOG.md` of that commit, and the workflow passes the whole version to the build; a build without it writes only the release | the commit in the label `act4.commit` |
 
-The three cache directories can be written by any user of the container.
+The three cache directories and the ACT4 checkout can be written by any user of the container, because the suite writes its `work/` directory inside the checkout.
 
 ## 2. Running the ACT4 suite
 
-Clone ACT4 at the commit in the label `act4.commit` of the image, then run the container with the clone as the working directory:
+The ACT4 checkout is already in the image, at the same commit as the gems. Run the container with it as the working directory and mount the DUT directory:
 
 ```bash
 docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/tmp -e UV_LINK_MODE=copy \
-  -v "$PWD:/work" -w /work ghcr.io/insper-riscv/ci-act4:latest bash
+  -v "$PWD:/dut" -w /opt/riscv-foundation/act4/riscv-arch-test ghcr.io/insper-riscv/ci-act4:latest bash
 ```
 
 Inside the container, the suite is generated, compiled and run as in the ACT4 documentation. The compiler of the image is `riscv32-unknown-elf-gcc`, so the configuration of the DUT names it:
