@@ -39,7 +39,18 @@ Every image is published to `ghcr.io/insper-riscv` for `linux/amd64` and `linux/
 | `scripts/` | the cleanup of old versions of the packages |
 | `docs/` | the guides, in `en/` and `pt-br/` |
 
-## 4. Contributing
+## 4. Composite actions and CI workflows of the repositories
+
+The repositories of the project reuse two composite actions of this repository, in `.github/actions/`.
+
+| Action | What it does |
+| :--- | :--- |
+| `ci-plan` | Resolves the CI images (always the tag `latest`) and decides, for each expensive job (`formal` and `unit-tests`), whether the result of an earlier run of the same tree can be reused. The digest that `latest` has at the moment of the run goes into the cache key, so a new image never reuses the result of the old one |
+| `version-bump` | Fails the pull request that changes the repository without raising the version in `pyproject.toml` and `uv.lock` |
+
+The `tools-watch.yml` workflow triggers the rebuild of the images when Tools publishes a new release, and the repositories use the new image with no edit. The repositories call the actions as `insper-riscv/Infra/.github/actions/<action>@main`.
+
+## 5. Contributing
 
 - [CONTRIBUTING.en.md](CONTRIBUTING.en.md): the rules of contribution and the verification before opening a Pull Request.
 - [AUTHORS.en.md](AUTHORS.en.md): the authors with commits in the repository.

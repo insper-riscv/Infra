@@ -39,7 +39,18 @@ Toda imagem é publicada em `ghcr.io/insper-riscv` para `linux/amd64` e `linux/a
 | `scripts/` | a limpeza de versões antigas dos pacotes |
 | `docs/` | os guias, em `en/` e `pt-br/` |
 
-## 4. Contribuindo
+## 4. Ações compostas e workflows de CI dos repositórios
+
+Os repositórios do projeto reutilizam duas ações compostas deste repositório, em `.github/actions/`.
+
+| Ação | O que faz |
+| :--- | :--- |
+| `ci-plan` | Resolve as imagens de CI (sempre a tag `latest`) e decide, por trabalho caro (`formal` e `unit-tests`), se o resultado de uma execução anterior da mesma árvore pode ser reaproveitado. O digest que a `latest` tem no momento da execução entra na chave do cache, então uma imagem nova nunca reaproveita o resultado da antiga |
+| `version-bump` | Falha o pull request que muda o repositório sem subir a versão do `pyproject.toml` e do `uv.lock` |
+
+O workflow `tools-watch.yml` dispara a reconstrução das imagens quando o Tools publica uma versão nova, e os repositórios passam a usar a imagem nova sem nenhuma edição. Os repositórios chamam as ações por `insper-riscv/Infra/.github/actions/<ação>@main`.
+
+## 5. Contribuindo
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): as regras de contribuição e a verificação antes de abrir um Pull Request.
 - [AUTHORS.md](AUTHORS.md): os autores com commits no repositório.
