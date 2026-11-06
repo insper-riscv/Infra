@@ -55,7 +55,7 @@ Os repositórios do projeto reutilizam duas ações compostas deste repositório
 
 | Ação | O que faz |
 | :--- | :--- |
-| `ci-plan` | Lê o `ci-images.lock` do repositório que a chama, valida os digests das imagens de CI e decide, por trabalho caro (`formal` e `unit-tests`), se o resultado de uma execução anterior da mesma árvore pode ser reaproveitado |
+| `ci-plan` | Resolve as imagens de CI (sempre a tag `latest`) e decide, por trabalho caro (`formal` e `unit-tests`), se o resultado de uma execução anterior da mesma árvore pode ser reaproveitado. O digest que a `latest` tem no momento da execução entra na chave do cache, então uma imagem nova nunca reaproveita o resultado da antiga |
 | `version-bump` | Falha o pull request que muda o repositório sem subir a versão do `pyproject.toml` e do `uv.lock` |
 
-O `ci-images.lock` de cada repositório fixa as imagens `ci-vhdl`, `ci-elf`, `ci-act4` e `dev_tools` por digest. O workflow `pin-ci-images.yml` reescreve o arquivo por pull request quando as imagens mudam, e o `tools-watch.yml` dispara a reconstrução das imagens quando o Tools publica uma versão nova.
+O workflow `tools-watch.yml` dispara a reconstrução das imagens quando o Tools publica uma versão nova, e os repositórios passam a usar a imagem nova sem nenhuma edição. Neste repositório, o `tree.yml` chama a ação `ci-plan` pelo caminho local `./.github/actions/ci-plan`; os demais repositórios a chamam por `insper-riscv/Infra/.github/actions/ci-plan@main`.
