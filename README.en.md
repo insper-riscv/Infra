@@ -58,4 +58,4 @@ The repositories of the project reuse two composite actions of this repository, 
 | `ci-plan` | Resolves the CI images (always the tag `latest`) and decides, for each expensive job (`formal` and `unit-tests`), whether the result of an earlier run of the same tree can be reused. The digest that `latest` has at the moment of the run goes into the cache key, so a new image never reuses the result of the old one |
 | `version-bump` | Fails the pull request that changes the repository without raising the version in `pyproject.toml` and `uv.lock` |
 
-The `tools-watch.yml` workflow triggers the rebuild of the images when Tools publishes a new release, and the repositories use the new image with no edit. In this repository, `tree.yml` calls the `ci-plan` action by the local path `./.github/actions/ci-plan`; the other repositories call it as `insper-riscv/Infra/.github/actions/ci-plan@main`.
+The `tools-watch.yml` workflow triggers the rebuild of the images when Tools publishes a new release, and the repositories use the new image with no edit. The repositories call the actions as `insper-riscv/Infra/.github/actions/<action>@main`.
