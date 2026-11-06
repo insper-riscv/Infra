@@ -48,3 +48,14 @@ Toda imagem é publicada em `ghcr.io/insper-riscv` para `linux/amd64` e `linux/a
 ---
 
 Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).
+
+## 3. Ações compostas e workflows de CI dos repositórios
+
+Os repositórios do projeto reutilizam duas ações compostas deste repositório, em `.github/actions/`.
+
+| Ação | O que faz |
+| :--- | :--- |
+| `ci-plan` | Lê o `ci-images.lock` do repositório que a chama, valida os digests das imagens de CI e decide, por trabalho caro (`formal` e `unit-tests`), se o resultado de uma execução anterior da mesma árvore pode ser reaproveitado |
+| `version-bump` | Falha o pull request que muda o repositório sem subir a versão do `pyproject.toml` e do `uv.lock` |
+
+O `ci-images.lock` de cada repositório fixa as imagens `ci-vhdl`, `ci-elf`, `ci-act4` e `dev_tools` por digest. O workflow `pin-ci-images.yml` reescreve o arquivo por pull request quando as imagens mudam, e o `tools-watch.yml` dispara a reconstrução das imagens quando o Tools publica uma versão nova.
