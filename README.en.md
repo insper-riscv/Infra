@@ -39,17 +39,7 @@ Every image is published to `ghcr.io/insper-riscv` for `linux/amd64` and `linux/
 | `scripts/` | the cleanup of old versions of the packages |
 | `docs/` | the guides, in `en/` and `pt-br/` |
 
-## 4. Contributing
-
-- [CONTRIBUTING.en.md](CONTRIBUTING.en.md): the rules of contribution and the verification before opening a Pull Request.
-- [AUTHORS.en.md](AUTHORS.en.md): the authors with commits in the repository.
-- [CITATION.cff](CITATION.cff): the metadata to cite the software.
-
----
-
-Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](LICENSE).
-
-## 3. Composite actions and CI workflows of the repositories
+## 4. Composite actions and CI workflows of the repositories
 
 The repositories of the project reuse two composite actions of this repository, in `.github/actions/`.
 
@@ -59,3 +49,13 @@ The repositories of the project reuse two composite actions of this repository, 
 | `version-bump` | Fails the pull request that changes the repository without raising the version in `pyproject.toml` and `uv.lock` |
 
 The `tools-watch.yml` workflow triggers the rebuild of the images when Tools publishes a new release, and the repositories use the new image with no edit. The repositories call the actions as `insper-riscv/Infra/.github/actions/<action>@main`.
+
+## 5. Contributing
+
+- [CONTRIBUTING.en.md](CONTRIBUTING.en.md): the rules of contribution and the verification before opening a Pull Request.
+- [AUTHORS.en.md](AUTHORS.en.md): the authors with commits in the repository.
+- [CITATION.cff](CITATION.cff): the metadata to cite the software.
+
+---
+
+Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](LICENSE).
