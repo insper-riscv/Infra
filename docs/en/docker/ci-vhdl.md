@@ -57,6 +57,8 @@ The image is rebuilt only when GHDL, Yosys, SymbiYosys, Yices, Bitwuzla, Boolect
 
 `uv` is the one component with no image of ours. Every run takes the latest stable release of the series set in `UV_SERIES` (`0`), or the `uv_version` field of a manual run. The version goes into the combination tag, so a run for a version that is already published assembles nothing, and a new `uv` is picked up by the first run after its release.
 
+Each `<version>` in the tag is the release version of the component, read from the tag that points at the pinned commit (`v0.70`, `1.8.12`, `Yices-2.6.5` or `yices-2.7.0`, always without the prefix). When the commit is not a release (Spike, Sail, GTKWave and ACT4 follow a branch), the first 7 characters of the commit are used.
+
 Before publishing, the workflow checks that the commit each component left in the image (its `.tag` file) is the one pinned for it.
 
 ## 3. Manual run

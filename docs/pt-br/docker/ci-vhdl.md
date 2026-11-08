@@ -57,6 +57,8 @@ A imagem é reconstruída só quando o GHDL, o Yosys, o SymbiYosys, o Yices, o B
 
 O `uv` é o único componente sem imagem nossa. Todo run usa a release estável mais recente da série definida em `UV_SERIES` (`0`), ou o campo `uv_version` de um run manual. A versão entra na tag de combinação, então um run para uma versão já publicada não monta nada, e um `uv` novo é pego pelo primeiro run depois do lançamento.
 
+Cada `<versão>` da tag é a da release do componente, lida da tag que aponta para o commit fixado (`v0.70`, `1.8.12`, `Yices-2.6.5` ou `yices-2.7.0`, sempre sem o prefixo). Quando o commit não é uma release (Spike, Sail, GTKWave e ACT4 seguem uma branch), entram os 7 primeiros caracteres do commit.
+
 Antes de publicar, o workflow confere que o commit que cada componente deixou na imagem (o arquivo `.tag`) é o que foi fixado para ele.
 
 ## 3. Execução manual
