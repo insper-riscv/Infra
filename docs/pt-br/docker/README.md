@@ -103,7 +103,7 @@ Cada imagem base tem um workflow que roda todo dia (UTC), sem campo a preencher.
 | `GHDL image` | todo dia, 03:00 | a release `6.x.y` mais recente |
 | `Picolibc image` | todo dia, 03:10, e quando a `GCC image` termina | a release `1.x.y` mais recente, compilada com o GCC mais recente |
 | `Yosys image` | todo dia, 03:00 | a release `v0.N` mais recente do Yosys, com o `sby` da mesma versão |
-| `Yices image` | todo dia, 03:00 | a release `Yices-2.N.P` mais recente |
+| `Yices image` | todo dia, 03:00 | a release `Yices-2.N.P` ou `yices-2.N.P` mais recente |
 | `Bitwuzla image` | todo dia, 03:00 | a release `0.N.P` mais recente |
 | `Boolector image` | todo dia, 03:00 | a release `3.N.P` mais recente |
 | `GTKWave image` | todo dia, 03:00 | a ponta da branch `lts` |
