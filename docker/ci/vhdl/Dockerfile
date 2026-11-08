@@ -39,6 +39,7 @@ FROM ${BASE_IMAGE} AS toolchain
 # gcc and libc6-dev link what GHDL elaborates;
 # g++ builds cocotb on arm64;
 # libreadline8t64, libtcl8.6 and libffi8 for Yosys;
+# tcl (tclsh) so the tests of riscv-tools run the Quartus Tcl scripts it generates instead of skipping them;
 # libgmp10 for yices-smt2, and libstdc++6 and libgcc-s1 for btorsim of Boolector (Bitwuzla and the
 # other Boolector executables are static).
 RUN apt-get update \
@@ -48,7 +49,7 @@ RUN apt-get update \
       libgnat-14 libllvm21 zlib1g-dev libedit2 \
       gcc libc6-dev \
       g++ \
-      libreadline8t64 libtcl8.6 libffi8 \
+      libreadline8t64 libtcl8.6 libffi8 tcl \
       libgmp10 libstdc++6 libgcc-s1 \
  && rm -rf /var/lib/apt/lists/*
 

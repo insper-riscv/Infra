@@ -16,6 +16,7 @@ FROM ${ACT4_IMAGE}
 # (GTK 3, with its Wayland and X11 backends, an icon theme and the MIME database); GTKWave itself is
 # built in its own image and copied. GTK loads EGL at run time (through libepoxy), so ldd does not
 # list it: without libegl1 and a Mesa driver GTKWave aborts on Wayland with "Couldn't open libEGL.so.1".
+# tcl provides tclsh, which the tests of riscv-tools use to run the Quartus Tcl scripts it generates.
 # libicu78 is the globalization library the .NET language servers of editor extensions (such as V4P)
 # need; without it they abort on start.
 RUN apt-get update \
@@ -23,7 +24,7 @@ RUN apt-get update \
       build-essential pkg-config gnat \
       libgtk-3-0t64 libjudydebian1 libbz2-1.0 liblzma5 \
       libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri \
-      adwaita-icon-theme shared-mime-info libicu78 \
+      adwaita-icon-theme shared-mime-info libicu78 tcl \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=gtkwave /opt/gtkwave /opt/gtkwave
