@@ -77,8 +77,8 @@ git clone --depth 1 --branch "$TAG" https://github.com/YosysHQ/sby "$BUILD_DIR/s
 make -C "$BUILD_DIR/sby" install PREFIX="$PREFIX" YOSYS_RELEASE_VERSION="SBY $TAG"
 
 # Yices, the latest 2.N.P release
-YICES_TAG=$(git ls-remote --tags --refs https://github.com/SRI-CSL/yices2 'Yices-2.*' | sed 's|.*refs/tags/||' \
-            | grep -E '^Yices-2\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+YICES_TAG=$(git ls-remote --tags --refs https://github.com/SRI-CSL/yices2 | sed 's|.*refs/tags/||' \
+            | grep -iE '^yices-2\.[0-9]+\.[0-9]+$' | sort -t- -k2,2V | tail -n 1)
 git clone --depth 1 --branch "$YICES_TAG" https://github.com/SRI-CSL/yices2 "$BUILD_DIR/yices2"
 cd "$BUILD_DIR/yices2"
 autoconf

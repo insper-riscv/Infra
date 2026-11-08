@@ -21,7 +21,7 @@
 | Label | `yices.commit` |
 | Schedule | every day, 03:00 UTC |
 
-The workflow follows series 2 (`SERIES`) and takes the latest `Yices-2.N.P` tag. The build only finishes if the executable solves a small query over bit-vectors.
+The workflow follows series 2 (`SERIES`) and takes the latest `Yices-2.N.P` or `yices-2.N.P` version tag (the upstream writes the name with a capital `Y` up to 2.6.5 and in lower case from 2.7.0), sorting by the version number only. The build only finishes if the executable solves a small query over bit-vectors.
 
 ## 3. Manual run
 
@@ -35,7 +35,7 @@ The workflow follows series 2 (`SERIES`) and takes the latest `Yices-2.N.P` tag.
 
 ```bash
 docker build -f docker/base/yices/Dockerfile -t base-yices \
-  --build-arg YICES_COMMIT="$(git ls-remote https://github.com/SRI-CSL/yices2 'refs/tags/Yices-2.6.5^{}' 'refs/tags/Yices-2.6.5' | tail -n 1 | cut -f1)" .
+  --build-arg YICES_COMMIT="$(git ls-remote https://github.com/SRI-CSL/yices2 'refs/tags/yices-2.7.0^{}' 'refs/tags/yices-2.7.0' | tail -n 1 | cut -f1)" .
 ```
 
 | Argument | Default | Meaning |

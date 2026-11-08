@@ -21,7 +21,7 @@ O `yices-smt2` liga dinamicamente com a `libgmp` e a `libc` do sistema, então q
 | Rótulo | `yices.commit` |
 | Agenda | todo dia, 03:00 UTC |
 
-O workflow segue a série 2 (`SERIES`) e usa a tag `Yices-2.N.P` mais recente. O build só termina se o executável resolver uma consulta pequena sobre vetores de bits.
+O workflow segue a série 2 (`SERIES`) e usa a tag de versão `Yices-2.N.P` ou `yices-2.N.P` mais recente (o upstream escreve o nome com `Y` maiúsculo até a 2.6.5 e em minúsculas a partir da 2.7.0), ordenando só pelo número da versão. O build só termina se o executável resolver uma consulta pequena sobre vetores de bits.
 
 ## 3. Execução manual
 
@@ -35,7 +35,7 @@ O workflow segue a série 2 (`SERIES`) e usa a tag `Yices-2.N.P` mais recente. O
 
 ```bash
 docker build -f docker/base/yices/Dockerfile -t base-yices \
-  --build-arg YICES_COMMIT="$(git ls-remote https://github.com/SRI-CSL/yices2 'refs/tags/Yices-2.6.5^{}' 'refs/tags/Yices-2.6.5' | tail -n 1 | cut -f1)" .
+  --build-arg YICES_COMMIT="$(git ls-remote https://github.com/SRI-CSL/yices2 'refs/tags/yices-2.7.0^{}' 'refs/tags/yices-2.7.0' | tail -n 1 | cut -f1)" .
 ```
 
 | Argumento | Padrão | Significado |

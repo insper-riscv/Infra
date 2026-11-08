@@ -5,7 +5,7 @@
 # The commit of SRI-CSL/yices2 to build has no default:
 #
 #   docker build -f docker/base/yices/Dockerfile -t base-yices \
-#     --build-arg YICES_COMMIT="$(git ls-remote https://github.com/SRI-CSL/yices2 'refs/tags/Yices-2.6.5^{}' 'refs/tags/Yices-2.6.5' | tail -n 1 | cut -f1)" .
+#     --build-arg YICES_COMMIT="$(git ls-remote https://github.com/SRI-CSL/yices2 'refs/tags/yices-2.7.0^{}' 'refs/tags/yices-2.7.0' | tail -n 1 | cut -f1)" .
 
 ARG BASE_IMAGE=ubuntu:26.04
 
