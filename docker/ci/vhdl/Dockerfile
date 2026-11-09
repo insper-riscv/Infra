@@ -34,7 +34,7 @@ FROM ${BOOLECTOR_IMAGE} AS boolector
 FROM ${BASE_IMAGE} AS toolchain
 
 # libglib2.0-0t64 for quartus from host to be able to talk to the internal server;
-# git, make, curl and ca-certificates for whoever uses the image;
+# git, make, curl, jq and ca-certificates for whoever uses the image (jq reads the JSON of the formal results);
 # libgnat, libllvm, zlib1g-dev and libedit2 for GHDL;
 # gcc and libc6-dev link what GHDL elaborates;
 # g++ builds cocotb on arm64;
@@ -45,7 +45,7 @@ FROM ${BASE_IMAGE} AS toolchain
 RUN apt-get update \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       libglib2.0-0t64 \
-      git make curl ca-certificates \
+      git make curl jq ca-certificates \
       libgnat-14 libllvm21 zlib1g-dev libedit2 \
       gcc libc6-dev \
       g++ \
