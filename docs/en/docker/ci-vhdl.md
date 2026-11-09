@@ -27,7 +27,7 @@ The static analysis tools live in their own environment and do not see a project
 
 Python is pinned to 3.14 because the latest cocotb, 2.1.0, supports Python up to 3.14, which is why the projects require it (`>=3.14,<3.15`). A newer Python waits for a cocotb that supports it (the build arguments `PYTHON_VERSION` and `COCOTB_VERSION` change both together).
 
-Ubuntu also provides `git`, `make`, `curl` and `ca-certificates` (the checkout of a workflow, the projects' Makefiles, the installers and the certificates with which `curl` and `git` verify HTTPS servers), the library `libglib2.0-0t64`, which the command-line tools of a Quartus installation mounted from the host use and the Ubuntu base image does not have, the libraries GHDL links against (`libgnat`, `libllvm`, `zlib1g-dev`, `libedit2`) and the ones Yosys links against (`libreadline8t64`, `libtcl8.6`, `libffi8`).
+Ubuntu also provides `git`, `make`, `curl`, `jq` and `ca-certificates` (the checkout of a workflow, the projects' Makefiles, the installers, the reading of JSON by scripts such as the aggregation of the formal results, and the certificates with which `curl` and `git` verify HTTPS servers), the library `libglib2.0-0t64`, which the command-line tools of a Quartus installation mounted from the host use and the Ubuntu base image does not have, the libraries GHDL links against (`libgnat`, `libllvm`, `zlib1g-dev`, `libedit2`) and the ones Yosys links against (`libreadline8t64`, `libtcl8.6`, `libffi8`).
 
 ### 1.1. What updates by itself and what is fixed
 

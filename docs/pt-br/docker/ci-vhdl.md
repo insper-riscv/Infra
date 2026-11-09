@@ -27,7 +27,7 @@ As ferramentas de análise estática ficam num ambiente próprio e não enxergam
 
 O Python é fixado em 3.14 porque o cocotb mais recente, o 2.1.0, suporta o Python até a versão 3.14, e é por isso que os projetos exigem essa versão (`>=3.14,<3.15`). Um Python mais novo espera um cocotb que o suporte (os argumentos de build `PYTHON_VERSION` e `COCOTB_VERSION` mudam os dois juntos).
 
-Também vêm do Ubuntu `git`, `make`, `curl` e `ca-certificates` (o checkout de um workflow, os Makefiles dos projetos, os instaladores e os certificados com que `curl` e `git` verificam servidores HTTPS), a biblioteca `libglib2.0-0t64`, que as ferramentas de linha de comando de um Quartus montado do host usam e a imagem base do Ubuntu não traz, as bibliotecas que o GHDL liga (`libgnat`, `libllvm`, `zlib1g-dev`, `libedit2`) e as que o Yosys liga (`libreadline8t64`, `libtcl8.6`, `libffi8`).
+Também vêm do Ubuntu `git`, `make`, `curl`, `jq` e `ca-certificates` (o checkout de um workflow, os Makefiles dos projetos, os instaladores, a leitura de JSON por scripts como a agregação dos resultados formais e os certificados com que `curl` e `git` verificam servidores HTTPS), a biblioteca `libglib2.0-0t64`, que as ferramentas de linha de comando de um Quartus montado do host usam e a imagem base do Ubuntu não traz, as bibliotecas que o GHDL liga (`libgnat`, `libllvm`, `zlib1g-dev`, `libedit2`) e as que o Yosys liga (`libreadline8t64`, `libtcl8.6`, `libffi8`).
 
 ### 1.1. O que se atualiza sozinho e o que é fixo
 
