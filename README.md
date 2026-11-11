@@ -48,7 +48,7 @@ Os repositórios do projeto reutilizam duas ações compostas deste repositório
 | `ci-plan` | Resolve as imagens de CI (sempre a tag `latest`) e decide, por trabalho caro (`formal` e `unit-tests`), se o resultado de uma execução anterior da mesma árvore pode ser reaproveitado. O digest que a `latest` tem no momento da execução entra na chave do cache, então uma imagem nova nunca reaproveita o resultado da antiga |
 | `version-bump` | Falha o pull request que muda o repositório sem subir a versão do `pyproject.toml` e do `uv.lock` |
 
-O workflow `tools-watch.yml` dispara a reconstrução das imagens quando o Tools publica uma versão nova, e os repositórios passam a usar a imagem nova sem nenhuma edição. Ele não dispara enquanto um `CI images` está na fila ou rodando, nem por três horas depois de uma execução que falhou. Os repositórios chamam as ações por `insper-riscv/Infra/.github/actions/<ação>@main`.
+O workflow `tools-watch.yml` dispara a reconstrução das imagens quando o Tools publica uma versão nova, e os repositórios passam a usar a imagem nova sem nenhuma edição. Ele não dispara enquanto um `CI images` está na fila ou rodando, nem por três horas depois de uma execução que falhou. O build das imagens resolve nomes pelos servidores públicos 1.1.1.1 e 8.8.8.8, para o `apt-get` não depender do DNS do runner. Os repositórios chamam as ações por `insper-riscv/Infra/.github/actions/<ação>@main`.
 
 ## 5. Contribuindo
 
