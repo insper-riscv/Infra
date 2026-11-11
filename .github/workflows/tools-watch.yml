@@ -64,6 +64,8 @@ jobs:
         if: ${{ steps.compare.outputs.dispatch == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
+          # the job has no checkout, so gh cannot find the repository from a .git folder
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.compare.outputs.tag }}
         run: |
           busy=0
