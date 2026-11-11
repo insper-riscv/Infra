@@ -76,6 +76,11 @@ jobs:
           # log to the end.
           driver-opts: |
             env.BUILDKIT_STEP_LOG_MAX_SIZE=-1
+          # The BuildKit container resolved no Ubuntu mirror on some runners (apt-get exit 100), so
+          # the build steps use public resolvers instead of the runner one.
+          buildkitd-config-inline: |
+            [dns]
+              nameservers = ["1.1.1.1", "8.8.8.8"]
 
       - uses: docker/login-action@v4.6.0
         with:
