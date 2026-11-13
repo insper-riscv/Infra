@@ -20,10 +20,10 @@ ARG BOOLECTOR_IMAGE=ghcr.io/insper-riscv/base-boolector:latest
 # workflow passes the commit of the latest stable release (Tools publishes it only after its CI succeeded); this
 # default is for local builds.
 ARG TOOLS_COMMIT=c20e29e7a589f34656de80775cec8145511a47f6
-# The commit of ghdl/ghdl-yosys-plugin to build: the one tagged ghdl-v6.0.0, which builds against the
-# GHDL 6.0.0 and the Yosys 0.70 of the image. The plugin links libghdl and uses the Yosys C++ API, so a
-# new GHDL or Yosys can need a newer commit (the build below fails when it does).
-ARG GHDL_YOSYS_PLUGIN_COMMIT=7b8075d21c602d53932dd82e168ee5f4635e81ad
+# The ref of ghdl/ghdl-yosys-plugin to build: the head of its default branch, so the plugin follows the Yosys
+# and the GHDL of the images (it links libghdl and uses the Yosys C++ API, which changes between Yosys
+# releases). A local build can pass a commit or a tag to reproduce an older plugin.
+ARG GHDL_YOSYS_PLUGIN_REF=HEAD
 
 FROM ${GHDL_IMAGE} AS ghdl
 FROM ${YOSYS_IMAGE} AS yosys
@@ -59,9 +59,9 @@ COPY --from=yosys /opt/yosys /opt/yosys
 # Builds ghdl.so against the GHDL and the Yosys above and installs it where `yosys -m ghdl` looks for
 # it. Only that file is copied to the final image.
 FROM toolchain AS ghdl-plugin
-ARG GHDL_YOSYS_PLUGIN_COMMIT
+ARG GHDL_YOSYS_PLUGIN_REF
 RUN git init /plugin \
- && git -C /plugin fetch --depth 1 https://github.com/ghdl/ghdl-yosys-plugin "${GHDL_YOSYS_PLUGIN_COMMIT}" \
+ && git -C /plugin fetch --depth 1 https://github.com/ghdl/ghdl-yosys-plugin "${GHDL_YOSYS_PLUGIN_REF}" \
  && git -C /plugin checkout FETCH_HEAD \
  && make -C /plugin -j"$(nproc)" GHDL=/opt/ghdl/bin/ghdl YOSYS_CONFIG=/opt/yosys/bin/yosys-config \
  && make -C /plugin install GHDL=/opt/ghdl/bin/ghdl YOSYS_CONFIG=/opt/yosys/bin/yosys-config

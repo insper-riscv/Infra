@@ -6,7 +6,7 @@
 # The commit of ghdl/ghdl to build has no default:
 #
 #   docker build -f docker/base/ghdl/Dockerfile -t base-ghdl \
-#     --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl refs/tags/v6.0.0 refs/tags/v6.0.0^{} | tail -n 1 | cut -f1)" .
+#     --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl HEAD | cut -f1)" .
 
 ARG BASE_IMAGE=ubuntu:26.04
 
@@ -27,12 +27,16 @@ RUN git init /src \
  && git -C /src fetch --depth 1 https://github.com/ghdl/ghdl "${GHDL_COMMIT}" \
  && git -C /src checkout FETCH_HEAD
 
-RUN mkdir /build \
+# The version in the .tag is GHDL_VERSION (the release whose tag points at the commit) or, for a commit that is
+# not a release, the one the commit declares in configure (7.0.0-dev on the default branch).
+RUN version="${GHDL_VERSION:-$(sed -n 's/^ghdl_version="\(.*\)"/\1/p' /src/configure)}" \
+ && test -n "${version}" \
+ && mkdir /build \
  && cd /build \
  && /src/configure --with-llvm-config --prefix=/opt/ghdl \
  && make -j"$(nproc)" \
  && make install \
- && { echo "${GHDL_COMMIT}"; echo "${GHDL_VERSION:-unknown} ($(echo "${GHDL_COMMIT}" | cut -c1-7))"; } > /opt/ghdl/.tag \
+ && { echo "${GHDL_COMMIT}"; echo "${version} ($(echo "${GHDL_COMMIT}" | cut -c1-7))"; } > /opt/ghdl/.tag \
  && rm -rf /build /src
 
 # Fail the build, before anything is published, if GHDL cannot analyze, elaborate and run a
