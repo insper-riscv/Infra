@@ -7,7 +7,7 @@
 | `uv`, `uvx` | Gerenciador de projetos Python, em `/usr/local/bin` |
 | Python | A série 3.14, instalada pelo `uv` em `/opt/uv/python`, com `python3` e `python` em `/usr/local/bin` |
 | cocotb | 2.1.0, instalado nesse Python |
-| `click` | 8.5.0, instalado nesse Python |
+| `click` | o 8.x mais recente, instalado nesse Python |
 
 ## 1. Dependências
 
@@ -47,7 +47,7 @@ set -euo pipefail
 UV_SERIES=0
 PYTHON_SERIES=3.14
 COCOTB_VERSION=2.1.0
-CLICK_VERSION=8.5.0
+CLICK_SERIES=8
 
 # uv, from the installer of the latest release of the series, in /usr/local/bin
 UV_VERSION=$(git ls-remote --tags --refs https://github.com/astral-sh/uv "$UV_SERIES.*" \
@@ -61,7 +61,7 @@ export UV_PYTHON_INSTALL_DIR=/opt/uv/python UV_PYTHON_PREFERENCE=only-managed
 uv python install "$PYTHON_SERIES"
 python=$(uv python find "$PYTHON_SERIES")
 uv pip install --break-system-packages --python "$python" \
-  "cocotb==$COCOTB_VERSION" "click==$CLICK_VERSION"
+  "cocotb==$COCOTB_VERSION" "click>=$CLICK_SERIES,<$((CLICK_SERIES + 1))"
 ln -sf "$python" /usr/local/bin/python3
 ln -sf "$python" /usr/local/bin/python
 chmod -R a+rX /opt/uv
