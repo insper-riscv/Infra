@@ -4,10 +4,13 @@ name: GHDL image
 # architectures) alone and publishes it as base-ghdl for linux/amd64 and linux/arm64, tagged with
 # the ghdl/ghdl commit and as latest.
 #
-# - Run by hand to update GHDL: it builds the commit given, or the commit of the latest release tag
-#   of the series set in SERIES (6.x.y), unless that image already exists.
-# - Runs every day (schedule): it takes the commit of the latest release tag of the series set in
-#   SERIES and builds it only if that image does not exist yet.
+# - Run by hand to update GHDL: it builds the commit given, or the latest commit of the upstream
+#   default branch whose CI is green (waiting for a run that is still going), unless that image
+#   already exists. The image follows the 7.0.0-dev line: the GHDL plugin for Yosys needs an API of
+#   GHDL that the 6.0.0 release does not have, and the plugin follows the Yosys of its image. The
+#   commit is the latest one on which upstream's Pipeline workflow passed (.github/scripts/green-commit.sh).
+# - Runs every day (schedule): it takes the latest commit of the upstream default branch whose CI is
+#   green and builds it only if that image does not exist yet.
 #   A change of Dockerfile or of this workflow does not build by itself, so a recipe
 #   change that is not a new version does not rebuild an image for nothing: the Recipe
 #   changed workflow warns about it, and a run by hand with `force` rebuilds.
@@ -22,8 +25,12 @@ on:
         description: "Repo secret IMAGE_PUBLISH_SECRET's value, to confirm you're allowed to publish the image"
         required: true
       commit:
-        description: "ghdl commit to build (empty: the latest release tag of the upstream)"
+        description: "ghdl commit to build (empty: the latest commit of its default branch whose CI is green)"
         required: false
+      ignore_ci:
+        description: "With no commit given, take the head of the default branch whatever its CI says"
+        type: boolean
+        default: false
       force:
         description: "Rebuild and republish even if the image for that commit already exists"
         type: boolean
@@ -37,8 +44,6 @@ env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/base-ghdl
   UPSTREAM: https://github.com/ghdl/ghdl
   LABEL: ghdl.commit
-  # the major version of GHDL the image follows; a new series is chosen by editing this line
-  SERIES: "6"
 
 jobs:
   pin:
@@ -82,24 +87,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Test the choice of the commit
+        # The selection (wait for a running commit, skip a failed one, accept a re-run) against
+        # canned answers of the GitHub API: no network.
+        run: bash .github/scripts/test-green-commit.sh
+
       - name: Resolve the commit
         id: pin
         env:
           EVENT: ${{ github.event_name }}
           INPUT_COMMIT: ${{ inputs.commit }}
+          INPUT_IGNORE_CI: ${{ inputs.ignore_ci }}
           INPUT_FORCE: ${{ inputs.force }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           upstream_commit() {
-            # the commit of the latest stable release tag of the series SERIES (v6.x.y), not of a
-            # moving branch, and not of a newer series: moving to the next one is an edit of SERIES
-            tag=$(git ls-remote --tags --refs "$UPSTREAM" "v${SERIES}.*" | sed 's|.*refs/tags/||' \
-                  | grep -E "^v${SERIES}\.[0-9]+\.[0-9]+$" | sort -V | tail -n 1)
-            if [ -z "$tag" ]; then
-              echo "::error::no release tag of the series ${SERIES} in $UPSTREAM" >&2
-              return 1
+            if [ "$INPUT_IGNORE_CI" = "true" ]; then
+              git ls-remote "$UPSTREAM" HEAD | cut -f1
+            else
+              # the latest commit on which upstream's workflow succeeded; it waits for a run that is
+              # still going and goes back past a commit that failed
+              UPSTREAM_REPO=ghdl/ghdl \
+                REQUIRED_WORKFLOWS="Pipeline.yml" \
+                .github/scripts/green-commit.sh
             fi
-            # an annotated tag has a second line, peeled to the commit (^{}); a lightweight one is the commit
-            git ls-remote "$UPSTREAM" "refs/tags/${tag}" "refs/tags/${tag}^{}" | tail -n 1 | cut -f1
           }
 
           force="$INPUT_FORCE"
