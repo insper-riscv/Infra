@@ -56,6 +56,8 @@ jobs:
       packages: read
     outputs:
       commit: ${{ steps.pin.outputs.commit }}
+      release: ${{ steps.pin.outputs.release }}
+      gcc_version: ${{ steps.pin.outputs.gcc_version }}
       build: ${{ steps.pin.outputs.build }}
       variants: ${{ steps.pin.outputs.variants }}
 
@@ -110,6 +112,13 @@ jobs:
             exit 1
           fi
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          # the release the commit belongs to (the release tag that points at it, or the nearest earlier one with
+          # -dev), which the image writes in its .tag
+          . .github/scripts/name-of.sh
+          echo "release=$(release_of "$UPSTREAM" "$commit")" >> "$GITHUB_OUTPUT"
+          # the GCC version the commit bundles (with -dev when its gcc is not a release), which the image writes
+          # in its .tag
+          echo "gcc_version=$(gcc_version_of "$commit")" >> "$GITHUB_OUTPUT"
           # the number of library variants the recipe builds: it goes in a label of the image, which
           # the picolibc and the CI images workflows compare, so a change of it reaches them
           echo "variants=$(bash scripts/gcc-multilib.sh --count)" >> "$GITHUB_OUTPUT"
@@ -139,6 +148,8 @@ jobs:
       timeout-minutes: 360
       build-args: |
         RISCV_GNU_TOOLCHAIN_COMMIT=${{ needs.pin.outputs.commit }}
+        RISCV_GNU_TOOLCHAIN_RELEASE=${{ needs.pin.outputs.release }}
+        RISCV_GNU_TOOLCHAIN_GCC_VERSION=${{ needs.pin.outputs.gcc_version }}
       labels: |
         riscv-gnu-toolchain.commit=${{ needs.pin.outputs.commit }}
         riscv-gnu-toolchain.variants=${{ needs.pin.outputs.variants }}

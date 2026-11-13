@@ -11,6 +11,8 @@ ARG BASE_IMAGE=ubuntu:26.04
 
 FROM ${BASE_IMAGE} AS build
 ARG RISCV_ISA_SIM_COMMIT
+# The release the commit belongs to (the nearest release tag with -dev), written in the .tag before the date.
+ARG RISCV_ISA_SIM_RELEASE=
 
 RUN test -n "${RISCV_ISA_SIM_COMMIT}" \
  || { echo "pass --build-arg RISCV_ISA_SIM_COMMIT=<commit>"; exit 1; }
@@ -32,7 +34,7 @@ RUN mkdir /build \
  && /src/configure --prefix=/opt/riscv-foundation/spike \
  && make -j"$(nproc)" \
  && make install \
- && { echo "${RISCV_ISA_SIM_COMMIT}-debug-start"; echo "$(git -C /src log -1 --format=%cs) ($(echo "${RISCV_ISA_SIM_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/spike/.tag \
+ && { echo "${RISCV_ISA_SIM_COMMIT}-debug-start"; echo "${RISCV_ISA_SIM_RELEASE:+${RISCV_ISA_SIM_RELEASE} }$(git -C /src log -1 --format=%cs) ($(echo "${RISCV_ISA_SIM_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/spike/.tag \
  && rm -rf /build /src
 
 # Fail the build, before anything is published, if the debug module still

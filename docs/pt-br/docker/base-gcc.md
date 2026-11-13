@@ -9,7 +9,7 @@
 | binutils | o assembler, o linker e o arquivador para o alvo `riscv32-unknown-elf` |
 | GCC RISC-V | alvo `riscv32-unknown-elf`, front ends C e C++, com as variantes de biblioteca da seção 1.1 |
 | libgcc | a biblioteca de apoio do compilador, construída com esse compilador |
-| `/opt/riscv-foundation/riscv32-elf/.tag` | duas linhas. A primeira é o commit do `riscv-gnu-toolchain` de que a instalação foi construída, e a segunda é a data desse commit, o commit curto e o número de variantes de biblioteca (`2026-10-28 (317ee3d), 192 variants`) |
+| `/opt/riscv-foundation/riscv32-elf/.tag` | duas linhas. A primeira é o commit do `riscv-gnu-toolchain` de que a instalação foi construída, e a segunda é a versão do GCC que o commit traz (com `-dev` quando o `gcc` dele não é uma release), a data da release (a data do commit quando não é uma release com nome de data), o commit curto e o número de variantes de biblioteca (`16.1.0 2026-10-29 (317ee3d), 192 variants`) |
 
 ### 1.1. Variantes
 

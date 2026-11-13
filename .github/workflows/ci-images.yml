@@ -102,6 +102,7 @@ jobs:
       uv: ${{ steps.uv.outputs.version }}
       tools: ${{ steps.tools.outputs.commit }}
       tools_version: ${{ steps.pins.outputs.tools_version }}
+      tools_date: ${{ steps.pins.outputs.tools_date }}
       python: ${{ steps.python.outputs.python }}
       cocotb: ${{ steps.python.outputs.cocotb }}
       click: ${{ steps.python.outputs.click }}
@@ -280,9 +281,22 @@ jobs:
           yices_name=$(name_of https://github.com/SRI-CSL/yices2 "$yices")
           bitwuzla_name=$(name_of https://github.com/bitwuzla/bitwuzla "$bitwuzla")
           boolector_name=$(name_of https://github.com/Boolector/boolector "$boolector")
+          # the release GHDL declares in its configure (7.0.0-dev on the default branch, where no tag points), or the
+          # release whose tag points at the commit
+          ghdl_release=$(curl -fsSL "https://raw.githubusercontent.com/ghdl/ghdl/$ghdl/configure" 2>/dev/null \
+                         | sed -n 's/^ghdl_version="\(.*\)"/\1/p') || true
+          [ -n "$ghdl_release" ] || ghdl_release=$(version_of https://github.com/ghdl/ghdl "$ghdl")
           tools_name=$(name_of "https://github.com/$TOOLS_REPO" "$TOOLS")
           # names what decides whether to build. A tag is at most 128 characters, so the Python, cocotb and
           # click versions are in the labels of the image and not in the tag.
+          # what the summary shows for each component: the version (when a release tag points at the commit), the
+          # date of the commit and its first 7 characters, as in the .tag of its image
+          yosys_show=$(describe_of https://github.com/YosysHQ/yosys "$yosys")
+          sby_show=$(describe_of https://github.com/YosysHQ/sby "$sby")
+          yices_show=$(describe_of https://github.com/SRI-CSL/yices2 "$yices")
+          bitwuzla_show=$(describe_of https://github.com/bitwuzla/bitwuzla "$bitwuzla")
+          boolector_show=$(describe_of https://github.com/Boolector/boolector "$boolector")
+          tools_show=$(describe_of "https://github.com/$TOOLS_REPO" "$TOOLS")
           short="ghdl-${ghdl_name}-yosys-${yosys_name}-sby-${sby_name}-yices-${yices_name}-bitwuzla-${bitwuzla_name}-boolector-${boolector_name}-tools-${tools_name}-uv-${UV}"
           {
             echo "ghdl=$ghdl"
@@ -292,6 +306,8 @@ jobs:
             echo "bitwuzla=$bitwuzla"
             echo "boolector=$boolector"
             echo "ghdl_name=$ghdl_name"
+            echo "ghdl_release=$ghdl_release"
+            echo "ghdl_date=$(commit_date https://github.com/ghdl/ghdl "$ghdl")"
             echo "yosys_name=$yosys_name"
             echo "sby_name=$sby_name"
             echo "yices_name=$yices_name"
@@ -299,6 +315,13 @@ jobs:
             echo "boolector_name=$boolector_name"
             echo "tools_name=$tools_name"
             echo "tools_version=$(version_of "https://github.com/$TOOLS_REPO" "$TOOLS")"
+            echo "tools_date=$(commit_date "https://github.com/$TOOLS_REPO" "$TOOLS")"
+            echo "yosys_show=$yosys_show"
+            echo "sby_show=$sby_show"
+            echo "yices_show=$yices_show"
+            echo "bitwuzla_show=$bitwuzla_show"
+            echo "boolector_show=$boolector_show"
+            echo "tools_show=$tools_show"
             echo "short=$short"
           } >> "$GITHUB_OUTPUT"
 
@@ -347,18 +370,21 @@ jobs:
           PYTHON: ${{ steps.python.outputs.python }}
           COCOTB: ${{ steps.python.outputs.cocotb }}
           CLICK: ${{ steps.python.outputs.click }}
-          TOOLS: ${{ steps.pins.outputs.tools_name }}
-          GHDL: ${{ steps.pins.outputs.ghdl_name }}
-          YOSYS: ${{ steps.pins.outputs.yosys_name }}
-          SBY: ${{ steps.pins.outputs.sby_name }}
-          YICES: ${{ steps.pins.outputs.yices_name }}
-          BITWUZLA: ${{ steps.pins.outputs.bitwuzla_name }}
-          BOOLECTOR: ${{ steps.pins.outputs.boolector_name }}
+          TOOLS: ${{ steps.pins.outputs.tools_show }}
+          GHDL_COMMIT: ${{ steps.pins.outputs.ghdl }}
+          GHDL_RELEASE: ${{ steps.pins.outputs.ghdl_release }}
+          GHDL_DATE: ${{ steps.pins.outputs.ghdl_date }}
+          YOSYS: ${{ steps.pins.outputs.yosys_show }}
+          SBY: ${{ steps.pins.outputs.sby_show }}
+          YICES: ${{ steps.pins.outputs.yices_show }}
+          BITWUZLA: ${{ steps.pins.outputs.bitwuzla_show }}
+          BOOLECTOR: ${{ steps.pins.outputs.boolector_show }}
         run: |
           if [ "$SKIP" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
-          echo "::notice title=Stage 1, VHDL::uv $UV, Python $PYTHON, cocotb $COCOTB, click $CLICK, Tools $TOOLS, GHDL $GHDL, Yosys $YOSYS, SymbiYosys $SBY, Yices $YICES, Bitwuzla $BITWUZLA, Boolector $BOOLECTOR. ${decision^}."
+          ghdl="${GHDL_RELEASE:+$GHDL_RELEASE }$GHDL_DATE (${GHDL_COMMIT:0:7})"
+          echo "::notice title=Stage 1, VHDL::uv $UV, Python $PYTHON, cocotb $COCOTB, click $CLICK, Tools $TOOLS, GHDL $ghdl, Yosys $YOSYS, SymbiYosys $SBY, Yices $YICES, Bitwuzla $BITWUZLA, Boolector $BOOLECTOR. ${decision^}."
           {
             echo "### Stage 1, VHDL (level 1)"
             echo
@@ -368,13 +394,13 @@ jobs:
             echo "| Python | $PYTHON |"
             echo "| cocotb | $COCOTB |"
             echo "| click | $CLICK |"
-            echo "| Tools | $TOOLS |"
-            echo "| GHDL | $GHDL |"
-            echo "| Yosys | $YOSYS |"
-            echo "| SymbiYosys | $SBY |"
-            echo "| Yices | $YICES |"
-            echo "| Bitwuzla | $BITWUZLA |"
-            echo "| Boolector | $BOOLECTOR |"
+            echo "| Tools, version, date and commit | $TOOLS |"
+            echo "| GHDL, version, date and commit | $ghdl |"
+            echo "| Yosys, version, date and commit | $YOSYS |"
+            echo "| SymbiYosys, version, date and commit | $SBY |"
+            echo "| Yices, version, date and commit | $YICES |"
+            echo "| Bitwuzla, version, date and commit | $BITWUZLA |"
+            echo "| Boolector, version, date and commit | $BOOLECTOR |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -399,6 +425,7 @@ jobs:
         UV_VERSION=${{ needs.plan-vhdl.outputs.uv }}
         TOOLS_COMMIT=${{ needs.plan-vhdl.outputs.tools }}
         TOOLS_VERSION=${{ needs.plan-vhdl.outputs.tools_version }}
+        TOOLS_DATE=${{ needs.plan-vhdl.outputs.tools_date }}
         PYTHON_VERSION=${{ needs.plan-vhdl.outputs.python }}
         COCOTB_VERSION=${{ needs.plan-vhdl.outputs.cocotb }}
         CLICK_VERSION=${{ needs.plan-vhdl.outputs.click }}
@@ -516,8 +543,11 @@ jobs:
             echo "spike=$spike"
             echo "gcc_name=$(name_of https://github.com/riscv-collab/riscv-gnu-toolchain "$gcc")"
             echo "picolibc_name=$(name_of https://github.com/picolibc/picolibc "$picolibc")"
+            echo "picolibc_show=$(describe_of https://github.com/picolibc/picolibc "$picolibc")"
             echo "spike_name=$(name_of https://github.com/riscv-software-src/riscv-isa-sim "$spike")"
-            echo "gcc_date=$(commit_date https://github.com/riscv-collab/riscv-gnu-toolchain "$gcc")"
+            echo "gcc_version=$(gcc_version_of "$gcc")"
+            echo "gcc_date=$(release_date_of https://github.com/riscv-collab/riscv-gnu-toolchain "$gcc")"
+            echo "spike_release=$(release_of https://github.com/riscv-software-src/riscv-isa-sim "$spike")"
             echo "spike_date=$(commit_date https://github.com/riscv-software-src/riscv-isa-sim "$spike")"
             # the number of library variants the GCC image was built with, which the check of the
             # ELF image then finds installed
@@ -558,26 +588,28 @@ jobs:
           BUILD: ${{ steps.plan.outputs.build }}
           SHORT: ${{ steps.plan.outputs.short }}
           GCC_COMMIT: ${{ steps.pins.outputs.gcc }}
+          GCC_VERSION: ${{ steps.pins.outputs.gcc_version }}
           GCC_DATE: ${{ steps.pins.outputs.gcc_date }}
-          PICOLIBC: ${{ steps.pins.outputs.picolibc_name }}
+          PICOLIBC: ${{ steps.pins.outputs.picolibc_show }}
           SPIKE_COMMIT: ${{ steps.pins.outputs.spike }}
+          SPIKE_RELEASE: ${{ steps.pins.outputs.spike_release }}
           SPIKE_DATE: ${{ steps.pins.outputs.spike_date }}
           VARIANTS: ${{ steps.pins.outputs.variants }}
         run: |
           if [ "$MISSING" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
-          gcc="$GCC_DATE (${GCC_COMMIT:0:7})"
-          spike="$SPIKE_DATE (${SPIKE_COMMIT:0:7})"
+          gcc="${GCC_VERSION:+$GCC_VERSION }$GCC_DATE (${GCC_COMMIT:0:7})"
+          spike="${SPIKE_RELEASE:+$SPIKE_RELEASE }$SPIKE_DATE (${SPIKE_COMMIT:0:7})"
           echo "::notice title=Stage 2, ELF::GCC $gcc, picolibc $PICOLIBC, Spike $spike, ${VARIANTS:-unknown} library variants. ${decision^}."
           {
             echo "### Stage 2, ELF (level 2)"
             echo
             echo "| Component | Selected |"
             echo "| :--- | :--- |"
-            echo "| RISC-V GCC (riscv-gnu-toolchain), date and commit | $gcc |"
-            echo "| picolibc | $PICOLIBC |"
-            echo "| Spike, date and commit | $spike |"
+            echo "| RISC-V GCC (riscv-gnu-toolchain), GCC version, release date and commit | $gcc |"
+            echo "| picolibc, version, date and commit | $PICOLIBC |"
+            echo "| Spike, version, date and commit | $spike |"
             echo "| Library variants of the GCC and the picolibc | ${VARIANTS:-unknown} |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
@@ -686,6 +718,7 @@ jobs:
           {
             echo "sail=$sail"
             echo "sail_version=$sail_version"
+            echo "sail_date=$(commit_date https://github.com/riscv/sail-riscv "$sail")"
             echo "sail_name=$(name_of https://github.com/riscv/sail-riscv "$sail")"
           } >> "$GITHUB_OUTPUT"
 
@@ -766,6 +799,7 @@ jobs:
           elif [ -n "$ahead" ] && [ "$ahead" -gt 0 ]; then version="$release+$ahead";
           else version="$release"; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "date=$(commit_date "https://github.com/$ACT4_REPO" "$ACT4")" >> "$GITHUB_OUTPUT"
 
       - name: Name the combination
         id: plan
@@ -799,20 +833,22 @@ jobs:
           SAIL_VERSION: ${{ steps.sail.outputs.sail_version }}
           ACT4: ${{ steps.act4.outputs.commit }}
           ACT4_VERSION: ${{ steps.act4version.outputs.version }}
+          ACT4_DATE: ${{ steps.act4version.outputs.date }}
+          SAIL_DATE: ${{ steps.sail.outputs.sail_date }}
         run: |
           if [ "$MISSING" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
-          sail="$SAIL_VERSION (${SAIL_COMMIT:0:7})"
-          act4="$ACT4_VERSION (${ACT4:0:7})"
+          sail="$SAIL_VERSION $SAIL_DATE (${SAIL_COMMIT:0:7})"
+          act4="$ACT4_VERSION $ACT4_DATE (${ACT4:0:7})"
           echo "::notice title=Stage 3, ACT4::Sail $sail, ACT4 $act4. ${decision^}."
           {
             echo "### Stage 3, ACT4 (level 3)"
             echo
             echo "| Component | Selected |"
             echo "| :--- | :--- |"
-            echo "| Sail (sail-riscv), version and commit | $sail |"
-            echo "| ACT4 (riscv-arch-test), release plus commits after it, and commit | $act4 |"
+            echo "| Sail (sail-riscv), version, date and commit | $sail |"
+            echo "| ACT4 (riscv-arch-test), release plus commits after it, date and commit | $act4 |"
             echo "| ACT4 commit | ${ACT4:-none} |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
@@ -913,6 +949,7 @@ jobs:
           version=$(curl -fsSL "https://raw.githubusercontent.com/gtkwave/gtkwave/$gtkwave/gtkwave3-gtk3/configure.ac" 2>/dev/null \
                     | sed -n 's/^AC_INIT(gtkwave-gtk3, *\([0-9.]*\),.*/\1/p' | head -n 1) || true
           echo "version=${version:-unknown}" >> "$GITHUB_OUTPUT"
+          echo "date=$(commit_date https://github.com/gtkwave/gtkwave "$gtkwave")" >> "$GITHUB_OUTPUT"
 
       - name: Name the combination
         id: plan
@@ -945,18 +982,19 @@ jobs:
           SHORT: ${{ steps.plan.outputs.short }}
           GTKWAVE_COMMIT: ${{ steps.gtkwave.outputs.gtkwave }}
           GTKWAVE_VERSION: ${{ steps.gtkwave.outputs.version }}
+          GTKWAVE_DATE: ${{ steps.gtkwave.outputs.date }}
         run: |
           if [ "$MISSING" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
-          gtkwave="$GTKWAVE_VERSION (${GTKWAVE_COMMIT:0:7})"
+          gtkwave="$GTKWAVE_VERSION $GTKWAVE_DATE (${GTKWAVE_COMMIT:0:7})"
           echo "::notice title=Stage 4, dev tools::GTKWave $gtkwave. ${decision^}."
           {
             echo "### Stage 4, dev tools (level 4)"
             echo
             echo "| Component | Selected |"
             echo "| :--- | :--- |"
-            echo "| GTKWave, version and commit | $gtkwave |"
+            echo "| GTKWave, version, date and commit | $gtkwave |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
           } >> "$GITHUB_STEP_SUMMARY"

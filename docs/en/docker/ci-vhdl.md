@@ -19,7 +19,7 @@
 | cocotb | 2.1.0, installed in that Python | `/opt/uv/python` |
 | `click` | 8.5.0, the Python library `sby` imports, installed by `uv` | `/opt/uv/python` |
 | Static analysis tools | `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone` and `semgrep`, the ones the `python-static-analysis` job of the Tools `ci` workflow runs, with versions pinned in `docker/ci/vhdl/static-analysis.txt` | `/opt/static-analysis`, executables in `/usr/local/bin` |
-| `riscv-tools` | the CLI of the Tools repository, installed by `uv tool` from the commit the workflow chooses (`TOOLS_COMMIT`); its `.tag` has two lines, the commit and then the version of the release whose tag points at it with the short commit (`1.6.0 (...)`) | `/opt/riscv-tools`, executable in `/usr/local/bin` |
+| `riscv-tools` | the CLI of the Tools repository, installed by `uv tool` from the commit the workflow chooses (`TOOLS_COMMIT`); its `.tag` has two lines, the commit and then the version of the release whose tag points at it with the date of the commit and the short commit (`1.16.1 2026-11-11 (b154b3f)`) | `/opt/riscv-tools`, executable in `/usr/local/bin` |
 
 The host `gcc` and `g++` are in the image too. The LLVM backend links the design it elaborates with `gcc`, and cocotb is compiled with `g++` on `arm64`, where it has no wheel for Linux; a project's `uv sync` compiles it there as well. The image has no `pip`; a project installs its other dependencies with `uv sync`, which finds this Python instead of downloading another.
 

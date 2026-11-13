@@ -7,7 +7,7 @@
 | Item | Detalhe |
 | :--- | :--- |
 | Yices 2 | construído a partir do código-fonte; só os executáveis (`yices-smt2`, `yices`, `yices-sat` e `yices-smt`), sem cabeçalhos nem bibliotecas |
-| `/opt/yices/.tag` | duas linhas. A primeira é o commit de que a instalação foi construída, e a segunda é a versão da release cuja tag aponta para ele e o commit curto (`2.6.5 (...)`) |
+| `/opt/yices/.tag` | duas linhas. A primeira é o commit de que a instalação foi construída, e a segunda é a versão da release cuja tag aponta para ele a data do commit e o commit curto (`2.7.0 2025-07-16 (85cf17e)`) |
 
 O `yices-smt2` liga dinamicamente com a `libgmp` e a `libc` do sistema, então quem copia o diretório instala a `libgmp10`.
 

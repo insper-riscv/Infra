@@ -56,6 +56,7 @@ jobs:
       packages: read
     outputs:
       commit: ${{ steps.pin.outputs.commit }}
+      release: ${{ steps.pin.outputs.release }}
       build: ${{ steps.pin.outputs.build }}
 
     steps:
@@ -122,6 +123,10 @@ jobs:
             exit 1
           fi
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          # the release the commit belongs to (the nearest release tag with -dev, for a commit between releases),
+          # which the image writes in its .tag
+          . .github/scripts/name-of.sh
+          echo "release=$(release_of "$UPSTREAM" "$commit")" >> "$GITHUB_OUTPUT"
 
           if [ "$force" != "true" ] && docker buildx imagetools inspect "$IMAGE:$commit" > /dev/null 2>&1; then
             echo "::notice::$IMAGE:$commit already exists; nothing to build (run again with force to rebuild)."
@@ -146,7 +151,9 @@ jobs:
       title: Spike (RISC-V ISA simulator)
       description: Spike, the RISC-V reference simulator, with its debug module at 0x70000000. Only the install directory, /opt/riscv-foundation/spike.
       timeout-minutes: 150
-      build-args: RISCV_ISA_SIM_COMMIT=${{ needs.pin.outputs.commit }}
+      build-args: |
+        RISCV_ISA_SIM_COMMIT=${{ needs.pin.outputs.commit }}
+        RISCV_ISA_SIM_RELEASE=${{ needs.pin.outputs.release }}
       labels: riscv-isa-sim.commit=${{ needs.pin.outputs.commit }}
       tags: |
         ${{ needs.pin.outputs.commit }}

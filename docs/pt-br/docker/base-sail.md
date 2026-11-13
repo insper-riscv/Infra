@@ -7,7 +7,7 @@
 | Item | Detalhe |
 | :--- | :--- |
 | `sail_riscv_sim` | o executável do modelo, ligado estaticamente, em `/opt/riscv-foundation/sail/bin` |
-| `/opt/riscv-foundation/sail/.tag` | duas linhas. A primeira é o commit do `sail-riscv`, e a segunda é o número de release que o commit declara e o commit curto (`0.16 (dc286e6)`) |
+| `/opt/riscv-foundation/sail/.tag` | duas linhas. A primeira é o commit do `sail-riscv`, e a segunda é o número de release que o commit declara a data do commit e o commit curto (`0.16 2026-11-03 (dc286e6)`) |
 
 O build busca o commit pelo hash, baixa o compilador Sail que esse commit exige (`cmake/sail_required_version.txt`, o binário da release do `rems-project/sail` para a arquitetura da build) e compila o modelo com CMake e Ninja, como o upstream compila a release. Em seguida confere que `sail_riscv_sim --version` imprime o número de release que o commit declara em `cmake/project_version.cmake`, que é o valor que o ACT4 compara com o seu requisito, e que o executável não tem biblioteca faltando. Qualquer divergência falha o build.
 

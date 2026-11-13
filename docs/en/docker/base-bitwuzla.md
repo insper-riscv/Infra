@@ -7,7 +7,7 @@
 | Item | Detail |
 | :--- | :--- |
 | Bitwuzla | built from source; only the `bitwuzla` executable, without headers or libraries |
-| `/opt/bitwuzla/.tag` | two lines. The first is the commit the install was built from, and the second is the version of the release whose tag points at it and the short commit (`0.9.1 (...)`) |
+| `/opt/bitwuzla/.tag` | two lines. The first is the commit the install was built from, and the second is the version of the release whose tag points at it the date of the commit and the short commit (`0.9.1 2026-05-21 (8d1eb01)`) |
 
 The executable is static, so whoever copies the directory installs no library.
 

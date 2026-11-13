@@ -7,7 +7,7 @@
 | Item | Detail |
 | :--- | :--- |
 | Spike | with its debug module moved from address `0x0` to `0x70000000`, so it does not overlap the program memory |
-| `/opt/riscv-foundation/spike/.tag` | two lines. The first is the commit of `riscv-isa-sim` the install was built from, with the suffix `-debug-start`, and the second is the date of that commit and its short commit (`2026-11-03 (2ca5489)`) |
+| `/opt/riscv-foundation/spike/.tag` | two lines. The first is the commit of `riscv-isa-sim` the install was built from, with the suffix `-debug-start`, and the second is the release the commit belongs to (the nearest release tag with `-dev`), the date of that commit and its short commit (`1.1.0-dev 2026-11-03 (2ca5489)`) |
 
 ## 2. Publication
 

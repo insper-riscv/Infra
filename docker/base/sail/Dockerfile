@@ -50,7 +50,7 @@ RUN cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTATIC=TRUE -D
 # Only the executable is installed. `cmake --install` also installs files of the dependencies that a
 # given commit may not have where its install rules look for them, and ACT4 needs just the executable.
 RUN install -D /build/c_emulator/sail_riscv_sim /opt/riscv-foundation/sail/bin/sail_riscv_sim \
- && { echo "${SAIL_COMMIT}"; echo "${SAIL_VERSION} ($(echo "${SAIL_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/sail/.tag
+ && { echo "${SAIL_COMMIT}"; echo "${SAIL_VERSION} $(git -C /src log -1 --format=%cs) ($(echo "${SAIL_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/sail/.tag
 
 # Fail the build, before anything is published, if the binary does not run, prints a version other
 # than the one declared, or lacks a library that this image does not install.

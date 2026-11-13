@@ -7,7 +7,7 @@
 | Item | Detail |
 | :--- | :--- |
 | GTKWave | the head of the `lts` branch (3.3 maintenance line, GTK 3 tree), which runs natively on Wayland and on X11 |
-| `/opt/gtkwave/.tag` | two lines. The first is the GTKWave commit, and the second is the version that commit declares in `configure.ac` and its short commit (`3.3.129 (73c1d6b)`) |
+| `/opt/gtkwave/.tag` | two lines. The first is the GTKWave commit, and the second is the version that commit declares in `configure.ac` the date of the commit and its short commit (`3.3.129 2026-10-12 (73c1d6b)`) |
 
 GTKWave links against GTK 3, and `dev_tools` installs the libraries it needs.
 

@@ -49,7 +49,7 @@ RUN cd /yosys \
       -DYOSYS_ENABLE_UNIT_TESTS=OFF \
  && cmake --build build --parallel "$(nproc)" \
  && cmake --install build --strip \
- && { echo "${YOSYS_COMMIT}"; echo "${YOSYS_VERSION:-unknown} ($(echo "${YOSYS_COMMIT}" | cut -c1-7))"; } > /opt/yosys/.tag \
+ && { echo "${YOSYS_COMMIT}"; echo "${YOSYS_VERSION:-unknown} $(git -C /yosys log -1 --format=%cs) ($(echo "${YOSYS_COMMIT}" | cut -c1-7))"; } > /opt/yosys/.tag \
  && rm -rf /yosys
 
 # sby is Python: it installs next to Yosys, into the same share/yosys/python3. Its version string comes
@@ -60,7 +60,7 @@ RUN git init /sby \
  && git -C /sby checkout FETCH_HEAD \
  && tag="$(git ls-remote --tags https://github.com/YosysHQ/sby | sed -n "s|^${SBY_COMMIT}[[:space:]]refs/tags/\(.*\)^{}\$|\1|p" | sort -V | tail -n 1)" \
  && make -C /sby install PREFIX=/opt/yosys YOSYS_RELEASE_VERSION="SBY ${tag:-$(printf %.7s "${SBY_COMMIT}")}" \
- && { echo "${SBY_COMMIT}"; echo "${SBY_VERSION:-unknown} ($(echo "${SBY_COMMIT}" | cut -c1-7))"; } > /opt/yosys/.sby.tag \
+ && { echo "${SBY_COMMIT}"; echo "${SBY_VERSION:-unknown} $(git -C /sby log -1 --format=%cs) ($(echo "${SBY_COMMIT}" | cut -c1-7))"; } > /opt/yosys/.sby.tag \
  && rm -rf /sby
 
 # Fail the build, before anything is published, if the two do not work together: a small proof with the

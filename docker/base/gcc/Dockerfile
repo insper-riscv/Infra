@@ -10,6 +10,11 @@ ARG BASE_IMAGE=ubuntu:26.04
 
 FROM ${BASE_IMAGE} AS build
 ARG RISCV_GNU_TOOLCHAIN_COMMIT
+# The release the commit belongs to (a release named for its date, 2026.10.29, gives the date of the .tag line 2).
+ARG RISCV_GNU_TOOLCHAIN_RELEASE=
+# The GCC version the commit bundles (with -dev when its gcc is not a release): the first word of the .tag line 2.
+# Empty in a local build, which then reads the BASE-VER of the gcc it builds.
+ARG RISCV_GNU_TOOLCHAIN_GCC_VERSION=
 
 RUN test -n "${RISCV_GNU_TOOLCHAIN_COMMIT}" \
  || { echo "pass --build-arg RISCV_GNU_TOOLCHAIN_COMMIT=<commit>"; exit 1; }
@@ -53,7 +58,7 @@ RUN multilib="${MULTILIB:-$(bash /usr/local/bin/gcc-multilib.sh)}" \
  && make install-gcc \
  && make -j"$(nproc)" all-target-libgcc \
  && make install-target-libgcc \
- && { echo "${RISCV_GNU_TOOLCHAIN_COMMIT}"; echo "$(git -C /src log -1 --format=%cs) ($(echo "${RISCV_GNU_TOOLCHAIN_COMMIT}" | cut -c1-7)), $(echo "${multilib}" | tr ';' '\n' | wc -l) variants"; } > $prefix/.tag \
+ && { echo "${RISCV_GNU_TOOLCHAIN_COMMIT}"; echo "${RISCV_GNU_TOOLCHAIN_GCC_VERSION:-$(cat /src/gcc/BASE-VER)} $(case "${RISCV_GNU_TOOLCHAIN_RELEASE}" in [0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9]) echo "${RISCV_GNU_TOOLCHAIN_RELEASE}" | tr . - ;; *) git -C /src log -1 --format=%cs ;; esac) ($(echo "${RISCV_GNU_TOOLCHAIN_COMMIT}" | cut -c1-7)), $(echo "${multilib}" | tr ';' '\n' | wc -l) variants"; } > $prefix/.tag \
  && find $prefix/bin $prefix/libexec $prefix/riscv32-unknown-elf/bin -type f -perm /111 \
       -exec sh -c 'for f; do [ "$(head -c 4 "$f" | tail -c 3)" = ELF ] && strip --strip-unneeded "$f"; done; true' sh {} + \
  && rm -rf /build /src

@@ -52,7 +52,7 @@ RUN git init /tmp/act4 \
  && cd /tmp/act4/framework/src/act/data && bundle install --jobs 4 \
  && cd /tmp/act4 && uv sync --frozen --all-packages \
  && mkdir -p /opt/riscv-foundation/act4 \
- && { echo "${ACT4_COMMIT}"; echo "${ACT4_VERSION:-$(sed -n 's/^## \[\([0-9][0-9.]*\)\].*/\1/p' /tmp/act4/CHANGELOG.md | head -n 1)} ($(echo "${ACT4_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/act4/.tag \
+ && { echo "${ACT4_COMMIT}"; echo "${ACT4_VERSION:-$(sed -n 's/^## \[\([0-9][0-9.]*\)\].*/\1/p' /tmp/act4/CHANGELOG.md | head -n 1)} $(git -C /tmp/act4 log -1 --format=%cs) ($(echo "${ACT4_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/act4/.tag \
  && rm -rf /tmp/act4/.venv \
  && mv /tmp/act4 /opt/riscv-foundation/act4/riscv-arch-test \
  && chmod -R a+rwX /opt/act-bundle /opt/act-uv-cache /opt/act-cache /opt/riscv-foundation/act4/riscv-arch-test

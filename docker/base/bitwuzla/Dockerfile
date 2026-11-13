@@ -37,7 +37,7 @@ RUN cd /src \
  && ninja install \
  && find /opt/bitwuzla -mindepth 1 -maxdepth 1 ! -name bin -exec rm -rf {} + \
  && strip /opt/bitwuzla/bin/bitwuzla \
- && { echo "${BITWUZLA_COMMIT}"; echo "${BITWUZLA_VERSION:-unknown} ($(echo "${BITWUZLA_COMMIT}" | cut -c1-7))"; } > /opt/bitwuzla/.tag \
+ && { echo "${BITWUZLA_COMMIT}"; echo "${BITWUZLA_VERSION:-unknown} $(git -C /src log -1 --format=%cs) ($(echo "${BITWUZLA_COMMIT}" | cut -c1-7))"; } > /opt/bitwuzla/.tag \
  && rm -rf /src
 
 # Fail the build, before anything is published, if the executable does not run or does not solve:

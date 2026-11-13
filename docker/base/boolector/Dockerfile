@@ -46,7 +46,7 @@ RUN cd /src \
  && find /src/deps/btor2tools -name btorsim -type f -exec install -m 0755 {} /opt/boolector/bin/btorsim \; \
  && find /opt/boolector -mindepth 1 -maxdepth 1 ! -name bin -exec rm -rf {} + \
  && strip /opt/boolector/bin/* \
- && { echo "${BOOLECTOR_COMMIT}"; echo "${BOOLECTOR_VERSION:-unknown} ($(echo "${BOOLECTOR_COMMIT}" | cut -c1-7))"; } > /opt/boolector/.tag \
+ && { echo "${BOOLECTOR_COMMIT}"; echo "${BOOLECTOR_VERSION:-unknown} $(git -C /src log -1 --format=%cs) ($(echo "${BOOLECTOR_COMMIT}" | cut -c1-7))"; } > /opt/boolector/.tag \
  && rm -rf /src
 
 # Fail the build, before anything is published, if an executable does not run, or if Boolector does
