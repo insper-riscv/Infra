@@ -8,7 +8,7 @@
 | :--- | :--- | :--- |
 | GHDL | LLVM backend, from `base-ghdl` | `/opt/ghdl` |
 | Yosys | reads the Verilog netlist GHDL synthesizes from the VHDL, from `base-yosys` | `/opt/yosys` |
-| GHDL plugin for Yosys | the `ghdl.so` of `ghdl/ghdl-yosys-plugin`, at the commit of the `ghdl-v6.0.0` tag, built against the GHDL and the Yosys of the image; loaded with `yosys -m ghdl` | `/opt/yosys/share/yosys/plugins` |
+| GHDL plugin for Yosys | the `ghdl.so` of `ghdl/ghdl-yosys-plugin`, at the head of its default branch, built against the GHDL and the Yosys of the image; loaded with `yosys -m ghdl` | `/opt/yosys/share/yosys/plugins` |
 | SymbiYosys (`sby`) | runs Yosys and the solvers, from `base-yosys` | `/opt/yosys` |
 | Yices | the `yices-smt2` solver, for the `smtbmc yices` engine, from `base-yices` | `/opt/yices` |
 | Bitwuzla | the `bitwuzla` solver, for the `smtbmc bitwuzla` engine, from `base-bitwuzla` | `/opt/bitwuzla` |
