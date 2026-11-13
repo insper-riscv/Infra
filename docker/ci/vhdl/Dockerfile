@@ -115,9 +115,11 @@ RUN python="$(uv python find "${PYTHON_VERSION}")" \
 # /usr/local/bin (the source is public, so no credentials are needed).
 ARG TOOLS_COMMIT
 ARG TOOLS_VERSION=
+# The date of the commit, written in the .tag before the commit (empty in a local build).
+ARG TOOLS_DATE=
 RUN UV_TOOL_DIR=/opt/riscv-tools UV_TOOL_BIN_DIR=/usr/local/bin \
     uv tool install "git+https://github.com/insper-riscv/Tools@${TOOLS_COMMIT}" \
- && { echo "${TOOLS_COMMIT}"; echo "${TOOLS_VERSION:-unknown} ($(echo "${TOOLS_COMMIT}" | cut -c1-7))"; } > /opt/riscv-tools/.tag \
+ && { echo "${TOOLS_COMMIT}"; echo "${TOOLS_VERSION:-unknown} ${TOOLS_DATE:+${TOOLS_DATE} }($(echo "${TOOLS_COMMIT}" | cut -c1-7))"; } > /opt/riscv-tools/.tag \
  && chmod -R a+rX /opt/riscv-tools
 
 # Fail the build here, not in a user's CI: GHDL runs a VHDL-2008 design, and sby proves a property with

@@ -35,7 +35,7 @@ RUN cd /src/gtkwave3-gtk3 \
     ./configure --prefix=/opt/gtkwave --enable-gtk3 --disable-tcl --disable-mime-update \
  && make -j"$(nproc)" \
  && make install \
- && { echo "${GTKWAVE_COMMIT}"; echo "$(sed -n 's/^AC_INIT(gtkwave-gtk3, *\([0-9.]*\),.*/\1/p' configure.ac | head -n 1) ($(echo "${GTKWAVE_COMMIT}" | cut -c1-7))"; } > /opt/gtkwave/.tag \
+ && { echo "${GTKWAVE_COMMIT}"; echo "$(sed -n 's/^AC_INIT(gtkwave-gtk3, *\([0-9.]*\),.*/\1/p' configure.ac | head -n 1) $(git -C /src log -1 --format=%cs) ($(echo "${GTKWAVE_COMMIT}" | cut -c1-7))"; } > /opt/gtkwave/.tag \
  && rm -rf /src
 
 # Fail the build, before anything is published, if the binary lacks a library it needs at run

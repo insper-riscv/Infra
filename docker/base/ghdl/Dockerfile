@@ -36,7 +36,7 @@ RUN version="${GHDL_VERSION:-$(sed -n 's/^ghdl_version="\(.*\)"/\1/p' /src/confi
  && /src/configure --with-llvm-config --prefix=/opt/ghdl \
  && make -j"$(nproc)" \
  && make install \
- && { echo "${GHDL_COMMIT}"; echo "${version} ($(echo "${GHDL_COMMIT}" | cut -c1-7))"; } > /opt/ghdl/.tag \
+ && { echo "${GHDL_COMMIT}"; echo "${version} $(git -C /src log -1 --format=%cs) ($(echo "${GHDL_COMMIT}" | cut -c1-7))"; } > /opt/ghdl/.tag \
  && rm -rf /build /src
 
 # Fail the build, before anything is published, if GHDL cannot analyze, elaborate and run a

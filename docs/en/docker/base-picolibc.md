@@ -8,7 +8,7 @@
 | :--- | :--- |
 | picolibc | the C library compiled by the GCC of the latest `base-gcc`, installed into the sysroot, once for each of the 192 variants of that GCC (section 2.1) |
 
-The file `/opt/riscv-foundation/riscv32-elf/.picolibc.tag` has two lines. The first is the picolibc commit, and the second is the version, the short commit and the number of library variants (`1.8.12 (2ae376c), 192 variants`).
+The file `/opt/riscv-foundation/riscv32-elf/.picolibc.tag` has two lines. The first is the picolibc commit, and the second is the version, the date of the commit, the short commit and the number of library variants (`1.8.12 2026-07-31 (2ae376c), 192 variants`).
 
 picolibc is compiled by a cross compiler, so the build uses the latest GCC image. The image carries the commit of that GCC in the label `riscv-gnu-toolchain.commit`, and a new GCC makes a new picolibc build.
 

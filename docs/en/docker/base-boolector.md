@@ -9,7 +9,7 @@
 | Boolector | built from source, with the CaDiCaL SAT solver; only the executables, without headers or libraries |
 | `boolector` and `btormc` | the solver and the model checker, both static |
 | `btorsim` | the BTOR2 simulator that `sby` calls to replay a counterexample of the `btor` engine |
-| `/opt/boolector/.tag` | two lines. The first is the commit the install was built from, and the second is the version of the release whose tag points at it and the short commit (`3.2.4 (...)`) |
+| `/opt/boolector/.tag` | two lines. The first is the commit the install was built from, and the second is the version of the release whose tag points at it the date of the commit and the short commit (`3.2.4 2024-08-23 (393cdfb)`) |
 
 Boolector is built here because the Ubuntu package is Boolector 1.5, which does not run in the incremental SMT-LIB mode (`--smt2 -i`) that `yosys-smtbmc` uses. `btorsim` links dynamically against the system's `libstdc++` and `libgcc_s`, so whoever copies the directory installs them.
 
