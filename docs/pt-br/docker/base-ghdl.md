@@ -7,7 +7,7 @@
 | Item | Detalhe |
 | :--- | :--- |
 | GHDL | backend LLVM, construído a partir do código-fonte, em `/opt/ghdl` |
-| `/opt/ghdl/.tag` | duas linhas. A primeira é o commit do `ghdl/ghdl` de que a instalação foi construída, e a segunda é a versão da release cuja tag aponta para ele e o commit curto (`6.0.0 (42d3f16)`) |
+| `/opt/ghdl/.tag` | duas linhas. A primeira é o commit do `ghdl/ghdl` de que a instalação foi construída, e a segunda é a versão e o commit curto (`7.0.0-dev (8e642a9)`): a versão da release cuja tag aponta para o commit ou, se ele não for uma release, a que o commit declara no `configure` |
 
 O backend LLVM roda em `amd64` e `arm64`, ao contrário do `mcode`, que é só x86; as duas arquiteturas precisam rodar o mesmo simulador. Com esse backend, `ghdl -r` exige um `ghdl -e` antes (ou `ghdl --elab-run`). O GHDL liga com `libgnat`, `libllvm`, `zlib1g` e `libedit2`, instaladas na `ci-vhdl`.
 
