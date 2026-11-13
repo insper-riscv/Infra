@@ -21,21 +21,21 @@ The LLVM backend runs on `amd64` and `arm64`, unlike `mcode`, which is x86 only;
 | Label | `ghdl.commit` |
 | Schedule | every day, 03:00 UTC |
 
-The workflow follows series 6 of GHDL (`SERIES`), so a new series is chosen by editing that line. The scheduled run takes the commit of the latest `6.x.y` release tag and builds only if the image for that commit does not exist.
+The workflow follows the head of the default branch of GHDL (the 7.0.0-dev line), because the GHDL plugin for Yosys needs an API of GHDL that the 6.0.0 release does not have. The scheduled run takes the latest commit of that branch and builds only if the image for that commit does not exist.
 
 ## 3. Manual run
 
 | Field | Meaning |
 | :--- | :--- |
 | `confirm` | the value of the `IMAGE_PUBLISH_SECRET` secret |
-| `commit` | the commit to build; empty, the one of the latest release tag |
+| `commit` | the commit to build; empty, the head of the default branch |
 | `force` | rebuild and republish even if the image for that commit exists |
 
 ## 4. Building locally
 
 ```bash
 docker build -f docker/base/ghdl/Dockerfile -t base-ghdl \
-  --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl 'refs/tags/v6.0.0^{}' | cut -f1)" .
+  --build-arg GHDL_COMMIT="$(git ls-remote https://github.com/ghdl/ghdl HEAD | cut -f1)" .
 ```
 
 | Argument | Default | Meaning |
