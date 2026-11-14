@@ -164,7 +164,7 @@ riscv32-unknown-elf-gcc -print-multi-lib
 
 A variant without the library does not compile C++, because its `c++config.h` is missing. The image of each width carries only the libraries of the variants of that width.
 
-`picolibc.specs` links only the `crt0` and leaves `*endfile` empty, so a C++ program with exceptions needs a spec that also links `crtbegin` and `crtend`, which register and end the unwind frames:
+`picolibc.specs` links only the `crt0` and leaves `*endfile` empty, so a C++ program with exceptions needs `crtbegin` and `crtend`, which register and end the unwind frames. `picolibcpp.specs` (`--specs=picolibcpp.specs`) already links them, and it is the spec to use for C++. With `picolibc.specs`, the equivalent spec is:
 
 ```text
 *startfile:
@@ -224,20 +224,20 @@ The build takes hours, because it builds libstdc++ for 192 variants. The `MULTIL
 | `WIDTH` | `32` | `32` builds the RV32 variants (the root and the `rv32` ones), and `64` the RV64 ones |
 | `CXX_BATCH` | `12` | how many libstdc++ variants are built before the build tree is deleted |
 
-## 7. Known limitations
+## 8. Known limitations
 
-What the image does not deliver today, measured in the `ci-elf` image with GCC 16.1.0, and the consequence of each item.
+What the image does not deliver, measured with GCC 16.1.0, and the consequence of each item.
 
 | # | Limitation | Consequence |
 | ---: | :--- | :--- |
-| 1 | There is no `libstdc++` or `libsupc++`, and no `c++/` header folder | `g++` compiles, but any C++ program fails at link time with `cannot find -lstdc++`, and `#include <vector>` fails |
-| 2 | `libatomic` is out of scope. GCC marks it as unsupported for `riscv32-unknown-elf` (`libatomic/configure.tgt` treats `*-*-elf*` as `UNSUPPORTED`) | A 4-byte `std::atomic` is inlined in the variants with A. The 8-byte ones, and every atomic in the variants without A, become calls to `__atomic_*` that nothing defines, and the link fails |
-| 3 | There is no RV64 variant (0 of 192) | The compiler accepts `-march=rv64*` and links, with no error, against the 32-bit libraries |
-| 4 | GCC does not support the Q extension (`extension 'q' is unsupported`, and the ABIs `ilp32q` and `lp64q` are refused) | C and C++ programs with Q do not compile. The assembler (`as`) accepts `-march=...q` and assembles instructions such as `fadd.q` |
-| 5 | `picolibc.specs` links neither `crtbegin.o` nor `crtend.o` | When `libstdc++` exists, `throw` and `catch` work only with a spec that links both, because they register the unwind frames |
-| 6 | The GCC default is `rv32im/ilp32`, set by `--with-arch=rv32im` | A program compiled without `-march` uses the M instructions |
+| 1 | `libatomic` is out of scope. GCC marks it as unsupported for `riscv32-unknown-elf` (`libatomic/configure.tgt` treats `*-*-elf*` as `UNSUPPORTED`) | A 4-byte `std::atomic` is inlined in the variants with A. The 8-byte ones, and every atomic in the variants without A, become calls to `__atomic_*` that nothing defines, and the link fails |
+| 2 | GCC does not support the Q extension (`extension 'q' is unsupported`, and the ABIs `ilp32q` and `lp64q` are refused) | C and C++ programs with Q do not compile. The assembler (`as`) accepts `-march=...q` and assembles instructions such as `fadd.q` |
+| 3 | A `-march` and a `-mabi` with no exact variant fall to the root `.`, which is the `rv32i/ilp32` variant, with no error (for example `-march=rv32imf -mabi=ilp32e`, or a `-march=rv64*` of a variant the image does not have) | The program links against libraries of another width or base, with no warning. Tools refuses `core.type: 64` and checks the multilib it picks |
+| 4 | `picolibc.specs` links neither `crtbegin.o` nor `crtend.o`, and `picolibc.ld` does not work for C++ (the link fails with `discarded section .eh_frame`) | For C++ use `--specs=picolibcpp.specs` and the linker script `picolibcpp.ld`, which link both and handle `.eh_frame` |
+| 5 | `libstdc++` asks the runtime for `getentropy`, `read`, `open` and `close` | A program with `new` or exceptions fails to link without them. Tools generates stubs that return `ENOSYS` when `toolchain.cxx` is on |
 
 ---
+
 
 
 Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../../LICENSE).

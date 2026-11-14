@@ -164,7 +164,7 @@ A `libsupc++` e a `libstdc++` são construídas no mesmo `Dockerfile`, depois qu
 
 Uma variante sem a biblioteca não compila C++, porque falta o `c++config.h` dela. A imagem de cada largura leva só as bibliotecas das variantes dessa largura.
 
-O `picolibc.specs` liga só o `crt0` e deixa o `*endfile` vazio, então um programa C++ com exceções precisa de um spec que ligue também `crtbegin` e `crtend`, que registram e terminam os quadros de desenrolamento:
+O `picolibc.specs` liga só o `crt0` e deixa o `*endfile` vazio, então um programa C++ com exceções precisa de `crtbegin` e `crtend`, que registram e terminam os quadros de desenrolamento. O `picolibcpp.specs` (`--specs=picolibcpp.specs`) já os liga, e é o spec indicado para C++. Com o `picolibc.specs`, o spec equivalente é:
 
 ```text
 *startfile:
@@ -224,20 +224,20 @@ O build leva horas, porque constrói a `libstdc++` de 192 variantes. O argumento
 | `WIDTH` | `32` | `32` constrói as variantes de RV32 (a raiz e as `rv32`), e `64` as de RV64 |
 | `CXX_BATCH` | `12` | quantas variantes de `libstdc++` são construídas antes de apagar a árvore de construção |
 
-## 7. Limitações conhecidas
+## 8. Limitações conhecidas
 
-O que a imagem não entrega hoje, medido na imagem `ci-elf` com o GCC 16.1.0, e a consequência de cada item.
+O que a imagem não entrega, medido com o GCC 16.1.0, e a consequência de cada item.
 
 | # | Limitação | Consequência |
 | ---: | :--- | :--- |
-| 1 | Não há `libstdc++` nem `libsupc++`, e não há a pasta de cabeçalhos `c++/` | O `g++` compila, mas qualquer programa em C++ falha na ligação com `cannot find -lstdc++`, e `#include <vector>` falha |
-| 2 | A `libatomic` está fora do escopo. O GCC a marca como não suportada para `riscv32-unknown-elf` (`libatomic/configure.tgt` trata `*-*-elf*` como `UNSUPPORTED`) | Um `std::atomic` de 4 bytes sai inline nas variantes com A. Os de 8 bytes, e todos os atômicos nas variantes sem A, viram chamadas a `__atomic_*` que ninguém define, e a ligação falha |
-| 3 | Não existe nenhuma variante RV64 (0 de 192) | O compilador aceita `-march=rv64*` e liga, sem erro, com as bibliotecas de 32 bits |
-| 4 | A extensão Q não é suportada pelo GCC (`extension 'q' is unsupported`, e os ABIs `ilp32q` e `lp64q` são recusados) | Programas em C e C++ com Q não compilam. O montador (`as`) aceita `-march=...q` e monta instruções como `fadd.q` |
-| 5 | O `picolibc.specs` não liga `crtbegin.o` nem `crtend.o` | Quando a `libstdc++` existir, `throw` e `catch` só funcionam com um spec que ligue os dois, porque são eles que registram os quadros de desenrolamento |
-| 6 | O padrão do GCC é `rv32im/ilp32`, fixado por `--with-arch=rv32im` | Um programa compilado sem `-march` usa as instruções de M |
+| 1 | A `libatomic` está fora do escopo. O GCC a marca como não suportada para `riscv32-unknown-elf` (`libatomic/configure.tgt` trata `*-*-elf*` como `UNSUPPORTED`) | Um `std::atomic` de 4 bytes sai inline nas variantes com A. Os de 8 bytes, e todos os atômicos nas variantes sem A, viram chamadas a `__atomic_*` que ninguém define, e a ligação falha |
+| 2 | A extensão Q não é suportada pelo GCC (`extension 'q' is unsupported`, e os ABIs `ilp32q` e `lp64q` são recusados) | Programas em C e C++ com Q não compilam. O montador (`as`) aceita `-march=...q` e monta instruções como `fadd.q` |
+| 3 | Um `-march` e um `-mabi` sem variante exata caem na raiz `.`, que é a variante `rv32i/ilp32`, sem erro (por exemplo `-march=rv32imf -mabi=ilp32e`, ou um `-march=rv64*` de uma variante que a imagem não tem) | O programa liga com bibliotecas de outra largura ou de outra base, sem aviso. O Tools recusa `core.type: 64` e confere o multilib escolhido |
+| 4 | O `picolibc.specs` não liga `crtbegin.o` nem `crtend.o`, e o `picolibc.ld` não serve para C++ (o link falha com `discarded section .eh_frame`) | Para C++ use `--specs=picolibcpp.specs` e o linker script `picolibcpp.ld`, que ligam os dois e tratam o `.eh_frame` |
+| 5 | A `libstdc++` pede ao runtime `getentropy`, `read`, `open` e `close` | Um programa com `new` ou exceções falha na ligação sem eles. O Tools gera stubs que devolvem `ENOSYS` quando `toolchain.cxx` está ligado |
 
 ---
+
 
 
 Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](../../../LICENSE).
