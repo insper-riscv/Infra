@@ -224,6 +224,20 @@ O build leva horas, porque constrói a `libstdc++` de 192 variantes. O argumento
 | `WIDTH` | `32` | `32` constrói as variantes de RV32 (a raiz e as `rv32`), e `64` as de RV64 |
 | `CXX_BATCH` | `12` | quantas variantes de `libstdc++` são construídas antes de apagar a árvore de construção |
 
+## 7. Limitações conhecidas
+
+O que a imagem não entrega hoje, medido na imagem `ci-elf` com o GCC 16.1.0, e a consequência de cada item.
+
+| # | Limitação | Consequência |
+| ---: | :--- | :--- |
+| 1 | Não há `libstdc++` nem `libsupc++`, e não há a pasta de cabeçalhos `c++/` | O `g++` compila, mas qualquer programa em C++ falha na ligação com `cannot find -lstdc++`, e `#include <vector>` falha |
+| 2 | A `libatomic` está fora do escopo. O GCC a marca como não suportada para `riscv32-unknown-elf` (`libatomic/configure.tgt` trata `*-*-elf*` como `UNSUPPORTED`) | Um `std::atomic` de 4 bytes sai inline nas variantes com A. Os de 8 bytes, e todos os atômicos nas variantes sem A, viram chamadas a `__atomic_*` que ninguém define, e a ligação falha |
+| 3 | Não existe nenhuma variante RV64 (0 de 192) | O compilador aceita `-march=rv64*` e liga, sem erro, com as bibliotecas de 32 bits |
+| 4 | A extensão Q não é suportada pelo GCC (`extension 'q' is unsupported`, e os ABIs `ilp32q` e `lp64q` são recusados) | Programas em C e C++ com Q não compilam. O montador (`as`) aceita `-march=...q` e monta instruções como `fadd.q` |
+| 5 | O `picolibc.specs` não liga `crtbegin.o` nem `crtend.o` | Quando a `libstdc++` existir, `throw` e `catch` só funcionam com um spec que ligue os dois, porque são eles que registram os quadros de desenrolamento |
+| 6 | O padrão do GCC é `rv32im/ilp32`, fixado por `--with-arch=rv32im` | Um programa compilado sem `-march` usa as instruções de M |
+
 ---
+
 
 Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](../../../LICENSE).
