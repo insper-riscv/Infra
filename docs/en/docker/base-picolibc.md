@@ -175,6 +175,20 @@ docker build -f docker/base/picolibc/Dockerfile -t base-picolibc \
 | `PICOLIBC_COMMIT` | none | the picolibc commit to compile |
 | `GCC_COMMIT` | none | the GCC commit of that image, recorded in the tag |
 
+## 7. Known limitations
+
+What the image does not deliver today, measured in the `ci-elf` image with GCC 16.1.0, and the consequence of each item.
+
+| # | Limitation | Consequence |
+| ---: | :--- | :--- |
+| 1 | There is no `libstdc++` or `libsupc++`, and no `c++/` header folder | `g++` compiles, but any C++ program fails at link time with `cannot find -lstdc++`, and `#include <vector>` fails |
+| 2 | `libatomic` is out of scope. GCC marks it as unsupported for `riscv32-unknown-elf` (`libatomic/configure.tgt` treats `*-*-elf*` as `UNSUPPORTED`) | A 4-byte `std::atomic` is inlined in the variants with A. The 8-byte ones, and every atomic in the variants without A, become calls to `__atomic_*` that nothing defines, and the link fails |
+| 3 | There is no RV64 variant (0 of 192) | The compiler accepts `-march=rv64*` and links, with no error, against the 32-bit libraries |
+| 4 | GCC does not support the Q extension (`extension 'q' is unsupported`, and the ABIs `ilp32q` and `lp64q` are refused) | C and C++ programs with Q do not compile. The assembler (`as`) accepts `-march=...q` and assembles instructions such as `fadd.q` |
+| 5 | `picolibc.specs` links neither `crtbegin.o` nor `crtend.o` | When `libstdc++` exists, `throw` and `catch` work only with a spec that links both, because they register the unwind frames |
+| 6 | The GCC default is `rv32im/ilp32`, set by `--with-arch=rv32im` | A program compiled without `-march` uses the M instructions |
+
 ---
+
 
 Copyright 2026 Insper. Licensed under the [Apache License, Version 2.0](../../../LICENSE).
