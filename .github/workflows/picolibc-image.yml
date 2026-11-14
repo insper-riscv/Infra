@@ -1,8 +1,9 @@
 name: Picolibc image
 
-# Builds picolibc for the RISC-V GCC of the GCC image (every variant of that GCC), alone,
-# and publishes it as base-picolibc for linux/amd64 and linux/arm64, tagged with the picolibc
-# commit and the commit of the GCC it was compiled with, and as latest.
+# Builds picolibc and the C++ libraries (libsupc++ and libstdc++) for the RISC-V GCC of the GCC image
+# (every variant of that GCC), alone, once for each width: base-picolibc has the RV32 variants and
+# base-picolibc-rv64 the RV64 ones. Each is published for linux/amd64 and linux/arm64, tagged with
+# the picolibc commit and the commit of the GCC it was compiled with, and as latest.
 #
 # picolibc is compiled by the cross compiler, so it is built with the GCC of the latest GCC image.
 # The GCC image does not depend on this one, so a new GCC makes a new picolibc build and a new
@@ -45,6 +46,7 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/base-picolibc
+  IMAGE_RV64: ghcr.io/${{ github.repository_owner }}/base-picolibc-rv64
   GCC_IMAGE: ghcr.io/${{ github.repository_owner }}/base-gcc
   UPSTREAM: https://github.com/picolibc/picolibc
   # the major version of picolibc the image follows (1.x.y: the minor and the patch move to the
@@ -176,9 +178,12 @@ jobs:
           # The tag has the two commits only, so a GCC rebuilt with the same commit and another number
           # of variants would find the image of this tag and build nothing. The image records the
           # number of variants of the GCC it was compiled with, and a different one rebuilds it.
+          # Both widths are checked, and either one missing builds both.
           published_variants=$(label "$IMAGE:$commit-$gcc" riscv-gnu-toolchain.variants)
+          published_variants_rv64=$(label "$IMAGE_RV64:$commit-$gcc" riscv-gnu-toolchain.variants)
           if [ "$force" != "true" ] && docker buildx imagetools inspect "$IMAGE:$commit-$gcc" > /dev/null 2>&1 \
-             && [ "$published_variants" = "$gcc_variants" ]; then
+             && docker buildx imagetools inspect "$IMAGE_RV64:$commit-$gcc" > /dev/null 2>&1 \
+             && [ "$published_variants" = "$gcc_variants" ] && [ "$published_variants_rv64" = "$gcc_variants" ]; then
             echo "::notice::$IMAGE:$commit-$gcc already exists with ${gcc_variants:-an unrecorded number of} variants; nothing to build (run again with force to rebuild)."
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
@@ -197,14 +202,28 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: base-picolibc
+            width: 32
+            title: picolibc for the RISC-V GCC
+            description: picolibc and libstdc++, the C and C++ libraries of the RISC-V GCC for the RV32 variants (every combination of I or E, multiply none, Zmmul or M, F and D (D only with I), A, C and B (Zba, Zbb and Zbs), with the ABIs each allows, 192 variants). Only the files they install into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
+          - name: base-picolibc-rv64
+            width: 64
+            title: picolibc for the RISC-V GCC, RV64
+            description: picolibc and libstdc++, the C and C++ libraries of the RISC-V GCC for the RV64 variants (every combination of I or E, multiply none, Zmmul or M, F and D (D only with I), A, C and B (Zba, Zbb and Zbs), with the ABIs each allows, 192 variants). Only the files they install into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
     uses: ./.github/workflows/build-image.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/base-picolibc
+      image: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
       dockerfile: docker/base/picolibc/Dockerfile
-      title: picolibc for the RISC-V GCC
-      description: picolibc, the C library of the RISC-V GCC (every combination of I or E, multiply none, Zmmul or M, F and D (D only with I), A, C and B (Zba, Zbb and Zbs), with the ABIs each allows, 192 variants in all). Only the files it installs into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
-      timeout-minutes: 240
+      title: ${{ matrix.title }}
+      description: ${{ matrix.description }}
+      # picolibc and libstdc++ of 192 variants of one width: about 2.5 to 3.5 hours on 4 CPUs, in batches
+      timeout-minutes: 360
       build-args: |
+        WIDTH=${{ matrix.width }}
         GCC_IMAGE=${{ needs.pin.outputs.gcc_image }}
         PICOLIBC_COMMIT=${{ needs.pin.outputs.commit }}
         GCC_COMMIT=${{ needs.pin.outputs.gcc }}
