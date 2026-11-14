@@ -17,7 +17,7 @@
 | `uv` | Python project manager, installed by the official installer of the chosen version, which checks the binary against the SHA-256 it carries | `/usr/local/bin` |
 | Python | 3.14, installed by `uv` for every user, with `python3` and `python` on the `PATH` | `/opt/uv/python` |
 | cocotb | 2.1.0, installed in that Python | `/opt/uv/python` |
-| `click` | 8.5.0, the Python library `sby` imports, installed by `uv` | `/opt/uv/python` |
+| `click` | the latest 8.x, the Python library `sby` imports, installed by `uv` | `/opt/uv/python` |
 | Static analysis tools | `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone` and `semgrep`, the ones the `python-static-analysis` job of the Tools `ci` workflow runs, with versions pinned in `docker/ci/vhdl/static-analysis.txt` | `/opt/static-analysis`, executables in `/usr/local/bin` |
 | `riscv-tools` | the CLI of the Tools repository, installed by `uv tool` from the commit the workflow chooses (`TOOLS_COMMIT`); its `.tag` has two lines, the commit and then the version of the release whose tag points at it with the date of the commit and the short commit (`1.16.1 2026-11-11 (b154b3f)`) | `/opt/riscv-tools`, executable in `/usr/local/bin` |
 
@@ -38,12 +38,12 @@ Ubuntu also provides `git`, `make`, `curl`, `jq` and `ca-certificates` (the chec
 | `uv` | the latest stable release of series 0 | `uv` releases a new version (automatic, checked every day) |
 | Python | the latest patch of 3.14 that the `uv` of the image knows | a new `uv` is released (automatic); the minor changes only by editing `PYTHON_VERSION` |
 | cocotb | 2.1.0, fixed | `COCOTB_VERSION` is edited |
-| `click` | 8.5.0, fixed | `CLICK_VERSION` is edited |
+| `click` | the latest 8.x on PyPI | a new 8.x is released (automatic, looked up on every run) |
 | Static analysis tools | the versions in `static-analysis.txt`, pinned | that file is edited |
 | `riscv-tools` | the latest stable release of Tools (`vX.Y.Z`), published after its `ci` workflow (the tests and the static analysis) succeeded | Tools publishes a release (automatic, checked every day) |
 | The other Ubuntu packages | whatever Ubuntu 26.04 has when the image is built | the image is rebuilt for another reason |
 
-The image is rebuilt only when GHDL, Yosys, SymbiYosys, Yices, Bitwuzla, Boolector, the Tools release or `uv` change. The Tools commit is the one of the latest stable release of Tools (the highest `vX.Y.Z` tag), which the release workflow of Tools publishes only after its `ci` workflow finished successfully on that commit. Tools does not trigger the workflow, so a new release is picked up by the next scheduled run. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, but cocotb and `click` do not follow it: they stay at the versions `docker/ci/vhdl/Dockerfile` fixes until someone edits the build argument and runs the workflow by hand with `from_level` set to `vhdl`. The Python, cocotb and `click` versions are in the labels of every image, and are not part of the decision to build.
+The image is rebuilt only when GHDL, Yosys, SymbiYosys, Yices, Bitwuzla, Boolector, the Tools release or `uv` change. The Tools commit is the one of the latest stable release of Tools (the highest `vX.Y.Z` tag), which the release workflow of Tools publishes only after its `ci` workflow finished successfully on that commit. Tools does not trigger the workflow, so a new release is picked up by the next scheduled run. The Python patch follows the `uv`, because a new `uv` brings the new patch with it, and `click` is the latest 8.x on PyPI at build time, but cocotb does not follow it: it stays at the version `docker/ci/vhdl/Dockerfile` fixes until someone edits the build argument and runs the workflow by hand with `from_level` set to `vhdl`. The Python, cocotb and `click` versions are in the labels of every image, and are not part of the decision to build.
 
 ## 2. Publication
 
@@ -90,7 +90,7 @@ docker build -f docker/ci/vhdl/Dockerfile -t ci-vhdl \
 | `UV_VERSION` | none (required) | `uv` version; the build fails with a message if it is missing |
 | `PYTHON_VERSION` | `3.14` | Python installed by `uv` |
 | `COCOTB_VERSION` | `2.1.0` | cocotb installed in it |
-| `CLICK_VERSION` | a fixed version | `click`, used by `sby` |
+| `CLICK_VERSION` | `8.5.1` | `click`, used by `sby`; the workflow passes the latest 8.x on PyPI |
 | `TOOLS_COMMIT` | a pinned commit (local builds only; the workflow passes the commit of the latest Tools release) | commit of Tools the image installs |
 
 The build prints one line per component with its version and commit, and fails if GHDL does not run a VHDL-2008 design, if Yosys cannot load the GHDL plugin and synthesize a VHDL design through it, if Yosys and `sby` do not prove a small property with each engine (`yices`, `bitwuzla`, `boolector`, `abc bmc3` and `abc pdr`), or if Python is not 3.14 with cocotb.

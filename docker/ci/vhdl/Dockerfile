@@ -7,10 +7,10 @@
 #     --build-arg UV_VERSION=<0.x.y> .
 
 ARG BASE_IMAGE=ubuntu:26.04
-# Python and cocotb move together (cocotb fixes the Python version); click is what sby imports.
+# Python and cocotb move together (cocotb fixes the Python version); click is what sby imports (the CI images workflow passes the latest 8.x on PyPI).
 ARG PYTHON_VERSION=3.14
 ARG COCOTB_VERSION=2.1.0
-ARG CLICK_VERSION=8.5.0
+ARG CLICK_VERSION=8.5.1
 ARG GHDL_IMAGE=ghcr.io/insper-riscv/base-ghdl:latest
 ARG YOSYS_IMAGE=ghcr.io/insper-riscv/base-yosys:latest
 ARG YICES_IMAGE=ghcr.io/insper-riscv/base-yices:latest
@@ -142,7 +142,7 @@ RUN set -e; d="$(mktemp -d)"; cd "$d"; \
     yosys -q -m ghdl -p 'ghdl --std=08 p.vhd -e p; hierarchy -top p; proc; select -assert-count 1 t:$and'; \
     echo "yosys     $(yosys -V) (.tag $(tail -n 1 /opt/yosys/.tag))"; \
     echo "uv        $(uv --version)"; \
-    python3 -c "import sys, cocotb; assert sys.version_info[:2] == (3, 14); print('python   ', sys.version.split()[0], 'cocotb', cocotb.__version__)"; \
+    python3 -c "import sys, cocotb, importlib.metadata as m; assert sys.version_info[:2] == (3, 14); print('python   ', sys.version.split()[0], 'cocotb', cocotb.__version__, 'click', m.version('click'))"; \
     echo "gcc host  $(gcc --version | head -n 1)"; \
     for t in ruff pycodestyle pydocstyle pylint pyright pyrefly deptry complexipy codeclone semgrep; do \
       echo "$t  $("$t" --version 2>&1 | head -n 1)"; \
