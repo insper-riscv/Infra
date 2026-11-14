@@ -10,7 +10,7 @@
 | SymbiYosys (`sby`) | built with Yosys; runs Yosys and the solvers |
 | `/opt/yosys/.tag` and `/opt/yosys/.sby.tag` | two lines each. The first is the commit the install was built from, and the second is the version of the release whose tag points at it the date of the commit and the short commit (`0.70 2026-10-13 (28ba3cb)`) |
 
-The SMT solvers come from [`base-yices`](base-yices.md), [`base-bitwuzla`](base-bitwuzla.md) and [`base-boolector`](base-boolector.md) and are copied into `ci-vhdl`, which also installs the libraries Yosys links against (`libreadline8t64`, `libtcl8.6` and `libffi8`) and the `click` that `sby` imports.
+The SMT solvers come from [`base-yices`](base-yices.md) and [`base-bitwuzla`](base-bitwuzla.md) and are copied into `ci-vhdl`, which also installs the libraries Yosys links against (`libreadline8t64`, `libtcl8.6` and `libffi8`) and the `click` that `sby` imports.
 
 ## 2. Publication
 

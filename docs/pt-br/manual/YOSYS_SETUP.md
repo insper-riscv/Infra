@@ -10,7 +10,7 @@ Yosys e SymbiYosys (`sby`), compilados do código-fonte a partir da release `v0.
 | `yosys-witness` | Converte e inspeciona os traços de testemunha de uma prova |
 | `yosys-config` | Imprime as flags para compilar plug-ins do Yosys |
 | `yosys-filterlib` | Filtra bibliotecas de células Liberty |
-| `sby` | SymbiYosys: roda o Yosys e os solvers (`yices`, `bitwuzla`, `boolector`) para provar propriedades de um bloco |
+| `sby` | SymbiYosys: roda o Yosys e os solvers (`yices`, `bitwuzla`) para provar propriedades de um bloco |
 
 ## 1. Dependências
 
@@ -96,27 +96,13 @@ cd build
 ninja
 ninja install
 
-# Boolector, the latest 3.N.P release, with the btorsim of btor2tools
-BOOLECTOR_TAG=$(git ls-remote --tags --refs https://github.com/Boolector/boolector '3.*' | sed 's|.*refs/tags/||' \
-                | grep -E '^3\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
-git clone --depth 1 --branch "$BOOLECTOR_TAG" https://github.com/Boolector/boolector "$BUILD_DIR/boolector"
-cd "$BUILD_DIR/boolector"
-export CMAKE_POLICY_VERSION_MINIMUM=3.5
-./contrib/setup-cadical.sh
-./contrib/setup-btor2tools.sh
-./configure.sh --prefix "$PREFIX"
-cd build
-make -j"$(nproc)"
-make install
-find "$BUILD_DIR/boolector/deps/btor2tools" -name btorsim -type f -exec install -m 0755 {} "$PREFIX/bin/btorsim" \;
-
 echo "$TAG" > "$PREFIX/.tag"
 ```
 
 - `-DYOSYS_WITHOUT_SLANG=ON` deixa de fora o front end de SystemVerilog baseado no Slang, a maior parte do build; as propriedades são lidas com o `read_verilog -formal -sv` embutido.
 - `-DYOSYS_USE_BUNDLED_LIBS=ON` usa as bibliotecas que o Yosys traz como submódulos (`cxxopts`, `fmt`, `tomlplusplus`), e `abc` e `symfpu` são os outros submódulos de que um build sem o Slang precisa.
 - O `sby` é Python e se instala ao lado do Yosys; `python3-click` é a biblioteca que ele importa, e `YOSYS_RELEASE_VERSION` dá a ele a string de versão que um clone sem histórico não consegue calcular.
-- Os solvers que o `sby` roda (`yices-smt2`, `bitwuzla` e `boolector`, com `btormc` e `btorsim` para o motor `btor`) são compilados da release mais recente de cada série e instalados em `$PREFIX`, ao lado do Yosys; o `sby` os chama pelo `PATH`.
+- Os solvers que o `sby` roda (`yices-smt2` e `bitwuzla`) são compilados da release mais recente de cada série e instalados em `$PREFIX`, ao lado do Yosys; o `sby` os chama pelo `PATH`.
 - O build roda em `/var/tmp`, e não em `/tmp`, que costuma ser um tmpfs pequeno demais para a árvore de build, e o diretório é apagado ao final.
 - O `.tag` é gravado por último: um build interrompido deixa a instalação sem `.tag`, então a próxima execução recompila em vez de confiar numa instalação incompleta, e uma execução na versão já instalada não faz nada.
 

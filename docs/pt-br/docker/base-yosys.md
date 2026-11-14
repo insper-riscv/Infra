@@ -10,7 +10,7 @@
 | SymbiYosys (`sby`) | construído junto com o Yosys; roda o Yosys e os solvers |
 | `/opt/yosys/.tag` e `/opt/yosys/.sby.tag` | duas linhas cada. A primeira é o commit de que a instalação foi construída, e a segunda é a versão da release cuja tag aponta para ele a data do commit e o commit curto (`0.70 2026-10-13 (28ba3cb)`) |
 
-Os solvers SMT vêm de [`base-yices`](base-yices.md), [`base-bitwuzla`](base-bitwuzla.md) e [`base-boolector`](base-boolector.md) e são copiados para a `ci-vhdl`, que também instala as bibliotecas com que o Yosys liga (`libreadline8t64`, `libtcl8.6` e `libffi8`) e o `click` que o `sby` importa.
+Os solvers SMT vêm de [`base-yices`](base-yices.md) e [`base-bitwuzla`](base-bitwuzla.md) e são copiados para a `ci-vhdl`, que também instala as bibliotecas com que o Yosys liga (`libreadline8t64`, `libtcl8.6` e `libffi8`) e o `click` que o `sby` importa.
 
 ## 2. Publicação
 

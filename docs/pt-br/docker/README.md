@@ -4,7 +4,7 @@ As imagens Docker do projeto reúnem o que o fluxo de testes RISC-V precisa. Há
 
 | Tipo | Nome | O que é |
 | :--- | :--- | :--- |
-| Base | `base-*` | uma ferramenta por imagem (GHDL, Yosys com SymbiYosys, os solvers SMT Yices, Bitwuzla e Boolector, GCC, picolibc, Spike, Sail, GTKWave) e mais nada; existem para serem copiadas |
+| Base | `base-*` | uma ferramenta por imagem (GHDL, Yosys com SymbiYosys, os solvers SMT Yices e Bitwuzla, GCC, picolibc, Spike, Sail, GTKWave) e mais nada; existem para serem copiadas |
 | CI | `ci-*` | as imagens em que o CI de um projeto roda; cada uma é a anterior mais outras ferramentas, em níveis |
 | Final | `dev_tools` | o último nível, para o Dev Container |
 
@@ -13,8 +13,8 @@ Os `Dockerfile`s ficam na pasta `docker` do repositório (`base/`, `ci/` e `dev-
 ## 1. Os níveis
 
 ```text
-base-ghdl    base-yosys    base-yices    base-bitwuzla    base-boolector    uv
-     └───────────┴──────────┴──────────────┴────────────────┴────────────────┘
+base-ghdl    base-yosys    base-yices    base-bitwuzla    uv
+     └───────────┴──────────┴──────────────┘
                  ▼
             ci-vhdl            GHDL, Yosys, solvers, uv, Python, cocotb, static analysis, riscv-tools
                  │
@@ -36,7 +36,7 @@ base-ghdl    base-yosys    base-yices    base-bitwuzla    base-boolector    uv
 
 | Nível | Imagem | Serve para | Acrescenta ao nível anterior |
 | :--- | :--- | :--- | :--- |
-| 1 | [`ci-vhdl`](ci-vhdl.md) | testes VHDL (cocotb, provas formais) | GHDL, Yosys com SymbiYosys, os solvers Yices, Bitwuzla e Boolector, `uv`, Python 3.14, cocotb, static analysis tools, `riscv-tools` |
+| 1 | [`ci-vhdl`](ci-vhdl.md) | testes VHDL (cocotb, provas formais) | GHDL, Yosys com SymbiYosys, os solvers Yices e Bitwuzla, `uv`, Python 3.14, cocotb, static analysis tools, `riscv-tools` |
 | 2 | [`ci-elf`](ci-elf.md) | gerar ELFs (compilar assembly e C) e rodá-los no Spike | GCC RISC-V com picolibc, Spike |
 | 3 | [`ci-act4`](ci-act4.md) | certificação ACT4 | Sail, Ruby, Bundler, dependências de um commit do ACT4 |
 | 4 | [`dev_tools`](dev-tools.md) | Dev Container | GTKWave, usuário `dev` |
@@ -51,7 +51,6 @@ As imagens base, uma por ferramenta:
 | `base-yosys` | `/opt/yosys` (Yosys e SymbiYosys) | [base-yosys.md](base-yosys.md) |
 | `base-yices` | `/opt/yices` (o solver Yices 2) | [base-yices.md](base-yices.md) |
 | `base-bitwuzla` | `/opt/bitwuzla` (o solver Bitwuzla) | [base-bitwuzla.md](base-bitwuzla.md) |
-| `base-boolector` | `/opt/boolector` (o solver Boolector, com `btormc`) | [base-boolector.md](base-boolector.md) |
 | `base-gcc` | `/opt/riscv-foundation/riscv32-elf` (binutils, GCC e libgcc) | [base-gcc.md](base-gcc.md) |
 | `base-picolibc` | os arquivos que a picolibc instala no sysroot do GCC | [base-picolibc.md](base-picolibc.md) |
 | `base-spike` | `/opt/riscv-foundation/spike` | [base-spike.md](base-spike.md) |
@@ -69,7 +68,7 @@ Uma imagem base não tem sistema de arquivos além do diretório de instalação
 
 A tag de combinação de um nível acima nomeia o início do digest da imagem abaixo e os componentes que ele acrescenta. Um componente é nomeado pela versão quando uma tag de release aponta para o seu commit (`6.0.0` no GHDL, `0.70` no Yosys, `2026.10.29` no GCC quando o commit dele é uma release datada) e pelos 7 primeiros caracteres do commit quando nenhuma aponta (Spike, Sail, GTKWave e ACT4 seguem uma branch). Uma tag tem no máximo 128 caracteres. Qualquer mudança em qualquer nível de baixo gera, portanto, uma combinação nova.
 
-Toda imagem leva os rótulos `org.opencontainers.image.title`, `description`, `source`, `revision` (o commit deste repositório que a construiu) e `created`, definidos pelo workflow, e os rótulos de commit dos seus componentes (`ghdl.commit`, `riscv-gnu-toolchain.commit`, `picolibc.commit`, `riscv-isa-sim.commit`, `yosys.commit`, `sby.commit`, `yices.commit`, `bitwuzla.commit`, `boolector.commit`, `sail-riscv.commit`, `gtkwave.commit`, `act4.commit`, `uv.version`). Os rótulos são definidos explicitamente porque uma imagem construída sobre a base Ubuntu herdaria o título, a descrição e a data da imagem do Ubuntu.
+Toda imagem leva os rótulos `org.opencontainers.image.title`, `description`, `source`, `revision` (o commit deste repositório que a construiu) e `created`, definidos pelo workflow, e os rótulos de commit dos seus componentes (`ghdl.commit`, `riscv-gnu-toolchain.commit`, `picolibc.commit`, `riscv-isa-sim.commit`, `yosys.commit`, `sby.commit`, `yices.commit`, `bitwuzla.commit`, `sail-riscv.commit`, `gtkwave.commit`, `act4.commit`, `uv.version`). Os rótulos são definidos explicitamente porque uma imagem construída sobre a base Ubuntu herdaria o título, a descrição e a data da imagem do Ubuntu.
 
 ## 3. Usando as imagens de CI
 
@@ -105,12 +104,11 @@ Cada imagem base tem um workflow que roda todo dia (UTC), sem campo a preencher.
 | `Yosys image` | todo dia, 03:00 | a release `v0.N` mais recente do Yosys, com o `sby` da mesma versão |
 | `Yices image` | todo dia, 03:00 | a release `Yices-2.N.P` ou `yices-2.N.P` mais recente |
 | `Bitwuzla image` | todo dia, 03:00 | a release `0.N.P` mais recente |
-| `Boolector image` | todo dia, 03:00 | a release `3.N.P` mais recente |
 | `GTKWave image` | todo dia, 03:00 | a ponta da branch `lts` |
 | `Spike image` | todo dia, 03:00 | o commit mais recente do upstream com CI verde (pode esperar até 60 minutos por um CI em andamento) |
 | `GCC image` | todo dia, 03:00 | o commit mais recente do `riscv-gnu-toolchain` cujo `Build` passou |
 | `Sail image` | todo dia, 03:00 | o commit mais recente da `master` do Sail cujo `ci.yml` upstream passou |
-| `CI images` | todo dia, 03:00, e quando `GHDL image`, `Yosys image`, `Yices image`, `Bitwuzla image`, `Boolector image`, `GCC image`, `Picolibc image`, `Spike image` ou `Sail image` termina | o `uv` mais recente da série 0, as nove bases acima, o GTKWave e, em cada nível, a imagem do nível abaixo |
+| `CI images` | todo dia, 03:00, e quando `GHDL image`, `Yosys image`, `Yices image`, `Bitwuzla image`, `GCC image`, `Picolibc image`, `Spike image` ou `Sail image` termina | o `uv` mais recente da série 0, as oito bases acima, o GTKWave e, em cada nível, a imagem do nível abaixo |
 
 Um run constrói **só se a imagem para aquela versão ainda não existir**; sem novidade, termina em segundos com um aviso.
 
@@ -122,7 +120,7 @@ Cada nível tem um estágio antes dele, e o estágio diz o que escolheu numa ano
 
 | Estágio | Nível | O que escolhe e informa |
 | :--- | :--- | :--- |
-| `plan-vhdl` | 1, `ci-vhdl` | as versões de uv, Python, cocotb, click e Tools e os commits de GHDL, Yosys, SymbiYosys, Yices, Bitwuzla e Boolector |
+| `plan-vhdl` | 1, `ci-vhdl` | as versões de uv, Python, cocotb, click e Tools e os commits de GHDL, Yosys, SymbiYosys, Yices e Bitwuzla |
 | `plan-elf` | 2, `ci-elf` | os commits do GCC, da picolibc e do Spike, e o número de variantes de biblioteca do GCC |
 | `plan-act4` | 3, `ci-act4` | o commit do Sail e a versão dele, e o commit do ACT4 |
 | `plan-dev_tools` | 4, `dev_tools` | o commit do GTKWave |
