@@ -51,7 +51,7 @@ O build instala o binutils e o primeiro compilador da configuração da picolibc
 | Rótulos | `riscv-gnu-toolchain.commit` e `riscv-gnu-toolchain.variants` (o número de variantes de biblioteca) |
 | Agenda | todo dia, 03:00 UTC |
 
-O GCC não tem release a seguir, então o run agendado usa o commit mais recente da branch `master` do `riscv-gnu-toolchain` em que o workflow `Build` dele passou, e constrói só se a imagem para esse commit não existe. O `Build` do upstream leva horas, então esse commit costuma estar cerca de um dia atrás da ponta, e um commit ainda em execução é pulado, não esperado. Um commit cujo `Build` falhou ou foi cancelado também é pulado. O número de variantes de biblioteca fica num rótulo porque o commit sozinho não o diz: um run com `force` que reconstrua o mesmo commit com outro número de variantes faz o `Picolibc image` e o `CI images` construírem de novo, como o `README.md` descreve.
+O GCC não tem release a seguir, então o run agendado usa o commit mais recente da branch `master` do `riscv-gnu-toolchain` em que o workflow `Build` dele passou, e constrói só se a imagem para esse commit não existe ou existe com outro número de variantes de biblioteca que o da receita. O `Build` do upstream leva horas, então esse commit costuma estar cerca de um dia atrás da ponta, e um commit ainda em execução é pulado, não esperado. Um commit cujo `Build` falhou ou foi cancelado também é pulado. O número de variantes de biblioteca fica num rótulo porque o commit sozinho não o diz: o run compara o rótulo da imagem do commit com o número que a receita constrói, e reconstrói o mesmo commit quando diferem. O `Picolibc image` e o `CI images` seguem, como o `README.md` descreve.
 
 ## 3. Execução manual
 
