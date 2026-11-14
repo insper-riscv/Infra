@@ -48,7 +48,6 @@ jobs:
             [docker/base/yosys/Dockerfile]="Yosys image"         [.github/workflows/yosys-image.yml]="Yosys image"
             [docker/base/yices/Dockerfile]="Yices image"         [.github/workflows/yices-image.yml]="Yices image"
             [docker/base/bitwuzla/Dockerfile]="Bitwuzla image"   [.github/workflows/bitwuzla-image.yml]="Bitwuzla image"
-            [docker/base/boolector/Dockerfile]="Boolector image" [.github/workflows/boolector-image.yml]="Boolector image"
             [docker/base/gtkwave/Dockerfile]="GTKWave image"     [.github/workflows/gtkwave-image.yml]="GTKWave image"
             [docker/base/sail/Dockerfile]="Sail image"           [.github/workflows/sail-image.yml]="Sail image"
           )
@@ -73,7 +72,7 @@ jobs:
             done
           done <<< "$files"
           if [ "$all" = true ]; then
-            for w in "GHDL image" "GCC image" "Picolibc image" "Spike image" "Yosys image" "Yices image" "Bitwuzla image" "Boolector image" "GTKWave image" "Sail image" "CI images"; do
+            for w in "GHDL image" "GCC image" "Picolibc image" "Spike image" "Yosys image" "Yices image" "Bitwuzla image" "GTKWave image" "Sail image" "CI images"; do
               [ -z "${seen[$w]:-}" ] || continue
               seen[$w]=1; rows+="| $w | \`.github/workflows/build-image.yml\` (shared by every image) |"$'\n'
             done

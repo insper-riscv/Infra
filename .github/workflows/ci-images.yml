@@ -3,7 +3,7 @@ name: CI images
 # Assembles the four levels of the images that sit on the component images, in order, for
 # linux/amd64 and linux/arm64:
 #   1. ci-vhdl (docker/ci/vhdl/Dockerfile): GHDL, Yosys with SymbiYosys, the SMT solvers Yices,
-#      Bitwuzla and Boolector, uv, Python, cocotb, the static analysis tools and riscv-tools;
+#      and Bitwuzla, uv, Python, cocotb, the static analysis tools and riscv-tools;
 #   2. ci-elf (docker/ci/elf/Dockerfile): level 1 plus the RISC-V GCC, picolibc and Spike;
 #   3. ci-act4 (docker/ci/act4/Dockerfile): level 2 plus Sail, Ruby and the dependencies of ACT4;
 #   4. dev_tools (docker/dev-tools/Dockerfile): level 3 plus GTKWave and the user dev.
@@ -15,7 +15,7 @@ name: CI images
 # combination of components is not published yet; one that is published is skipped, and the level
 # above it still runs, because the image below it may have changed.
 #
-# It runs when the GHDL, Yosys, Yices, Bitwuzla, Boolector, GCC, Picolibc, Spike or Sail image workflow
+# It runs when the GHDL, Yosys, Yices, Bitwuzla, GCC, Picolibc, Spike or Sail image workflow
 # finishes, every day at
 # 03:00 UTC (the `uv` has no component image, so it is looked up here, and the GTKWave image is
 # picked up here too), and on demand. A change of a Dockerfile in docker/ci or docker/dev-tools or
@@ -54,7 +54,7 @@ on:
         description: "riscv/riscv-arch-test commit whose dependencies go in the ELF image (empty: the latest commit of the act4 branch whose upstream CI is green)"
         required: false
   workflow_run:
-    workflows: ["GHDL image", "Yosys image", "Yices image", "Bitwuzla image", "Boolector image", "GCC image", "Picolibc image", "Spike image", "Sail image"]
+    workflows: ["GHDL image", "Yosys image", "Yices image", "Bitwuzla image", "GCC image", "Picolibc image", "Spike image", "Sail image"]
     types: [completed]
     branches: [main]
 
@@ -77,7 +77,7 @@ env:
 jobs:
   plan-vhdl:
     # Stage 1. Chooses what goes in the VHDL image (level 1): the versions of uv, Python, cocotb,
-    # click and Tools and the commits of GHDL, Yosys, SymbiYosys, Yices, Bitwuzla and Boolector. It
+    # click and Tools and the commits of GHDL, Yosys, SymbiYosys, Yices and Bitwuzla. It
     # says them in an annotation and in the summary of the run, and it decides two things: whether
     # there is anything to assemble now (`skip`, which stops every stage) and whether this level is
     # built (`build`).
@@ -98,7 +98,6 @@ jobs:
       sby: ${{ steps.pins.outputs.sby }}
       yices: ${{ steps.pins.outputs.yices }}
       bitwuzla: ${{ steps.pins.outputs.bitwuzla }}
-      boolector: ${{ steps.pins.outputs.boolector }}
       uv: ${{ steps.uv.outputs.version }}
       tools: ${{ steps.tools.outputs.commit }}
       tools_version: ${{ steps.pins.outputs.tools_version }}
@@ -263,10 +262,9 @@ jobs:
           sby=$(label "$OWNER/base-yosys:latest" sby.commit)
           yices=$(label "$OWNER/base-yices:latest" yices.commit)
           bitwuzla=$(label "$OWNER/base-bitwuzla:latest" bitwuzla.commit)
-          boolector=$(label "$OWNER/base-boolector:latest" boolector.commit)
-          if [ -z "$ghdl" ] || [ -z "$yosys" ] || [ -z "$sby" ] || [ -z "$yices" ] || [ -z "$bitwuzla" ] || [ -z "$boolector" ]; then
+          if [ -z "$ghdl" ] || [ -z "$yosys" ] || [ -z "$sby" ] || [ -z "$yices" ] || [ -z "$bitwuzla" ]; then
             if [ "$EVENT" = "workflow_dispatch" ]; then
-              echo "::error::could not read the latest GHDL, Yosys, Yices, Bitwuzla and Boolector images; run the workflows of those images first"
+              echo "::error::could not read the latest GHDL, Yosys, Yices and Bitwuzla images; run the workflows of those images first"
               exit 1
             fi
             # A run can start before the components exist; their runs trigger this one when they finish.
@@ -280,7 +278,6 @@ jobs:
           sby_name=$(name_of https://github.com/YosysHQ/sby "$sby")
           yices_name=$(name_of https://github.com/SRI-CSL/yices2 "$yices")
           bitwuzla_name=$(name_of https://github.com/bitwuzla/bitwuzla "$bitwuzla")
-          boolector_name=$(name_of https://github.com/Boolector/boolector "$boolector")
           # the release GHDL declares in its configure (7.0.0-dev on the default branch, where no tag points), or the
           # release whose tag points at the commit
           ghdl_release=$(curl -fsSL "https://raw.githubusercontent.com/ghdl/ghdl/$ghdl/configure" 2>/dev/null \
@@ -295,16 +292,14 @@ jobs:
           sby_show=$(describe_of https://github.com/YosysHQ/sby "$sby")
           yices_show=$(describe_of https://github.com/SRI-CSL/yices2 "$yices")
           bitwuzla_show=$(describe_of https://github.com/bitwuzla/bitwuzla "$bitwuzla")
-          boolector_show=$(describe_of https://github.com/Boolector/boolector "$boolector")
           tools_show=$(describe_of "https://github.com/$TOOLS_REPO" "$TOOLS")
-          short="ghdl-${ghdl_name}-yosys-${yosys_name}-sby-${sby_name}-yices-${yices_name}-bitwuzla-${bitwuzla_name}-boolector-${boolector_name}-tools-${tools_name}-uv-${UV}"
+          short="ghdl-${ghdl_name}-yosys-${yosys_name}-sby-${sby_name}-yices-${yices_name}-bitwuzla-${bitwuzla_name}-tools-${tools_name}-uv-${UV}"
           {
             echo "ghdl=$ghdl"
             echo "yosys=$yosys"
             echo "sby=$sby"
             echo "yices=$yices"
             echo "bitwuzla=$bitwuzla"
-            echo "boolector=$boolector"
             echo "ghdl_name=$ghdl_name"
             echo "ghdl_release=$ghdl_release"
             echo "ghdl_date=$(commit_date https://github.com/ghdl/ghdl "$ghdl")"
@@ -312,7 +307,6 @@ jobs:
             echo "sby_name=$sby_name"
             echo "yices_name=$yices_name"
             echo "bitwuzla_name=$bitwuzla_name"
-            echo "boolector_name=$boolector_name"
             echo "tools_name=$tools_name"
             echo "tools_version=$(version_of "https://github.com/$TOOLS_REPO" "$TOOLS")"
             echo "tools_date=$(commit_date "https://github.com/$TOOLS_REPO" "$TOOLS")"
@@ -320,7 +314,6 @@ jobs:
             echo "sby_show=$sby_show"
             echo "yices_show=$yices_show"
             echo "bitwuzla_show=$bitwuzla_show"
-            echo "boolector_show=$boolector_show"
             echo "tools_show=$tools_show"
             echo "short=$short"
           } >> "$GITHUB_OUTPUT"
@@ -341,7 +334,7 @@ jobs:
         run: |
           pending=0
           if [ "$EVENT" != "workflow_dispatch" ]; then
-            for workflow in ghdl-image.yml yosys-image.yml yices-image.yml bitwuzla-image.yml boolector-image.yml gcc-image.yml picolibc-image.yml spike-image.yml sail-image.yml; do
+            for workflow in ghdl-image.yml yosys-image.yml yices-image.yml bitwuzla-image.yml gcc-image.yml picolibc-image.yml spike-image.yml sail-image.yml; do
               for status in queued in_progress; do
                 # A workflow GitHub does not know yet makes this fail; count it as none.
                 count=$(gh run list -R "$REPO" --workflow "$workflow" --status "$status" --json databaseId --jq length 2>/dev/null || echo 0)
@@ -378,13 +371,12 @@ jobs:
           SBY: ${{ steps.pins.outputs.sby_show }}
           YICES: ${{ steps.pins.outputs.yices_show }}
           BITWUZLA: ${{ steps.pins.outputs.bitwuzla_show }}
-          BOOLECTOR: ${{ steps.pins.outputs.boolector_show }}
         run: |
           if [ "$SKIP" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
           ghdl="${GHDL_RELEASE:+$GHDL_RELEASE }$GHDL_DATE (${GHDL_COMMIT:0:7})"
-          echo "::notice title=Stage 1, VHDL::uv $UV, Python $PYTHON, cocotb $COCOTB, click $CLICK, Tools $TOOLS, GHDL $ghdl, Yosys $YOSYS, SymbiYosys $SBY, Yices $YICES, Bitwuzla $BITWUZLA, Boolector $BOOLECTOR. ${decision^}."
+          echo "::notice title=Stage 1, VHDL::uv $UV, Python $PYTHON, cocotb $COCOTB, click $CLICK, Tools $TOOLS, GHDL $ghdl, Yosys $YOSYS, SymbiYosys $SBY, Yices $YICES, Bitwuzla $BITWUZLA. ${decision^}."
           {
             echo "### Stage 1, VHDL (level 1)"
             echo
@@ -400,7 +392,6 @@ jobs:
             echo "| SymbiYosys, version, date and commit | $SBY |"
             echo "| Yices, version, date and commit | $YICES |"
             echo "| Bitwuzla, version, date and commit | $BITWUZLA |"
-            echo "| Boolector, version, date and commit | $BOOLECTOR |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -418,7 +409,7 @@ jobs:
       image: ghcr.io/${{ github.repository_owner }}/ci-vhdl
       dockerfile: docker/ci/vhdl/Dockerfile
       title: Insper RISC-V VHDL tests
-      description: GHDL, Yosys with SymbiYosys, the SMT solvers Yices, Bitwuzla and Boolector, uv, Python and cocotb, for linux/amd64 and linux/arm64.
+      description: GHDL, Yosys with SymbiYosys, the SMT solvers Yices and Bitwuzla, uv, Python and cocotb, for linux/amd64 and linux/arm64.
       timeout-minutes: 60
       build-args: |
         GHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/base-ghdl:${{ needs.plan-vhdl.outputs.ghdl }}
@@ -432,7 +423,6 @@ jobs:
         YOSYS_IMAGE=ghcr.io/${{ github.repository_owner }}/base-yosys:${{ needs.plan-vhdl.outputs.yosys }}-${{ needs.plan-vhdl.outputs.sby }}
         YICES_IMAGE=ghcr.io/${{ github.repository_owner }}/base-yices:${{ needs.plan-vhdl.outputs.yices }}
         BITWUZLA_IMAGE=ghcr.io/${{ github.repository_owner }}/base-bitwuzla:${{ needs.plan-vhdl.outputs.bitwuzla }}
-        BOOLECTOR_IMAGE=ghcr.io/${{ github.repository_owner }}/base-boolector:${{ needs.plan-vhdl.outputs.boolector }}
       labels: |
         uv.version=${{ needs.plan-vhdl.outputs.uv }}
         python.version=${{ needs.plan-vhdl.outputs.python }}
@@ -443,7 +433,6 @@ jobs:
         sby.commit=${{ needs.plan-vhdl.outputs.sby }}
         yices.commit=${{ needs.plan-vhdl.outputs.yices }}
         bitwuzla.commit=${{ needs.plan-vhdl.outputs.bitwuzla }}
-        boolector.commit=${{ needs.plan-vhdl.outputs.boolector }}
         tools.commit=${{ needs.plan-vhdl.outputs.tools }}
         tools.version=${{ needs.plan-vhdl.outputs.tools_version }}
       tags: |
@@ -459,7 +448,6 @@ jobs:
         expect sby      "${{ needs.plan-vhdl.outputs.sby }}"                  "$(head -n 1 /opt/yosys/.sby.tag)"
         expect yices    "${{ needs.plan-vhdl.outputs.yices }}"                "$(head -n 1 /opt/yices/.tag)"
         expect bitwuzla "${{ needs.plan-vhdl.outputs.bitwuzla }}"             "$(head -n 1 /opt/bitwuzla/.tag)"
-        expect boolector "${{ needs.plan-vhdl.outputs.boolector }}"           "$(head -n 1 /opt/boolector/.tag)"
         expect tools    "${{ needs.plan-vhdl.outputs.tools }}"                "$(head -n 1 /opt/riscv-tools/.tag)"
         expect uv       "${{ needs.plan-vhdl.outputs.uv }}"                   "$(uv --version | cut -d' ' -f2)"
         expect python   "${{ needs.plan-vhdl.outputs.python }}"               "$(python3 -c 'import platform; print(platform.python_version())')"
@@ -470,7 +458,6 @@ jobs:
         sby --version
         yices-smt2 --version | head -n 1
         bitwuzla --version
-        boolector --version
         uv --version
         riscv-tools --help > /dev/null
         ruff --version
