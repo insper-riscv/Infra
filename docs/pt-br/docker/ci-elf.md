@@ -1,13 +1,13 @@
 # ci-elf
 
-`ghcr.io/<organização>/ci-elf` é o nível 2 das imagens de CI, com o que gera e roda um ELF, isto é, o que compila assembly e C. Ela é a [`ci-vhdl`](ci-vhdl.md) mais o GCC RISC-V com a picolibc ([`base-gcc`](base-gcc.md)) e o Spike ([`base-spike`](base-spike.md)). As imagens [`ci-act4`](ci-act4.md) e seguintes são construídas sobre ela. A visão geral das imagens está em [README.md](README.md).
+`ghcr.io/<organização>/ci-elf` é o nível 2 das imagens de CI, com o que gera e roda um ELF, isto é, o que compila assembly e C. Ela é a [`ci-vhdl`](ci-vhdl.md) mais o GCC RISC-V com a picolibc e a libstdc++ ([`base-gcc`](base-gcc.md)) e o Spike ([`base-spike`](base-spike.md)). As imagens [`ci-act4`](ci-act4.md) e seguintes são construídas sobre ela. A visão geral das imagens está em [README.md](README.md).
 
 ## 1. O que acrescenta à ci-vhdl
 
 | Componente | Detalhe | Caminho |
 | :--- | :--- | :--- |
-| GCC RISC-V | alvo `riscv32-unknown-elf`, com as 192 variantes de biblioteca da [`base-gcc`](base-gcc.md) | `/opt/riscv-foundation/riscv32-elf` |
-| picolibc | a biblioteca C desse GCC, vinda da `base-picolibc`, compilada com ele | `/opt/riscv-foundation/riscv32-elf` |
+| GCC RISC-V | alvo `riscv32-unknown-elf`, com as 384 variantes de biblioteca (192 de RV32 e 192 de RV64) da [`base-gcc`](base-gcc.md) | `/opt/riscv-foundation/riscv32-elf` |
+| picolibc e libstdc++ | as bibliotecas C e C++ desse GCC, vindas da `base-picolibc` (variantes de 32 bits) e da `base-picolibc-rv64` (variantes de 64 bits), compiladas com ele. Os diretórios de biblioteca das duas imagens não se sobrepõem, e os arquivos que as duas têm (cabeçalhos, specs e scripts de ligação) são idênticos | `/opt/riscv-foundation/riscv32-elf` |
 | Spike | com o módulo de depuração em `0x70000000` | `/opt/riscv-foundation/spike` |
 | `libmpc3` e `libmpfr6` | as bibliotecas que o `cc1` do GCC RISC-V liga, do Ubuntu | `/usr/lib` |
 
@@ -23,9 +23,9 @@ O GCC, a picolibc e o Spike já estão no `PATH`. Os executáveis do GCC RISC-V 
 | Rótulos | `riscv-gnu-toolchain.commit`, `picolibc.commit` e `riscv-isa-sim.commit` |
 | Agenda | no mesmo run da `ci-vhdl`, logo depois dela: todo dia, 03:00 UTC, e quando `GCC image`, `Picolibc image` ou `Spike image` termina |
 
-A picolibc é a `base-picolibc` mais recente. O workflow só monta quando essa imagem de picolibc foi compilada com a `base-gcc` mais recente; se uma `GCC image` ou uma `Picolibc image` está em execução, ele espera.
+A picolibc é a `base-picolibc` e a `base-picolibc-rv64` mais recentes. O workflow só monta quando essas duas imagens foram compiladas com a `base-gcc` mais recente; se uma `GCC image` ou uma `Picolibc image` está em execução, ele espera.
 
-Antes de publicar, o workflow confere que os commits deixados na imagem (os arquivos `.tag`) são os fixados, que o GCC compila com a picolibc, que ele tem uma libgcc e uma libc para cada variante de biblioteca que lista e que o Spike não coloca o módulo de depuração no endereço `0`.
+Antes de publicar, o workflow confere que os commits deixados na imagem (os arquivos `.tag`) são os fixados, que o GCC compila com a picolibc, que ele tem uma libgcc, uma libc e uma libstdc++ para cada variante de biblioteca que lista e que o Spike não coloca o módulo de depuração no endereço `0`.
 
 ## 3. Execução manual
 
@@ -38,7 +38,8 @@ Antes de publicar, o workflow confere que os commits deixados na imagem (os arqu
 
 ```bash
 docker build -f docker/ci/elf/Dockerfile -t ci-elf \
-  --build-arg VHDL_IMAGE=ci-vhdl --build-arg GCC_IMAGE=base-gcc --build-arg SPIKE_IMAGE=base-spike .
+  --build-arg VHDL_IMAGE=ci-vhdl --build-arg GCC_IMAGE=base-gcc --build-arg PICOLIBC_IMAGE=base-picolibc \
+  --build-arg PICOLIBC_RV64_IMAGE=base-picolibc-rv64 --build-arg SPIKE_IMAGE=base-spike .
 ```
 
 | Argumento | Padrão | Significado |
@@ -46,6 +47,7 @@ docker build -f docker/ci/elf/Dockerfile -t ci-elf \
 | `VHDL_IMAGE` | `ci-vhdl:latest` | o nível abaixo |
 | `GCC_IMAGE` | `base-gcc:latest` | de onde vem o GCC |
 | `PICOLIBC_IMAGE` | `base-picolibc:latest` | de onde vem a picolibc |
+| `PICOLIBC_RV64_IMAGE` | `base-picolibc-rv64:latest` | de onde vêm as variantes de 64 bits da picolibc |
 | `SPIKE_IMAGE` | `base-spike:latest` | de onde vem o Spike |
 
 ## 5. Verificando
