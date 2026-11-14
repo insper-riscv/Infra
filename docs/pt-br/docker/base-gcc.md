@@ -9,24 +9,25 @@
 | binutils | o assembler, o linker e o arquivador para o alvo `riscv32-unknown-elf` |
 | GCC RISC-V | alvo `riscv32-unknown-elf`, front ends C e C++, com as variantes de biblioteca da seção 1.1 |
 | libgcc | a biblioteca de apoio do compilador, construída com esse compilador |
-| `/opt/riscv-foundation/riscv32-elf/.tag` | duas linhas. A primeira é o commit do `riscv-gnu-toolchain` de que a instalação foi construída, e a segunda é a versão do GCC que o commit traz (com `-dev` quando o `gcc` dele não é uma release), a data da release (a data do commit quando não é uma release com nome de data), o commit curto e o número de variantes de biblioteca (`16.1.0 2026-10-29 (317ee3d), 192 variants`) |
+| `/opt/riscv-foundation/riscv32-elf/.tag` | duas linhas. A primeira é o commit do `riscv-gnu-toolchain` de que a instalação foi construída, e a segunda é a versão do GCC que o commit traz (com `-dev` quando o `gcc` dele não é uma release), a data da release (a data do commit quando não é uma release com nome de data), o commit curto e o número de variantes de biblioteca (`16.1.0 2026-10-29 (317ee3d), 384 variants`) |
 
 ### 1.1. Variantes
 
-| Base e ponto flutuante | `-march` (cada um sem multiplicação, `_zmmul` e `m`) | `-mabi` |
-| :--- | :--- | :--- |
-| I, sem ponto flutuante | `rv32i`, `rv32i_zmmul`, `rv32im` | `ilp32` |
-| I com F | `rv32if`, `rv32if_zmmul`, `rv32imf` | `ilp32`, `ilp32f` |
-| I com F e D | `rv32ifd`, `rv32ifd_zmmul`, `rv32imfd` | `ilp32`, `ilp32f`, `ilp32d` |
-| E, sem ponto flutuante | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` |
-| E com F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` |
+| Base e ponto flutuante | `-march` de RV32 e de RV64 (cada um sem multiplicação, `_zmmul` e `m`) | `-mabi` de RV32 | `-mabi` de RV64 |
+| :--- | :--- | :--- | :--- |
+| I, sem ponto flutuante | `rv32i`, `rv32i_zmmul`, `rv32im` e os mesmos três com o prefixo `rv64` | `ilp32` | `lp64` |
+| I com F | `rv32if`, `rv32if_zmmul`, `rv32imf` e os mesmos três com o prefixo `rv64` | `ilp32`, `ilp32f` | `lp64`, `lp64f` |
+| I com F e D | `rv32ifd`, `rv32ifd_zmmul`, `rv32imfd` e os mesmos três com o prefixo `rv64` | `ilp32`, `ilp32f`, `ilp32d` | `lp64`, `lp64f`, `lp64d` |
+| E, sem ponto flutuante | `rv32e`, `rv32e_zmmul`, `rv32em` e os mesmos três com o prefixo `rv64` | `ilp32e` | `lp64e` |
+| E com F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` e os mesmos três com o prefixo `rv64` | `ilp32e` | `lp64e` |
 
-`_zmmul` é multiplicação em hardware e divisão em software, `m` é as duas em hardware, e o nome sem nenhum dos dois tem as duas em software. O RV32E permite só o ABI `ilp32e` (soft-float, então `float` passa em registradores inteiros mesmo com F), e esse ABI não suporta o D, então não há variante E com D. Os ABIs hard-float `ilp32f` e `ilp32d` existem só para o I. A extensão Q não tem ABI em RV32, então não tem variante.
+`_zmmul` é multiplicação em hardware e divisão em software, `m` é as duas em hardware, e o nome sem nenhum dos dois tem as duas em software. O RV32E e o RV64E permitem só o ABI `ilp32e` e `lp64e` (soft-float, então `float` passa em registradores inteiros mesmo com F), e esses ABIs não suportam o D, então não há variante E com D. Os ABIs hard-float (`ilp32f`, `ilp32d`, `lp64f` e `lp64d`) existem só para o I. A extensão Q não tem ABI nem em RV32 nem em RV64, então não tem variante.
 
-As 24 combinações de base, multiplicação e ponto flutuante são construídas cada uma sem ou com mais três escolhas, o que dá 24 × 2 × 2 × 2 = 192 variantes, com `rv32im/ilp32` como padrão. O `scripts/gcc-multilib.sh` as lista.
+As 24 combinações de base, multiplicação e ponto flutuante de cada largura são construídas cada uma sem ou com mais três escolhas, o que dá 24 × 2 × 2 × 2 = 192 variantes por largura e 384 no total, com `rv32i/ilp32` como padrão (a raiz do diretório de bibliotecas). O `scripts/gcc-multilib.sh` lista as duas larguras, `--width 32` ou `--width 64` lista uma só, e `--count` imprime quantas variantes a lista tem.
 
 | Eixo | Escolhas |
 | :--- | :--- |
+| Largura | RV32, RV64 |
 | Base | I, E |
 | Multiplicação | nenhuma, Zmmul, M |
 | Ponto flutuante | nenhum, F, F e D (D não com E) |
@@ -34,11 +35,11 @@ As 24 combinações de base, multiplicação e ponto flutuante são construídas
 | C | sem, com (instruções compactas) |
 | B | sem, com o grupo Zba, Zbb e Zbs juntos |
 
-O nome de uma variante acrescenta as letras `a` e `c` e o sufixo `_zba_zbb_zbs` ao nome da combinação de base, então `rv32im` gera `rv32im`, `rv32ima`, `rv32imc`, `rv32imac` e as quatro com `_zba_zbb_zbs`.
+O nome de uma variante acrescenta as letras `a` e `c` e o sufixo `_zba_zbb_zbs` ao nome da combinação de base, então `rv32im` gera `rv32im`, `rv32ima`, `rv32imc`, `rv32imac` e as quatro com `_zba_zbb_zbs`, e `rv64im` gera as oito correspondentes de RV64.
 
 Como o compilador escolhe entre as variantes está na seção 3 de [base-picolibc.md](base-picolibc.md). A `libgcc` é construída para cada variante. O compilador escreve os nomes das variantes de forma normalizada, que a seção 2.4 desse documento descreve, e `-print-multi-lib` os lista.
 
-O build instala o binutils e o primeiro compilador da configuração da picolibc, e depois constrói a libgcc com ele; o segundo estágio do `riscv-gnu-toolchain`, que refaria o compilador e a libgcc contra a picolibc, não é executado. O `cc1` liga com `libmpc3` e `libmpfr6`, instaladas na `ci-elf`. A imagem não tem biblioteca C nem libstdc++. A picolibc vem da `base-picolibc`, e programas C++ que precisem da biblioteca padrão estão fora de escopo. Os executáveis se chamam `riscv32-unknown-elf-*`, sem conflito com o `gcc` do host.
+O build instala o binutils e o primeiro compilador da configuração da picolibc, e depois constrói a libgcc com ele; o segundo estágio do `riscv-gnu-toolchain`, que refaria o compilador e a libgcc contra a picolibc, não é executado. O `cc1` liga com `libmpc3` e `libmpfr6`, instaladas na `ci-elf`. A imagem não tem biblioteca C nem libstdc++, que vêm da `base-picolibc` (32 bits) e da `base-picolibc-rv64` (64 bits). Os executáveis se chamam `riscv32-unknown-elf-*`, sem conflito com o `gcc` do host.
 
 ## 2. Publicação
 
@@ -74,7 +75,7 @@ O build leva de dezenas de minutos a mais de uma hora, conforme a máquina.
 | :--- | :--- | :--- |
 | `BASE_IMAGE` | `ubuntu:26.04` | imagem base (multi-arquitetura) |
 | `RISCV_GNU_TOOLCHAIN_COMMIT` | nenhum | o commit do `riscv-gnu-toolchain` |
-| `MULTILIB` | a lista de `scripts/gcc-multilib.sh` | as variantes, no formato da opção `--with-multilib-generator` do GCC |
+| `MULTILIB` | a lista de `scripts/gcc-multilib.sh` (as 384 variantes) | as variantes, no formato da opção `--with-multilib-generator` do GCC |
 
 ---
 

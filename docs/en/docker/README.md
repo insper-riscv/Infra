@@ -18,10 +18,10 @@ base-ghdl    base-yosys    base-yices    base-bitwuzla    base-boolector    uv
                  ▼
             ci-vhdl            GHDL, Yosys, solvers, uv, Python, cocotb, static analysis, riscv-tools
                  │
-                 │      base-gcc → base-picolibc      base-spike
+                 │      base-gcc → base-picolibc(-rv64)  base-spike
                  │              └────────┬─────────────────┘
                  ▼                       ▼
-            ci-elf   = ci-vhdl + GCC with picolibc + Spike
+            ci-elf   = ci-vhdl + GCC with picolibc and libstdc++ + Spike
                  │
                  │      base-sail
                  │          │
@@ -54,6 +54,7 @@ The base images, one per tool:
 | `base-boolector` | `/opt/boolector` (the Boolector solver, with `btormc`) | [base-boolector.md](base-boolector.md) |
 | `base-gcc` | `/opt/riscv-foundation/riscv32-elf` (binutils, the GCC and libgcc) | [base-gcc.md](base-gcc.md) |
 | `base-picolibc` | the files picolibc installs into the GCC's sysroot | [base-picolibc.md](base-picolibc.md) |
+| `base-picolibc-rv64` | the same files for the 64-bit variants | [base-picolibc.md](base-picolibc.md) |
 | `base-spike` | `/opt/riscv-foundation/spike` | [base-spike.md](base-spike.md) |
 | `base-sail` | `/opt/riscv-foundation/sail` | [base-sail.md](base-sail.md) |
 | `base-gtkwave` | `/opt/gtkwave` | [base-gtkwave.md](base-gtkwave.md) |

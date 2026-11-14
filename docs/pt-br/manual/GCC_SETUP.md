@@ -182,20 +182,21 @@ O build gera uma biblioteca para cada uma destas variantes. Uma biblioteca feita
 núcleo com mais extensões, e o contrário não vale; o compilador escolhe a variante pelo `-march` e `-mabi`
 informados (seção 3 do `docs/pt-br/docker/base-picolibc.md` do repositório Infra).
 
-| Base e ponto flutuante | `-march` (cada um sem multiplicação, `_zmmul` e `m`) | `-mabi` |
-| :--- | :--- | :--- |
-| I, sem ponto flutuante | `rv32i`, `rv32i_zmmul`, `rv32im` | `ilp32` |
-| I com F | `rv32if`, `rv32if_zmmul`, `rv32imf` | `ilp32`, `ilp32f` |
-| I com F e D | `rv32ifd`, `rv32ifd_zmmul`, `rv32imfd` | `ilp32`, `ilp32f`, `ilp32d` |
-| E, sem ponto flutuante | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` |
-| E com F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` |
+| Base e ponto flutuante | `-march` de RV32 (cada um sem multiplicação, `_zmmul` e `m`), e os mesmos três com o prefixo `rv64` | `-mabi` de RV32 | `-mabi` de RV64 |
+| :--- | :--- | :--- | :--- |
+| I, sem ponto flutuante | `rv32i`, `rv32i_zmmul`, `rv32im` | `ilp32` | `lp64` |
+| I com F | `rv32if`, `rv32if_zmmul`, `rv32imf` | `ilp32`, `ilp32f` | `lp64`, `lp64f` |
+| I com F e D | `rv32ifd`, `rv32ifd_zmmul`, `rv32imfd` | `ilp32`, `ilp32f`, `ilp32d` | `lp64`, `lp64f`, `lp64d` |
+| E, sem ponto flutuante | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` | `lp64e` |
+| E com F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` | `lp64e` |
 
-`_zmmul` é multiplicação em hardware e divisão em software, `m` é as duas em hardware, e o nome sem nenhum dos dois tem as duas em software. O RV32E permite só o ABI `ilp32e` (soft-float, então `float` passa em registradores inteiros mesmo com F), e esse ABI não suporta o D, então não há variante E com D. Os ABIs hard-float `ilp32f` e `ilp32d` existem só para o I. A extensão Q não tem ABI em RV32, então não tem variante.
+`_zmmul` é multiplicação em hardware e divisão em software, `m` é as duas em hardware, e o nome sem nenhum dos dois tem as duas em software. O RV32E e o RV64E permitem só o ABI `ilp32e` e `lp64e` (soft-float, então `float` passa em registradores inteiros mesmo com F), e esses ABIs não suportam o D, então não há variante E com D. Os ABIs hard-float (`ilp32f`, `ilp32d`, `lp64f` e `lp64d`) existem só para o I. A extensão Q não tem ABI nem em RV32 nem em RV64, então não tem variante.
 
-As 24 combinações de base, multiplicação e ponto flutuante são construídas cada uma sem ou com mais três escolhas, o que dá 24 × 2 × 2 × 2 = 192 variantes, com `rv32im/ilp32` como padrão. O `scripts/gcc-multilib.sh` as lista.
+As 24 combinações de base, multiplicação e ponto flutuante de cada largura são construídas cada uma sem ou com mais três escolhas, o que dá 24 × 2 × 2 × 2 = 192 variantes por largura e 384 no total, com `rv32i/ilp32` como padrão (a raiz do diretório de bibliotecas). O `scripts/gcc-multilib.sh` lista as duas larguras, `--width 32` ou `--width 64` lista uma só, e `--count` imprime quantas variantes a lista tem.
 
 | Eixo | Escolhas |
 | :--- | :--- |
+| Largura | RV32, RV64 |
 | Base | I, E |
 | Multiplicação | nenhuma, Zmmul, M |
 | Ponto flutuante | nenhum, F, F e D (D não com E) |
@@ -203,7 +204,7 @@ As 24 combinações de base, multiplicação e ponto flutuante são construídas
 | C | sem, com (instruções compactas) |
 | B | sem, com o grupo Zba, Zbb e Zbs juntos |
 
-O nome de uma variante acrescenta as letras `a` e `c` e o sufixo `_zba_zbb_zbs` ao nome da combinação de base, então `rv32im` gera `rv32im`, `rv32ima`, `rv32imc`, `rv32imac` e as quatro com `_zba_zbb_zbs`.
+O nome de uma variante acrescenta as letras `a` e `c` e o sufixo `_zba_zbb_zbs` ao nome da combinação de base, então `rv32im` gera `rv32im`, `rv32ima`, `rv32imc`, `rv32imac` e as quatro com `_zba_zbb_zbs`, e `rv64im` gera as oito correspondentes de RV64.
 
 ### 3.2. Build
 
@@ -230,7 +231,7 @@ cd "$BUILD_DIR"
 rm -rf "$CACHE_DIR" && mkdir -p "$CACHE_DIR"
 
 # binutils and GDB, with the Makefile of riscv-gnu-toolchain
-"$SRC_DIR/configure" --prefix="$CACHE_DIR" --with-arch=rv32im --enable-picolibc
+"$SRC_DIR/configure" --prefix="$CACHE_DIR" --with-arch=rv32i --with-abi=ilp32 --enable-picolibc
 make -j"$(nproc)" stamps/build-binutils-picolibc stamps/build-gdb-picolibc
 
 # the compiler, and libgcc for every variant
@@ -241,19 +242,23 @@ mkdir gcc && cd gcc
   --disable-libmudflap --disable-libssp --disable-libquadmath --disable-libgomp \
   --disable-nls --disable-tm-clone-registry --src="$SRC_DIR/gcc" \
   --with-multilib-generator="$MULTILIB" \
-  --with-arch=rv32im --with-abi=ilp32 --with-isa-spec=20191213 \
+  --with-arch=rv32i --with-abi=ilp32 --with-isa-spec=20191213 \
   --enable-languages=c,c++ \
-  CFLAGS_FOR_TARGET="-Os -mcmodel=medlow" CXXFLAGS_FOR_TARGET="-Os -mcmodel=medlow"
+  --with-specs='%{mabi=lp64*:%{!mcmodel=*:-mcmodel=medany}}' \
+  CFLAGS_FOR_TARGET="-Os" CXXFLAGS_FOR_TARGET="-Os"
 make -j"$(nproc)" all-gcc
 make install-gcc
 make -j"$(nproc)" all-target-libgcc
 make install-target-libgcc
 cd ..
 
-# picolibc, compiled with that compiler for every variant
+# picolibc, compiled with that compiler for the variants of each width
 export PATH="$CACHE_DIR/bin:$PATH"
 tool=riscv32-unknown-elf
-cat > cross.txt <<EOF
+for width in 32 64; do
+  if [ "$width" = 32 ]; then pick='^(\.|rv32)'; else pick='^rv64'; fi
+  list="$($tool-gcc -print-multi-lib | cut -d';' -f1 | grep -E "$pick" | paste -sd,)"
+  cat > cross$width.txt <<EOF
 [binaries]
 c = ['$tool-gcc', '-nostdlib']
 cpp = ['$tool-g++', '-nostdlib']
@@ -263,37 +268,43 @@ nm = '$tool-nm'
 strip = '$tool-strip'
 [host_machine]
 system = 'unknown'
-cpu_family = 'riscv32'
-cpu = 'riscv32'
+cpu_family = 'riscv$width'
+cpu = 'riscv$width'
 endian = 'little'
 [properties]
 c_args = ['-msave-restore', '-fno-common', '-mcmodel=medlow']
 cpp_args = ['-msave-restore', '-fno-common', '-mcmodel=medlow']
 skip_sanity_check = true
 EOF
-meson setup picolibc "$SRC_DIR/picolibc" --cross-file cross.txt --buildtype=minsize \
-  --prefix="$CACHE_DIR/$tool" -Dincludedir=include -Dlibdir=lib \
-  -Dsysroot-install=true -Dsystem-libc=true -Dtests=false
-ninja -C picolibc install
+  meson setup picolibc$width "$SRC_DIR/picolibc" --cross-file cross$width.txt --buildtype=minsize \
+    --prefix="$CACHE_DIR/$tool" -Dincludedir=include -Dlibdir=lib \
+    -Dsysroot-install=true -Dsystem-libc=true -Dtests=false "-Dmultilib-list=$list"
+  ninja -C picolibc$width install
+done
+
+# libsupc++ and libstdc++ for the variants of each width, against that picolibc
+for width in 32 64; do
+  bash "$INFRA_DIR/scripts/cxx-libs.sh" "$width" "$SRC_DIR/gcc" "$CACHE_DIR" / 12
+done
 
 echo "$COMMIT" > "$CACHE_DIR/.tag"
 ```
 
-O script tem quatro etapas.
+O script tem cinco etapas.
 
 | Etapa | O que faz |
 | :--- | :--- |
-| binutils e GDB | O Makefile do riscv-gnu-toolchain os compila e instala para o alvo `riscv32-unknown-elf`; `--with-arch=rv32im` faz ele derivar esse alvo e o ABI `ilp32`, e sem ele o alvo padrão é RV64GC (`riscv64-unknown-elf-*`) |
+| binutils e GDB | O Makefile do riscv-gnu-toolchain os compila e instala para o alvo `riscv32-unknown-elf`; `--with-arch=rv32i` faz ele derivar esse alvo e o ABI `ilp32`, e sem ele o alvo padrão é RV64GC (`riscv64-unknown-elf-*`) |
 | compilador | O `gcc/configure` é executado diretamente, porque a regra da picolibc do Makefile desliga o multilib; `--with-multilib-generator` recebe as variantes como `<arch>-<abi>--` separadas por `;` e implica multilib, e `--with-arch`/`--with-abi` definem a variante padrão |
 | `libgcc` | Compilada com o compilador da etapa anterior, uma vez para cada variante |
-| picolibc | Compilada pelo `meson` com esse compilador; ele lê as variantes do compilador e constrói uma biblioteca para cada uma, instalando-as no sysroot |
+| picolibc | Compilada pelo `meson` com esse compilador, uma vez para cada largura; `-Dmultilib-list` escolhe as variantes da largura, e cada uma vira uma biblioteca instalada no sysroot |
+| `libsupc++` e `libstdc++` | Construídas pelo `scripts/cxx-libs.sh` com o compilador instalado, contra a picolibc, para as variantes de cada largura, em lotes de 12 |
 
 - O build roda fora da árvore do source, em `/var/tmp`: isso permite reconfigurar/recompilar sem sujar o
   `SRC_DIR`; `/tmp` costuma ser tmpfs, pequeno demais para árvore de build.
 - O `.tag` é gravado por último: um build interrompido deixa o cache sem `.tag`, então a próxima execução
   recompila em vez de confiar num cache incompleto.
-- O `-mcmodel=medlow` do `CFLAGS_FOR_TARGET` é o modelo de código do compilador e da picolibc; os dois
-  precisam usar o mesmo.
+- O modelo de código `medlow` é o padrão do compilador para as variantes de RV32, e o `--with-specs` põe `-mcmodel=medany` nas de RV64 (ABIs `lp64*`), que precisam dele acima de 2 GiB; a picolibc e a libstdc++ usam os mesmos modelos.
 
 O build acrescenta a árvore de compilação, apagada ao final em `/var/tmp`. Para adotar uma release nova do
 riscv-gnu-toolchain, rode de novo os comandos das seções 2.3 e 3.2.
@@ -319,14 +330,14 @@ cat "$CACHE/.tag"
 "$CACHE/bin/riscv32-unknown-elf-gcc" -print-multi-lib
 ```
 
-O último comando deve imprimir cinco linhas, uma para cada variante da seção 3.1 (o padrão é a raiz, `.`).
+O último comando deve imprimir uma linha para cada variante da seção 3.1 (384), e a primeira é a raiz, `.`, que é a `rv32i/ilp32`.
 Para ver qual biblioteca um `-march` pega:
 
 ```bash
 "$CACHE/bin/riscv32-unknown-elf-gcc" -march=rv32i -mabi=ilp32 --specs=picolibc.specs -print-file-name=libc.a
 ```
 
-Para conferir que nenhum código da picolibc da variante padrão usa instruções que o core RV32IM não implementa
+Para conferir que nenhum código da picolibc da variante padrão usa instruções que um core RV32I não implementa
 (CSR, atômicas), o `objdump` do próprio toolchain lê o `crt0.o` (o runtime de inicialização) e a `libc.a`:
 
 ```bash
@@ -336,7 +347,7 @@ Para conferir que nenhum código da picolibc da variante padrão usa instruçõe
   | grep -E 'csrr|csrw|lr\.w|sc\.w|amo'
 ```
 
-Nenhuma das duas buscas deve retornar nada: um `rv32im` simples não exige nem o Zicsr nem a extensão A
+Nenhuma das duas buscas deve retornar nada: um `rv32i` simples não exige nem o Zicsr nem a extensão A
 (atômicas).
 
 ## 5. PATH global

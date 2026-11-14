@@ -522,12 +522,14 @@ jobs:
           # image, or the picolibc build for it is still to come
           picolibc=$(label "$OWNER/base-picolibc:latest" picolibc.commit)
           picolibc_gcc=$(label "$OWNER/base-picolibc:latest" riscv-gnu-toolchain.commit)
+          picolibc_rv64_gcc=$(label "$OWNER/base-picolibc-rv64:latest" riscv-gnu-toolchain.commit)
+          picolibc_rv64_variants=$(label "$OWNER/base-picolibc-rv64:latest" riscv-gnu-toolchain.variants)
           spike=$(label "$OWNER/base-spike:latest" riscv-isa-sim.commit)
           # the number of library variants of the GCC, and the one the picolibc was compiled for: they
           # must be the same (both empty for images published before the number was recorded)
           variants=$(label "$OWNER/base-gcc:latest" riscv-gnu-toolchain.variants)
           picolibc_variants=$(label "$OWNER/base-picolibc:latest" riscv-gnu-toolchain.variants)
-          if [ -z "$gcc" ] || [ -z "$picolibc" ] || [ "$picolibc_gcc" != "$gcc" ] || [ "$picolibc_variants" != "$variants" ] || [ -z "$spike" ]; then
+          if [ -z "$gcc" ] || [ -z "$picolibc" ] || [ "$picolibc_gcc" != "$gcc" ] || [ "$picolibc_variants" != "$variants" ] || [ "$picolibc_rv64_gcc" != "$gcc" ] || [ "$picolibc_rv64_variants" != "$variants" ] || [ -z "$spike" ]; then
             if [ "$EVENT" = "workflow_dispatch" ]; then
               echo "::error::could not read the latest GCC, picolibc and Spike images, or the picolibc image was not compiled with the latest GCC; run the workflows of those images first"
               exit 1
@@ -633,6 +635,7 @@ jobs:
         VHDL_IMAGE=ghcr.io/${{ github.repository_owner }}/ci-vhdl@${{ needs.plan-elf.outputs.vhdl }}
         GCC_IMAGE=ghcr.io/${{ github.repository_owner }}/base-gcc:${{ needs.plan-elf.outputs.gcc }}
         PICOLIBC_IMAGE=ghcr.io/${{ github.repository_owner }}/base-picolibc:${{ needs.plan-elf.outputs.picolibc }}-${{ needs.plan-elf.outputs.gcc }}
+        PICOLIBC_RV64_IMAGE=ghcr.io/${{ github.repository_owner }}/base-picolibc-rv64:${{ needs.plan-elf.outputs.picolibc }}-${{ needs.plan-elf.outputs.gcc }}
         SPIKE_IMAGE=ghcr.io/${{ github.repository_owner }}/base-spike:${{ needs.plan-elf.outputs.spike }}
       labels: |
         riscv-gnu-toolchain.commit=${{ needs.plan-elf.outputs.gcc }}
@@ -646,6 +649,7 @@ jobs:
         expect() { if [ "$2" = "$3" ]; then echo "ok    $1 $3"; else echo "WRONG $1: expected $2, found $3"; exit 1; fi; }
         expect gcc      "${{ needs.plan-elf.outputs.gcc }}"                  "$(head -n 1 /opt/riscv-foundation/riscv32-elf/.tag)"
         expect picolibc "${{ needs.plan-elf.outputs.picolibc }}"             "$(head -n 1 /opt/riscv-foundation/riscv32-elf/.picolibc.tag)"
+        expect picolibc-rv64 "${{ needs.plan-elf.outputs.picolibc }}"         "$(head -n 1 /opt/riscv-foundation/riscv32-elf/.picolibc-rv64.tag)"
         expect spike    "${{ needs.plan-elf.outputs.spike }}-debug-start"    "$(head -n 1 /opt/riscv-foundation/spike/.tag)"
         ghdl --version | head -n 1
         riscv32-unknown-elf-gcc --version | head -n 1
@@ -658,6 +662,7 @@ jobs:
           v="$(printf '%s' "${line#*;}" | sed 's/@/ -/g')"
           test -s "$(riscv32-unknown-elf-gcc $v -print-libgcc-file-name)" || exit 1
           test -s "$(riscv32-unknown-elf-gcc $v --specs=picolibc.specs -print-file-name=libc.a)" || exit 1
+          test -s "$(riscv32-unknown-elf-g++ $v --specs=picolibc.specs -print-file-name=libstdc++.a)" || exit 1
         done
         out=$(spike --isa=rv32i -m0x0:0x10000 --pc=0 --disable-dtb /dev/null 2>&1 || true)
         if echo "$out" | grep -q overlap; then echo "Spike still places its debug module at address 0"; exit 1; fi

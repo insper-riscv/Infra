@@ -1,14 +1,15 @@
 # base-picolibc
 
-`ghcr.io/<organization>/base-picolibc` holds the files picolibc installs into the GCC's sysroot, under `/opt/riscv-foundation/riscv32-elf`. It is compiled with [`base-gcc`](base-gcc.md), and [`ci-elf`](ci-elf.md) copies it over the GCC's prefix. The overview of the images is in [README.md](README.md).
+`ghcr.io/<organization>/base-picolibc` and `ghcr.io/<organization>/base-picolibc-rv64` hold the files picolibc and libstdc++ install into the GCC's sysroot, under `/opt/riscv-foundation/riscv32-elf`, the first for the 32-bit variants and the second for the 64-bit ones. They are compiled with [`base-gcc`](base-gcc.md), and [`ci-elf`](ci-elf.md) copies both over the GCC's prefix. The overview of the images is in [README.md](README.md).
 
 ## 1. What it holds
 
 | Item | Detail |
 | :--- | :--- |
-| picolibc | the C library compiled by the GCC of the latest `base-gcc`, installed into the sysroot, once for each of the 192 variants of that GCC (section 2.1) |
+| picolibc | the C library compiled by the GCC of the latest `base-gcc`, installed into the sysroot, once for each of the 192 variants of the width of the image (section 2.1) |
+| `libsupc++` and `libstdc++` | the C++ libraries of the same GCC, built against the installed picolibc, for the same variants (section 4), and the C++ headers in `riscv32-unknown-elf/include/c++/<GCC version>` |
 
-The file `/opt/riscv-foundation/riscv32-elf/.picolibc.tag` has two lines. The first is the picolibc commit, and the second is the version, the date of the commit, the short commit and the number of library variants (`1.8.12 2026-07-31 (2ae376c), 192 variants`).
+The file `/opt/riscv-foundation/riscv32-elf/.picolibc.tag` (`.picolibc-rv64.tag` in the 64-bit image) has two lines. The first is the picolibc commit, and the second is the version, the date of the commit, the short commit, the number of library variants of the image and the libstdc++ version (`1.8.12 2026-07-30 (2ae376c), 192 variants, libstdc++ 16.1.0`).
 
 picolibc is compiled by a cross compiler, so the build uses the latest GCC image. The image carries the commit of that GCC in the label `riscv-gnu-toolchain.commit`, and a new GCC makes a new picolibc build.
 
@@ -20,7 +21,7 @@ Every row is a combination of base, multiply and floating point, built in eight 
 
 | `-march` | `-mabi` | Integer registers | Multiply | Divide | Single precision (`float`) | Double precision (`double`) |
 | :--- | :--- | :---: | :--- | :--- | :--- | :--- |
-| `rv32i` | `ilp32` | 32 | software | software | software | software |
+| `rv32i` (default) | `ilp32` | 32 | software | software | software | software |
 | `rv32if` | `ilp32` | 32 | software | software | hardware | software |
 | `rv32if` | `ilp32f` | 32 | software | software | hardware | software |
 | `rv32ifd` | `ilp32` | 32 | software | software | hardware | hardware |
@@ -32,7 +33,7 @@ Every row is a combination of base, multiply and floating point, built in eight 
 | `rv32ifd_zmmul` | `ilp32` | 32 | hardware | software | hardware | hardware |
 | `rv32ifd_zmmul` | `ilp32f` | 32 | hardware | software | hardware | hardware |
 | `rv32ifd_zmmul` | `ilp32d` | 32 | hardware | software | hardware | hardware |
-| `rv32im` (default) | `ilp32` | 32 | hardware | hardware | software | software |
+| `rv32im` | `ilp32` | 32 | hardware | hardware | software | software |
 | `rv32imf` | `ilp32` | 32 | hardware | hardware | hardware | software |
 | `rv32imf` | `ilp32f` | 32 | hardware | hardware | hardware | software |
 | `rv32imfd` | `ilp32` | 32 | hardware | hardware | hardware | hardware |
@@ -44,6 +45,8 @@ Every row is a combination of base, multiply and floating point, built in eight 
 | `rv32ef_zmmul` | `ilp32e` | 16 | hardware | software | hardware | software |
 | `rv32em` | `ilp32e` | 16 | hardware | hardware | software | software |
 | `rv32emf` | `ilp32e` | 16 | hardware | hardware | hardware | software |
+
+The RV64 variants have the same 24 combinations with `rv64` in place of `rv32` and, in place of the ABIs `ilp32`, `ilp32f`, `ilp32d` and `ilp32e`, the ABIs `lp64`, `lp64f`, `lp64d` and `lp64e`. They are in the `base-picolibc-rv64` image, and the RV32 ones in `base-picolibc`.
 
 The columns follow from the name of `-march`.
 
@@ -78,8 +81,12 @@ The ABI decides where `float` and `double` are passed, so a library only links w
 | `ilp32f` | I | floating point registers | pairs of integer registers | F |
 | `ilp32d` | I | floating point registers | floating point registers | F and D |
 | `ilp32e` | E | integer registers | pairs of integer registers | nothing |
+| `lp64` | I | integer registers | integer registers | nothing |
+| `lp64f` | I | floating-point registers | integer registers | F |
+| `lp64d` | I | floating-point registers | floating-point registers | F and D |
+| `lp64e` | E | integer registers | integer registers | nothing |
 
-`ilp32` and `ilp32e` are soft-float ABIs. With F or D present the arithmetic inside a function still uses the hardware, and only the calls between functions pass the values in integer registers. RV32E has only `ilp32e`, so there is no E variant of `ilp32f` or `ilp32d`, and the compiler rejects D with `ilp32e`, so the E variants go up to F. The Q extension has no ABI in RV32 and no variant.
+`ilp32`, `ilp32e`, `lp64` and `lp64e` are soft-float ABIs. With F or D present the arithmetic inside a function still uses the hardware, and only the calls between functions pass the values in integer registers. RV32E has only `ilp32e`, so there is no E variant of `ilp32f` or `ilp32d`, and the compiler rejects D with `ilp32e`, so the E variants go up to F. The Q extension has no ABI in RV32 or RV64 and no variant. The rules of RV32E apply to RV64E, which has only `lp64e`.
 
 ### 2.4. Names in the installed tree
 
@@ -93,7 +100,7 @@ The compiler writes the name of each variant in a normalized form, and that name
 | `c` | `_zca`, plus `_zcf` with F and `_zcd` with D |
 | the group B | nothing, the name already has `_zba_zbb_zbs` |
 
-The extension added for `m` is not the variant `_zmmul` of section 2.1. The M extension includes Zmmul (the multiply) and adds the divide, so the compiler lists `_zmmul` in the name of every variant that has `m`, and a variant with only the multiply has `_zmmul` and no `m`. The added extensions come after the letters in the order `_zicsr`, `_zmmul`, `_zaamo_zalrsc`, `_zca`, `_zcd`, `_zcf` and `_zba_zbb_zbs`. The variant `rv32im/ilp32` is the default of the compiler, so it is installed at the root of `lib` and has no directory of its own.
+The extension added for `m` is not the variant `_zmmul` of section 2.1. The M extension includes Zmmul (the multiply) and adds the divide, so the compiler lists `_zmmul` in the name of every variant that has `m`, and a variant with only the multiply has `_zmmul` and no `m`. The added extensions come after the letters in the order `_zicsr`, `_zmmul`, `_zaamo_zalrsc`, `_zca`, `_zcd`, `_zcf` and `_zba_zbb_zbs`. The variant `rv32i/ilp32` is the default of the compiler, so it is installed at the root of `lib` and has no directory of its own.
 
 | Variant of section 2.1 | Directory |
 | :--- | :--- |
@@ -104,10 +111,12 @@ The extension added for `m` is not the variant `_zmmul` of section 2.1. The M ex
 | `rv32ifdc/ilp32d` | `rv32ifdc_zicsr_zca_zcd_zcf/ilp32d` |
 | `rv32imc_zba_zbb_zbs/ilp32` | `rv32imc_zmmul_zca_zba_zbb_zbs/ilp32` |
 | `rv32imafdc/ilp32d` | `rv32imafdc_zicsr_zmmul_zaamo_zalrsc_zca_zcd_zcf/ilp32d` |
+| `rv64im/lp64` | `rv64im_zmmul/lp64` |
+| `rv64imafdc/lp64d` | `rv64imafdc_zicsr_zmmul_zaamo_zalrsc_zca_zcd/lp64d` |
 
 ## 3. How the GCC chooses the variant
 
-The compiler receives `-march` and `-mabi`, or uses the default of the build (`rv32im` with `ilp32`) when they are absent. It then takes the variant by these rules, and `--specs=picolibc.specs` finds `libc.a` in the directory of that same variant.
+The compiler receives `-march` and `-mabi`, or uses the default of the build (`rv32i` with `ilp32`) when they are absent. It then takes the variant by these rules, and `--specs=picolibc.specs` finds `libc.a` in the directory of that same variant.
 
 1. The ABI must be the one of the variant. There is no conversion between ABIs.
 2. The `-march` of the variant must be a subset of the `-march` asked for. A library built for fewer extensions runs on a core with more of them, and not the other way around.
@@ -127,9 +136,11 @@ The extensions that have no variant of their own, such as Zicsr, Zifencei, Zicnt
 | `-march=rv32imafdc -mabi=ilp32d` | `rv32imafdc/ilp32d` | exact match |
 | `-march=rv32imfd -mabi=ilp32f` | `rv32imfd/ilp32f` | the library uses D in hardware and passes only `float` in registers |
 | `-march=rv32ec -mabi=ilp32e` | `rv32ec/ilp32e` | the E base with C |
-| `-march=rv32imf -mabi=ilp32e` | `rv32im/ilp32` | no variant has `ilp32e` with the I base, the compiler accepts it and takes the default directory |
+| `-march=rv32imf -mabi=ilp32e` | `rv32i/ilp32` | no variant has `ilp32e` with the I base, the compiler accepts it and takes the default directory |
 | `-march=rv32im -mabi=ilp32f` | none, the compiler reports an error | `ilp32f` requires F |
 | `-march=rv32efd -mabi=ilp32e` | none, the compiler reports an error | `ilp32e` does not support D |
+| `-march=rv64imafdc -mabi=lp64d` | `rv64imafdc/lp64d` | exact match |
+| `-march=rv64im -mabi=lp64` | `rv64im/lp64` | exact match |
 
 The variant chosen for a build can be read with the commands below.
 
@@ -139,19 +150,46 @@ riscv32-unknown-elf-gcc -march=rv32imc -mabi=ilp32 --specs=picolibc.specs -print
 riscv32-unknown-elf-gcc -print-multi-lib
 ```
 
-## 4. Publication
+## 4. C++ libraries
+
+`libsupc++` and `libstdc++` are built in the same `Dockerfile`, after picolibc is installed and checked, against its headers and its `libc`. Each image builds the libraries of the variants of its width (192), in batches of `CXX_BATCH` variants (12 by default): each batch is configured, built and installed, and its build tree is deleted before the next one, which keeps the disk at about 0.65 GB for each variant of the batch.
+
+| Item | Detail |
+| :--- | :--- |
+| Source | the `gcc` submodule of `riscv-gnu-toolchain` at the commit `GCC_COMMIT`, in a shallow clone. Its version must be that of the installed compiler |
+| Libraries | `libsupc++.a`, `libstdc++.a` and `libstdc++exp.a`, one for each variant, in the directory of the variant under `lib` |
+| Headers | `riscv32-unknown-elf/include/c++/<GCC version>`, in the sysroot, which `g++` finds with no extra option. `bits/c++config.h` is per variant, in `riscv32-unknown-elf/<directory of the variant>/bits`, and the one of the default variant is in `riscv32-unknown-elf/bits` |
+| Exceptions and RTTI | enabled |
+| `libatomic` | not built: the GCC marks it as unsupported for `riscv32-unknown-elf` |
+
+A variant without the library does not compile C++, because its `c++config.h` is missing. The image of each width carries only the libraries of the variants of that width.
+
+`picolibc.specs` links only the `crt0` and leaves `*endfile` empty, so a C++ program with exceptions needs a spec that also links `crtbegin` and `crtend`, which register and end the unwind frames:
+
+```text
+*startfile:
+crt0-hosted%O%s crtbegin%O%s
+
+*endfile:
+crtend%O%s
+```
+
+A program that uses `new` or exceptions pulls in `getentropy` and `read` (and, for safety, `open` and `close`), which the runtime of the program defines, for example returning -1 with `errno` set to `ENOSYS`.
+
+## 5. Publication
 
 | Item | Value |
 | :--- | :--- |
 | Recipe | `docker/base/picolibc/Dockerfile` |
 | Workflow | `Picolibc image` |
-| Tags | `<picolibc commit>-<GCC commit>` and `latest` |
+| Images | `base-picolibc` (`WIDTH=32`, the RV32 variants) and `base-picolibc-rv64` (`WIDTH=64`, the RV64 ones), built by the same workflow, one for each width |
+| Tags | `<picolibc commit>-<GCC commit>` and `latest`, in each image |
 | Labels | `picolibc.commit`, `riscv-gnu-toolchain.commit` and `riscv-gnu-toolchain.variants` (the number of variants of that GCC) |
 | Schedule | every day, 03:10 UTC, and when `GCC image` finishes |
 
-The workflow follows series 1 (`SERIES`), so the scheduled run takes the latest `1.x.y` release tag. The scheduled run waits for a `GCC image` run that is going, and the end of that run triggers this workflow again with the new GCC. The tag has the two commits only, so the run also compares the number of variants in the label of the image of that tag with the one of the GCC, and builds again when they differ.
+The workflow follows series 1 (`SERIES`), so the scheduled run takes the latest `1.x.y` release tag. The scheduled run waits for a `GCC image` run that is going, and the end of that run triggers this workflow again with the new GCC. The tag has the two commits only, so the run also compares the number of variants in the label of the image of that tag with the one of the GCC, and builds again when they differ. The two images are built together, and the lack of either one builds both.
 
-## 5. Manual run
+## 6. Manual run
 
 | Field | Meaning |
 | :--- | :--- |
@@ -159,7 +197,7 @@ The workflow follows series 1 (`SERIES`), so the scheduled run takes the latest 
 | `commit` | the picolibc commit; empty, the latest release tag of the series |
 | `force` | rebuild and republish even if the image for that combination exists |
 
-## 6. Building locally
+## 7. Building locally
 
 ```bash
 docker build -f docker/base/picolibc/Dockerfile -t base-picolibc \
@@ -168,12 +206,23 @@ docker build -f docker/base/picolibc/Dockerfile -t base-picolibc \
   --build-arg GCC_COMMIT="$(git ls-remote https://github.com/riscv-collab/riscv-gnu-toolchain HEAD | cut -f1)" .
 ```
 
+The 64-bit image comes from the same recipe:
+
+```bash
+docker build -f docker/base/picolibc/Dockerfile -t base-picolibc-rv64 --build-arg WIDTH=64 \
+  --build-arg GCC_IMAGE=base-gcc --build-arg PICOLIBC_COMMIT=<commit> --build-arg GCC_COMMIT=<commit> .
+```
+
+The build takes hours, because it builds libstdc++ for 192 variants. The `MULTILIB` argument of [`base-gcc`](base-gcc.md) reduces the variants (picolibc follows the compiler's list), which shortens both builds.
+
 | Argument | Default | Meaning |
 | :--- | :--- | :--- |
 | `BASE_IMAGE` | `ubuntu:26.04` | base image (multi-architecture) |
 | `GCC_IMAGE` | `base-gcc:latest` | the GCC that compiles picolibc |
 | `PICOLIBC_COMMIT` | none | the picolibc commit to compile |
-| `GCC_COMMIT` | none | the GCC commit of that image, recorded in the tag |
+| `GCC_COMMIT` | none | the GCC commit of that image, where the libstdc++ source comes from, recorded in the tag |
+| `WIDTH` | `32` | `32` builds the RV32 variants (the root and the `rv32` ones), and `64` the RV64 ones |
+| `CXX_BATCH` | `12` | how many libstdc++ variants are built before the build tree is deleted |
 
 ---
 

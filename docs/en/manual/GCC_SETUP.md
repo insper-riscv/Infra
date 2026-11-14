@@ -186,20 +186,21 @@ The build produces a library for each of these variants. A library built for few
 with more of them, and not the other way around; the compiler picks the variant by the `-march` and `-mabi` it is
 given (section 3 of `docs/en/docker/base-picolibc.md` of the Infra repository).
 
-| Base and floating point | `-march` (each with no multiply, `_zmmul` and `m`) | `-mabi` |
-| :--- | :--- | :--- |
-| I, no floating point | `rv32i`, `rv32i_zmmul`, `rv32im` | `ilp32` |
-| I with F | `rv32if`, `rv32if_zmmul`, `rv32imf` | `ilp32`, `ilp32f` |
-| I with F and D | `rv32ifd`, `rv32ifd_zmmul`, `rv32imfd` | `ilp32`, `ilp32f`, `ilp32d` |
-| E, no floating point | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` |
-| E with F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` |
+| Base and floating point | `-march` of RV32 (each with no multiply, `_zmmul` and `m`), and the same three with the prefix `rv64` | RV32 `-mabi` | RV64 `-mabi` |
+| :--- | :--- | :--- | :--- |
+| I, no floating point | `rv32i`, `rv32i_zmmul`, `rv32im` | `ilp32` | `lp64` |
+| I with F | `rv32if`, `rv32if_zmmul`, `rv32imf` | `ilp32`, `ilp32f` | `lp64`, `lp64f` |
+| I with F and D | `rv32ifd`, `rv32ifd_zmmul`, `rv32imfd` | `ilp32`, `ilp32f`, `ilp32d` | `lp64`, `lp64f`, `lp64d` |
+| E, no floating point | `rv32e`, `rv32e_zmmul`, `rv32em` | `ilp32e` | `lp64e` |
+| E with F | `rv32ef`, `rv32ef_zmmul`, `rv32emf` | `ilp32e` | `lp64e` |
 
-`_zmmul` is multiply in hardware and divide in software, `m` is both in hardware, and the name with neither has both in software. RV32E allows only the `ilp32e` ABI (soft-float, so `float` is passed in integer registers even when F is present), and that ABI does not support D, so there is no E variant with D. The hard-float ABIs `ilp32f` and `ilp32d` exist only for I. The Q extension has no RV32 ABI, so it has no variant.
+`_zmmul` is multiply in hardware and divide in software, `m` is both in hardware, and the name with neither has both in software. RV32E and RV64E allow only the `ilp32e` and `lp64e` ABIs (soft-float, so `float` is passed in integer registers even when F is present), and those ABIs do not support D, so there is no E variant with D. The hard-float ABIs (`ilp32f`, `ilp32d`, `lp64f` and `lp64d`) exist only for I. The Q extension has no ABI in RV32 or in RV64, so it has no variant.
 
-The 24 combinations of base, multiply and floating point are each built without or with three more choices, which gives 24 × 2 × 2 × 2 = 192 variants, with `rv32im/ilp32` the default. `scripts/gcc-multilib.sh` lists them.
+The 24 combinations of base, multiply and floating point of each width are each built without or with three more choices, which gives 24 × 2 × 2 × 2 = 192 variants per width and 384 in all, with `rv32i/ilp32` the default (the root of the library directory). `scripts/gcc-multilib.sh` lists both widths, `--width 32` or `--width 64` lists one, and `--count` prints how many variants the list has.
 
 | Axis | Choices |
 | :--- | :--- |
+| Width | RV32, RV64 |
 | Base | I, E |
 | Multiply | none, Zmmul, M |
 | Floating point | none, F, F and D (D not with E) |
@@ -207,7 +208,7 @@ The 24 combinations of base, multiply and floating point are each built without 
 | C | without, with (compressed instructions) |
 | B | without, with the group Zba, Zbb and Zbs together |
 
-The name of a variant adds the letters `a` and `c` and the suffix `_zba_zbb_zbs` to the name of the base combination, so `rv32im` gives `rv32im`, `rv32ima`, `rv32imc`, `rv32imac` and the four of them with `_zba_zbb_zbs`.
+The name of a variant adds the letters `a` and `c` and the suffix `_zba_zbb_zbs` to the name of the base combination, so `rv32im` gives `rv32im`, `rv32ima`, `rv32imc`, `rv32imac` and the four of them with `_zba_zbb_zbs`, and `rv64im` gives the eight matching ones of RV64.
 
 ### 3.2. Build
 
@@ -234,7 +235,7 @@ cd "$BUILD_DIR"
 rm -rf "$CACHE_DIR" && mkdir -p "$CACHE_DIR"
 
 # binutils and GDB, with the Makefile of riscv-gnu-toolchain
-"$SRC_DIR/configure" --prefix="$CACHE_DIR" --with-arch=rv32im --enable-picolibc
+"$SRC_DIR/configure" --prefix="$CACHE_DIR" --with-arch=rv32i --with-abi=ilp32 --enable-picolibc
 make -j"$(nproc)" stamps/build-binutils-picolibc stamps/build-gdb-picolibc
 
 # the compiler, and libgcc for every variant
@@ -245,19 +246,23 @@ mkdir gcc && cd gcc
   --disable-libmudflap --disable-libssp --disable-libquadmath --disable-libgomp \
   --disable-nls --disable-tm-clone-registry --src="$SRC_DIR/gcc" \
   --with-multilib-generator="$MULTILIB" \
-  --with-arch=rv32im --with-abi=ilp32 --with-isa-spec=20191213 \
+  --with-arch=rv32i --with-abi=ilp32 --with-isa-spec=20191213 \
   --enable-languages=c,c++ \
-  CFLAGS_FOR_TARGET="-Os -mcmodel=medlow" CXXFLAGS_FOR_TARGET="-Os -mcmodel=medlow"
+  --with-specs='%{mabi=lp64*:%{!mcmodel=*:-mcmodel=medany}}' \
+  CFLAGS_FOR_TARGET="-Os" CXXFLAGS_FOR_TARGET="-Os"
 make -j"$(nproc)" all-gcc
 make install-gcc
 make -j"$(nproc)" all-target-libgcc
 make install-target-libgcc
 cd ..
 
-# picolibc, compiled with that compiler for every variant
+# picolibc, compiled with that compiler for the variants of each width
 export PATH="$CACHE_DIR/bin:$PATH"
 tool=riscv32-unknown-elf
-cat > cross.txt <<EOF
+for width in 32 64; do
+  if [ "$width" = 32 ]; then pick='^(\.|rv32)'; else pick='^rv64'; fi
+  list="$($tool-gcc -print-multi-lib | cut -d';' -f1 | grep -E "$pick" | paste -sd,)"
+  cat > cross$width.txt <<EOF
 [binaries]
 c = ['$tool-gcc', '-nostdlib']
 cpp = ['$tool-g++', '-nostdlib']
@@ -267,37 +272,43 @@ nm = '$tool-nm'
 strip = '$tool-strip'
 [host_machine]
 system = 'unknown'
-cpu_family = 'riscv32'
-cpu = 'riscv32'
+cpu_family = 'riscv$width'
+cpu = 'riscv$width'
 endian = 'little'
 [properties]
 c_args = ['-msave-restore', '-fno-common', '-mcmodel=medlow']
 cpp_args = ['-msave-restore', '-fno-common', '-mcmodel=medlow']
 skip_sanity_check = true
 EOF
-meson setup picolibc "$SRC_DIR/picolibc" --cross-file cross.txt --buildtype=minsize \
-  --prefix="$CACHE_DIR/$tool" -Dincludedir=include -Dlibdir=lib \
-  -Dsysroot-install=true -Dsystem-libc=true -Dtests=false
-ninja -C picolibc install
+  meson setup picolibc$width "$SRC_DIR/picolibc" --cross-file cross$width.txt --buildtype=minsize \
+    --prefix="$CACHE_DIR/$tool" -Dincludedir=include -Dlibdir=lib \
+    -Dsysroot-install=true -Dsystem-libc=true -Dtests=false "-Dmultilib-list=$list"
+  ninja -C picolibc$width install
+done
+
+# libsupc++ and libstdc++ for the variants of each width, against that picolibc
+for width in 32 64; do
+  bash "$INFRA_DIR/scripts/cxx-libs.sh" "$width" "$SRC_DIR/gcc" "$CACHE_DIR" / 12
+done
 
 echo "$COMMIT" > "$CACHE_DIR/.tag"
 ```
 
-The script has four stages.
+The script has five stages.
 
 | Stage | What it does |
 | :--- | :--- |
-| binutils and GDB | The Makefile of riscv-gnu-toolchain builds and installs them for the `riscv32-unknown-elf` target; `--with-arch=rv32im` makes it derive that target and the `ilp32` ABI, and without it the default target is RV64GC (`riscv64-unknown-elf-*`) |
+| binutils and GDB | The Makefile of riscv-gnu-toolchain builds and installs them for the `riscv32-unknown-elf` target; `--with-arch=rv32i` makes it derive that target and the `ilp32` ABI, and without it the default target is RV64GC (`riscv64-unknown-elf-*`) |
 | compiler | `gcc/configure` is run directly, because the picolibc rule of the Makefile disables multilib; `--with-multilib-generator` takes the variants as `<arch>-<abi>--` separated by `;` and implies multilib, and `--with-arch`/`--with-abi` set the default variant |
 | `libgcc` | Built with the compiler of the previous stage, once for each variant |
-| picolibc | Built by `meson` with that compiler; it reads the variants from the compiler and builds a library for each one, installing them into the sysroot |
+| picolibc | Built by `meson` with that compiler, once for each width; `-Dmultilib-list` picks the variants of the width, and each one becomes a library installed into the sysroot |
+| `libsupc++` and `libstdc++` | Built by `scripts/cxx-libs.sh` with the installed compiler, against picolibc, for the variants of each width, in batches of 12 |
 
 - The build runs out-of-tree from the source, in `/var/tmp`: this allows reconfiguring/rebuilding without
   dirtying `SRC_DIR`; `/tmp` is often tmpfs, too small for the build tree.
 - `.tag` is written last: an interrupted build leaves the cache without `.tag`, so the next run rebuilds
   instead of trusting an incomplete cache.
-- The `CFLAGS_FOR_TARGET` `-mcmodel=medlow` is the code model of the compiler and of picolibc; both must use
-  the same one.
+- The code model `medlow` is the default of the compiler for the RV32 variants, and `--with-specs` adds `-mcmodel=medany` to the RV64 ones (ABIs `lp64*`), which need it above 2 GiB; picolibc and libstdc++ use the same models.
 
 The build adds the compilation tree, deleted at the end in `/var/tmp`. To adopt a new riscv-gnu-toolchain
 release, run the commands from sections 2.3 and 3.2 again.
@@ -323,14 +334,14 @@ cat "$CACHE/.tag"
 "$CACHE/bin/riscv32-unknown-elf-gcc" -print-multi-lib
 ```
 
-The last command should print five lines, one for each variant of section 3.1 (the default is the root, `.`).
+The last command should print one line for each variant of section 3.1 (384), and the first is the root, `.`, which is `rv32i/ilp32`.
 To see which library a `-march` takes:
 
 ```bash
 "$CACHE/bin/riscv32-unknown-elf-gcc" -march=rv32i -mabi=ilp32 --specs=picolibc.specs -print-file-name=libc.a
 ```
 
-To check that no picolibc code of the default variant uses instructions the RV32IM core does not implement
+To check that no picolibc code of the default variant uses instructions an RV32I core does not implement
 (CSR, atomics), the toolchain's own `objdump` reads `crt0.o` (the startup runtime) and `libc.a`:
 
 ```bash
@@ -340,7 +351,7 @@ To check that no picolibc code of the default variant uses instructions the RV32
   | grep -E 'csrr|csrw|lr\.w|sc\.w|amo'
 ```
 
-Neither search should return anything: a plain `rv32im` requires neither Zicsr nor the A (atomics) extension.
+Neither search should return anything: a plain `rv32i` requires neither Zicsr nor the A (atomics) extension.
 
 ## 5. Global PATH
 
