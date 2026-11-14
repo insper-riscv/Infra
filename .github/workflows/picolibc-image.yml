@@ -197,6 +197,9 @@ jobs:
   image:
     # linux/amd64 and linux/arm64, each built on a runner of its own architecture, then one
     # manifest (build-image.yml).
+    # The name is set so that the job shows the image only: without it GitHub spells every value
+    # of the matrix, the title and the description included.
+    name: ${{ matrix.name }}
     needs: pin
     if: needs.pin.outputs.build == 'true'
     permissions:

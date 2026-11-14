@@ -9,11 +9,12 @@ name: GCC image
 #   exists. With `ignore_ci`, the head of the branch whatever its CI says.
 # - Runs every day (schedule): it takes the latest commit on which the upstream Build workflow
 #   succeeded (.github/scripts/green-commit.sh) and builds it only if that image does not exist
-#   yet. The upstream Build takes hours, so the commit is usually about a day behind the head, and
-#   a commit still running is skipped, not waited for.
+#   yet, or exists with another number of library variants than the recipe builds now (the
+#   commit alone does not say it). The upstream Build takes hours, so the commit is usually about
+#   a day behind the head, and a commit still running is skipped, not waited for.
 #   A change of Dockerfile or of this workflow does not build by itself, so a recipe
-#   change that is not a new version does not rebuild an image for nothing: the Recipe
-#   changed workflow warns about it, and a run by hand with `force` rebuilds.
+#   change that is not a new version, or a new number of variants, does not rebuild an image for
+#   nothing: the Recipe changed workflow warns about it, and a run by hand with `force` rebuilds.
 #
 # The Picolibc image workflow then builds picolibc with it, and the CI images workflow assembles a
 # new image.
@@ -121,12 +122,26 @@ jobs:
           echo "gcc_version=$(gcc_version_of "$commit")" >> "$GITHUB_OUTPUT"
           # the number of library variants the recipe builds: it goes in a label of the image, which
           # the picolibc and the CI images workflows compare, so a change of it reaches them
-          echo "variants=$(bash scripts/gcc-multilib.sh --count)" >> "$GITHUB_OUTPUT"
+          variants=$(bash scripts/gcc-multilib.sh --count)
+          echo "variants=$variants" >> "$GITHUB_OUTPUT"
 
-          if [ "$INPUT_FORCE" != "true" ] && docker buildx imagetools inspect "$IMAGE:$commit" > /dev/null 2>&1; then
-            echo "::notice::$IMAGE:$commit already exists; nothing to build (run again with force to rebuild)."
+          # the image of the commit is up to date only when it also has this number of variants: the
+          # commit alone does not say it, so a recipe that builds another number rebuilds the same commit
+          published=""
+          if docker buildx imagetools inspect "$IMAGE:$commit" > /dev/null 2>&1; then
+            published=$(docker buildx imagetools inspect "$IMAGE:$commit" --format '{{json .Image}}' 2>/dev/null \
+              | jq -r '."linux/amd64".config.Labels["riscv-gnu-toolchain.variants"] // empty' 2>/dev/null || true)
+            exists=true
+          else
+            exists=false
+          fi
+          if [ "$INPUT_FORCE" != "true" ] && [ "$exists" = true ] && [ "$published" = "$variants" ]; then
+            echo "::notice::$IMAGE:$commit already exists with $variants variants; nothing to build (run again with force to rebuild)."
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
+            if [ "$exists" = true ] && [ "$published" != "$variants" ]; then
+              echo "::notice::$IMAGE:$commit has ${published:-no recorded number of} variants and the recipe builds $variants; building again."
+            fi
             echo "Building $commit."
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
