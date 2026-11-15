@@ -145,10 +145,12 @@ Um IDCODE sem cabo imprime nada, e o job deve falhar nesse caso em vez de progra
 
 ### 4.3. Trava por placa
 
-Cada placa tem um arquivo de trava próprio, e o job de placa o toma durante a sessão inteira. Dois jobs em placas diferentes da mesma máquina rodam juntos, e na mesma placa rodam em fila.
+Cada placa tem um arquivo de trava próprio, e todo uso da placa o toma durante a sessão inteira: o job de CI, um agente e quem roda à mão. O arquivo é o que o `riscv-tools board lock` toma, de nome `<placa sem hífen>-<host>.lock` em `/tmp` (por exemplo `de2115-<host>.lock`), em que `<host>` é o rótulo da máquina no `boards.yaml` do `riscv-tools`, por padrão o hostname curto. O `lock_dir` desse arquivo muda a pasta, e todo usuário da máquina precisa usar o mesmo valor.
+
+Dois jobs em placas diferentes da mesma máquina rodam juntos, e na mesma placa rodam em fila, qualquer que seja o número de runners dela. Quem não usa o `riscv-tools` toma a mesma trava com um `flock` comum no mesmo arquivo:
 
 ```bash
-flock -w 3600 /run/lock/placa-DE2-115.lock <comando>
+flock -w 3600 /tmp/de2115-<host>.lock <comando>
 ```
 
 A placa que o job programa precisa ter o IDCODE esperado pelo `.sof`. Programar o `.sof` de uma placa em outra é o erro a evitar.

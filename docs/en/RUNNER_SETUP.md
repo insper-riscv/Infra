@@ -145,10 +145,12 @@ An IDCODE with no cable prints nothing, and the job must fail in that case inste
 
 ### 4.3. Lock per board
 
-Each board has a lock file of its own, and the board job takes it for the whole session. Two jobs on different boards of the same machine run together, and on the same board they run in a queue.
+Each board has a lock file of its own, and every use of the board takes it for the whole session: the CI job, an agent and whoever runs by hand. The file is the one `riscv-tools board lock` takes, named `<board without hyphen>-<host>.lock` in `/tmp` (for example `de2115-<host>.lock`), where `<host>` is the label of the machine in the `boards.yaml` of `riscv-tools`, by default the short hostname. The `lock_dir` of that file changes the folder, and every user of the machine must use the same value.
+
+Two jobs on different boards of the same machine run together, and on the same board they run in a queue, whatever the number of runners it has. Whoever does not use `riscv-tools` takes the same lock with a plain `flock` on the same file:
 
 ```bash
-flock -w 3600 /run/lock/placa-DE2-115.lock <command>
+flock -w 3600 /tmp/de2115-<host>.lock <command>
 ```
 
 The board that the job programs must have the IDCODE the `.sof` expects. Programming the `.sof` of one board into another is the mistake to avoid.
