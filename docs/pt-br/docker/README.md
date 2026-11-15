@@ -136,6 +136,8 @@ Cada nível tem um estágio antes dele, e o estágio diz o que escolheu numa ano
 
 Cada arquitetura é construída num runner próprio (`ubuntu-26.04` para `linux/amd64` e `ubuntu-26.04-arm` para `linux/arm64`), porque os builds do GCC e do GHDL levam horas sob emulação. Um job final junta as duas imagens num manifesto único com as tags, e `docker pull` entrega a cada máquina a sua.
 
+A `base-picolibc` e a `base-picolibc-rv64` são a exceção. A picolibc e a libstdc++ são bibliotecas do alvo RISC-V, então o conteúdo não depende da arquitetura da máquina que compila, e cada imagem é construída uma vez, em `linux/amd64`, por um único `docker/build-push-action` com `platforms: linux/amd64,linux/arm64`. O estágio final do `Dockerfile` só copia os arquivos, então a variante `linux/arm64` sai sem executar nada, e não há job de manifesto à parte. Os dois jobs rodam no runner `build` (autohospedado) ou, com a variável `RUNNERS_BUILD` igual a `hosted`, em `ubuntu-26.04`.
+
 ### 4.1. Execução manual
 
 Todo workflow de imagem pode ser disparado em **Actions → Run workflow**. O campo `confirm` é obrigatório (ver a seção 5). Os componentes têm ainda `commit` (vazio: o mais recente) e `force` (reconstrói e republica mesmo que a imagem daquele commit já exista). O `CI images` tem `from_level` no lugar de `force`: reconstrói esse nível e os de cima, seja o que estiver publicado; os demais campos estão no arquivo de cada imagem.
