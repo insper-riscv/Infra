@@ -2,7 +2,7 @@
 
 🌐 [Português](README.md) · [English](README.en.md)
 
-The infrastructure of the RV32 project: the Docker images with the tools of the tests, the step by step guides to install those tools by hand, and the guides to set up a workstation with FPGA hardware as a self-hosted GitHub Actions runner. The guides cover Debian-like (`apt`) and RHEL-like (`dnf`/`yum`) distros.
+The infrastructure of the RV32 project: the Docker images with the tools of the tests, the step by step guides to install those tools by hand, and the guide to set up a workstation, with or without an FPGA board, as self-hosted GitHub Actions runners. The guides cover Debian-like (`apt`) and RHEL-like (`dnf`/`yum`) distros.
 
 ## 1. Which guide to follow
 
@@ -11,9 +11,9 @@ The infrastructure of the RV32 project: the Docker images with the tools of the 
 | use the tools without installing them, in CI or in a Dev Container | [Docker images](docs/en/docker/README.md) |
 | install the tools directly on a machine | [Manual installation](docs/en/manual/README.md) |
 | install Quartus Prime Lite on a workstation | [QUARTUS_INSTALL.md](docs/en/QUARTUS_INSTALL.md) |
-| set up a workstation with an FPGA board as a runner | [RUNNER_SETUP.md](docs/en/RUNNER_SETUP.md) |
+| set up a workstation as self-hosted runners (formal, build, certification, simulated tests and FPGA boards) | [RUNNER_SETUP.md](docs/en/RUNNER_SETUP.md) |
 
-A workstation with a board follows [QUARTUS_INSTALL.md](docs/en/QUARTUS_INSTALL.md) and then [RUNNER_SETUP.md](docs/en/RUNNER_SETUP.md), which needs Docker because the jobs run in the CI images.
+A workstation with a board follows [QUARTUS_INSTALL.md](docs/en/QUARTUS_INSTALL.md) and then [RUNNER_SETUP.md](docs/en/RUNNER_SETUP.md), which needs Docker because the jobs run in the CI images. A workstation without a board goes straight to [RUNNER_SETUP.md](docs/en/RUNNER_SETUP.md).
 
 ## 2. The images
 
