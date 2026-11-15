@@ -194,46 +194,130 @@ jobs:
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
-  image:
-    # linux/amd64 and linux/arm64, each built on a runner of its own architecture, then one
-    # manifest (build-image.yml).
-    # The name is set so that the job shows the image only: without it GitHub spells every value
-    # of the matrix, the title and the description included.
-    name: ${{ matrix.name }}
+  # picolibc and libstdc++ are libraries of the RISC-V target, so what is built does not depend on
+  # the architecture of the machine that builds it. Each width is then built once, on amd64, in a
+  # single build-push-action that publishes linux/amd64 and linux/arm64 together: the Dockerfile
+  # compiles on the builder (BUILDPLATFORM) and the final stage only copies the files, so nothing runs
+  # under emulation and no separate manifest job is needed. The two widths are independent jobs, so
+  # they run on different machines (one `build` runner each) at the same time.
+  #
+  # The runner is the self-hosted `build` one unless the repository variable RUNNERS_BUILD is
+  # `hosted`. This workflow runs only on main, on a schedule or by hand, never for a pull request
+  # from a fork, so a self-hosted runner does not run code of a stranger.
+  base-picolibc:
+    name: base-picolibc
     needs: pin
     if: needs.pin.outputs.build == 'true'
+    runs-on: ${{ vars.RUNNERS_BUILD == 'hosted' && 'ubuntu-26.04' || fromJSON('["self-hosted","build"]') }}
+    # picolibc and libstdc++ of 192 variants of one width; kept until the time on the runner is measured
+    timeout-minutes: 360
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: base-picolibc
-            width: 32
-            title: picolibc for the RISC-V GCC
-            description: picolibc and libstdc++, the C and C++ libraries of the RISC-V GCC for the RV32 variants (every combination of I or E, multiply none, Zmmul or M, F and D (D only with I), A, C and B (Zba, Zbb and Zbs), with the ABIs each allows, 192 variants). Only the files they install into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
-          - name: base-picolibc-rv64
-            width: 64
-            title: picolibc for the RISC-V GCC, RV64
-            description: picolibc and libstdc++, the C and C++ libraries of the RISC-V GCC for the RV64 variants (every combination of I or E, multiply none, Zmmul or M, F and D (D only with I), A, C and B (Zba, Zbb and Zbs), with the ABIs each allows, 192 variants). Only the files they install into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
-    uses: ./.github/workflows/build-image.yml
-    with:
-      image: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
-      dockerfile: docker/base/picolibc/Dockerfile
-      title: ${{ matrix.title }}
-      description: ${{ matrix.description }}
-      # picolibc and libstdc++ of 192 variants of one width: about 2.5 to 3.5 hours on 4 CPUs, in batches
-      timeout-minutes: 360
-      build-args: |
-        WIDTH=${{ matrix.width }}
-        GCC_IMAGE=${{ needs.pin.outputs.gcc_image }}
-        PICOLIBC_COMMIT=${{ needs.pin.outputs.commit }}
-        GCC_COMMIT=${{ needs.pin.outputs.gcc }}
-      labels: |
-        picolibc.commit=${{ needs.pin.outputs.commit }}
-        riscv-gnu-toolchain.commit=${{ needs.pin.outputs.gcc }}
-        riscv-gnu-toolchain.variants=${{ needs.pin.outputs.gcc_variants }}
-      tags: |
-        ${{ needs.pin.outputs.commit }}-${{ needs.pin.outputs.gcc }}
-        latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+        with:
+          # BuildKit clips each step's log at 2 MiB; -1 lifts the limit so a long build shows its
+          # log to the end.
+          driver-opts: |
+            env.BUILDKIT_STEP_LOG_MAX_SIZE=-1
+          # The BuildKit container resolved no Ubuntu mirror on some runners (apt-get exit 100), so
+          # the build steps use public resolvers instead of the runner one.
+          buildkitd-config-inline: |
+            [dns]
+              nameservers = ["1.1.1.1", "8.8.8.8"]
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: When the image is built
+        id: created
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and publish for linux/amd64 and linux/arm64
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: docker/base/picolibc/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            WIDTH=32
+            GCC_IMAGE=${{ needs.pin.outputs.gcc_image }}
+            PICOLIBC_COMMIT=${{ needs.pin.outputs.commit }}
+            GCC_COMMIT=${{ needs.pin.outputs.gcc }}
+          tags: |
+            ${{ env.IMAGE }}:${{ needs.pin.outputs.commit }}-${{ needs.pin.outputs.gcc }}
+            ${{ env.IMAGE }}:latest
+          # The title, description and date are set here because the labels of the base image
+          # would otherwise be the ones the Dockerfile inherits.
+          labels: |
+            picolibc.commit=${{ needs.pin.outputs.commit }}
+            riscv-gnu-toolchain.commit=${{ needs.pin.outputs.gcc }}
+            riscv-gnu-toolchain.variants=${{ needs.pin.outputs.gcc_variants }}
+            org.opencontainers.image.title=picolibc for the RISC-V GCC
+            org.opencontainers.image.description=picolibc and libstdc++, the C and C++ libraries of the RISC-V GCC for the RV32 variants (every combination of I or E, multiply none, Zmmul or M, F and D (D only with I), A, C and B (Zba, Zbb and Zbs), with the ABIs each allows, 192 variants). Only the files they install into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.created.outputs.value }}
+
+  base-picolibc-rv64:
+    name: base-picolibc-rv64
+    needs: pin
+    if: needs.pin.outputs.build == 'true'
+    runs-on: ${{ vars.RUNNERS_BUILD == 'hosted' && 'ubuntu-26.04' || fromJSON('["self-hosted","build"]') }}
+    # picolibc and libstdc++ of 192 variants of one width; kept until the time on the runner is measured
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: docker/setup-buildx-action@v4.4.1
+        with:
+          driver-opts: |
+            env.BUILDKIT_STEP_LOG_MAX_SIZE=-1
+          buildkitd-config-inline: |
+            [dns]
+              nameservers = ["1.1.1.1", "8.8.8.8"]
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: When the image is built
+        id: created
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and publish for linux/amd64 and linux/arm64
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: docker/base/picolibc/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            WIDTH=64
+            GCC_IMAGE=${{ needs.pin.outputs.gcc_image }}
+            PICOLIBC_COMMIT=${{ needs.pin.outputs.commit }}
+            GCC_COMMIT=${{ needs.pin.outputs.gcc }}
+          tags: |
+            ${{ env.IMAGE }}-rv64:${{ needs.pin.outputs.commit }}-${{ needs.pin.outputs.gcc }}
+            ${{ env.IMAGE }}-rv64:latest
+          labels: |
+            picolibc.commit=${{ needs.pin.outputs.commit }}
+            riscv-gnu-toolchain.commit=${{ needs.pin.outputs.gcc }}
+            riscv-gnu-toolchain.variants=${{ needs.pin.outputs.gcc_variants }}
+            org.opencontainers.image.title=picolibc for the RISC-V GCC, RV64
+            org.opencontainers.image.description=picolibc and libstdc++, the C and C++ libraries of the RISC-V GCC for the RV64 variants (every combination of I or E, multiply none, Zmmul or M, F and D (D only with I), A, C and B (Zba, Zbb and Zbs), with the ABIs each allows, 192 variants). Only the files they install into the sysroot of that GCC, under /opt/riscv-foundation/riscv32-elf.
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ steps.created.outputs.value }}
