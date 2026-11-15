@@ -70,6 +70,15 @@ getent passwd runner   # the 6th field is the home
 sudo usermod -d /opt/runners runner   # only if another value shows up, with jtagd stopped
 ```
 
+`useradd -m` creates the home with the `0750` mode of `HOME_MODE` in `/etc/login.defs`, which keeps the other users of the machine from listing and reading the runners. The command below opens the root and the files for reading and folder traversal, and leaves only the private key of the runner restricted:
+
+```bash
+sudo chmod 755 /opt/runners
+sudo find /opt/runners -xdev ! -type l ! -name '.credentials_rsaparams' -exec chmod o+rX {} +
+```
+
+`.credentials_rsaparams` holds the key the runner authenticates to GitHub with, and whoever reads it can impersonate the runner. `config.sh` already creates it with mode `600`, and it stays that way.
+
 ## 4. JTAG server on the host
 
 Only on machines with a board. The container reaches the boards through a `jtagd` that runs on the host and listens on `localhost:1309`. One `jtagd` per machine sees all of its cables.
@@ -352,6 +361,7 @@ A `runs-on` that lists the label of the machine, such as `[self-hosted, DE2-115,
 - [ ] `systemctl show -p MemoryMax,CPUQuotaPerSecUSec,OOMScoreAdjust gh-runner@<name>` shows `infinity`, `infinity` and `500`
 - [ ] On machines with a board, `ss -ltn | grep ':1309 '` shows `jtagd` and `cable <IDCODE>` prints the cable of each board
 - [ ] On machines with a board, `sudo -u runner killall jtagd` and, 6 seconds later, `ss -ltn | grep ':1309 '` shows the server again
+- [ ] A user without `sudo` lists `/opt/runners` and reads the files of the runners, and `stat -c %A /opt/runners/*/.credentials_rsaparams` shows `-rw-------`
 - [ ] A test job per label runs and prints the name of the runner
 - [ ] Docker works as `runner`: `sudo -u runner docker run --rm ghcr.io/insper-riscv/ci-elf:latest riscv32-unknown-elf-gcc --version`
 - [ ] Quartus runs in the container, with the options of section 8: `quartus_pgm --version` prints the version
