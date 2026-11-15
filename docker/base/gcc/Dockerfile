@@ -32,6 +32,16 @@ RUN git init /src \
  && git -C /src checkout FETCH_HEAD \
  && git -C /src submodule update --init --depth 1 binutils gcc
 
+# The save-restore routines of libgcc (-msave-restore) save s2 to s11 in the 64-bit branch even for
+# the E base, which has no such registers, so libgcc of rv64e/lp64e does not assemble. The patch gives
+# that branch the handling the 32-bit one has (routines 0 to 2, with ra, s0 and s1). If it stops
+# applying, GCC changed that file: check whether it fixed the defect and remove the patch.
+COPY docker/base/gcc/patches/riscv-rv64e-save-restore.patch /tmp/riscv-rv64e-save-restore.patch
+RUN git -C /src/gcc apply --check /tmp/riscv-rv64e-save-restore.patch \
+ || { echo "docker/base/gcc/patches/riscv-rv64e-save-restore.patch no longer applies to libgcc/config/riscv/save-restore.S: GCC changed that file, check if it already supports RV64E and remove the patch"; exit 1; } \
+ && git -C /src/gcc apply /tmp/riscv-rv64e-save-restore.patch \
+ && rm /tmp/riscv-rv64e-save-restore.patch
+
 # binutils from riscv-gnu-toolchain, then the compiler configured here (its picolibc rule disables
 # multilib): C and C++ front ends, installed, and libgcc built with it for each variant. The host
 # programs are stripped of their symbols, which are most of the size of the install. The

@@ -2,3 +2,5 @@
 !docker/ci/vhdl/static-analysis.txt
 !scripts/gcc-multilib.sh
 !scripts/cxx-libs.sh
+!docker/base/gcc/patches/*.patch
+!docker/base/picolibc/patches/*.patch

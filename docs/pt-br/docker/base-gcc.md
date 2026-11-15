@@ -41,6 +41,12 @@ Como o compilador escolhe entre as variantes está na seção 3 de [base-picolib
 
 O build instala o binutils e o primeiro compilador da configuração da picolibc, e depois constrói a libgcc com ele; o segundo estágio do `riscv-gnu-toolchain`, que refaria o compilador e a libgcc contra a picolibc, não é executado. O `cc1` liga com `libmpc3` e `libmpfr6`, instaladas na `ci-elf`. A imagem não tem biblioteca C nem libstdc++, que vêm da `base-picolibc` (32 bits) e da `base-picolibc-rv64` (64 bits). Os executáveis se chamam `riscv32-unknown-elf-*`, sem conflito com o `gcc` do host.
 
+### 1.2. Patch no libgcc
+
+A imagem leva um patch no `libgcc/config/riscv/save-restore.S` do GCC (`docker/base/gcc/patches/riscv-rv64e-save-restore.patch`), aplicado ao código-fonte antes do `configure`. Esse arquivo tem as rotinas `__riscv_save_N` e `__riscv_restore_N` que o compilador chama com `-msave-restore`. O ramo de 64 bits salva e restaura de `s2` a `s11` sem testar a base E, que só tem `ra`, `s0` e `s1`, então o `libgcc` das variantes `rv64e/lp64e` não monta (`illegal operands 'sd s4,64(sp)'`). O patch dá ao ramo de 64 bits o tratamento que o de 32 bits já tem: na base E ele define só as rotinas de 0 a 2 (as únicas que o compilador chama, porque a máscara de registradores salvos não passa de `s1`), com `sd` e `ld` e quadros de 8, 16 e 24 bytes, múltiplos do alinhamento de pilha de 8 bytes do ABI `lp64e`.
+
+O build falha com uma mensagem que cita o patch se ele deixar de aplicar. Isso indica que o GCC mudou o arquivo, e então é preciso conferir se a mudança já trata o RV64E e remover o patch.
+
 ## 2. Publicação
 
 | Item | Valor |

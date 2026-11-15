@@ -1,0 +1,48 @@
+diff --git a/libc/include/machine/setjmp.h b/libc/include/machine/setjmp.h
+index 84d700e..a6f8594 100644
+--- a/libc/include/machine/setjmp.h
++++ b/libc/include/machine/setjmp.h
+@@ -434,7 +434,7 @@ _BEGIN_STD_C
+ /* _JBTYPE using long long to make sure the alignment is align to 8 byte,
+    otherwise in rv32imafd, store/restore FPR may mis-align.  */
+ #define _JBTYPE long long
+-#ifdef __riscv_32e
++#if defined(__riscv_32e) || defined(__riscv_64e)
+ #define _JBLEN ((4 * sizeof(long)) / sizeof(long))
+ #else
+ #define _JBLEN ((14 * sizeof(long) + 12 * sizeof(double)) / sizeof(long))
+diff --git a/libc/machine/riscv/strcmp.S b/libc/machine/riscv/strcmp.S
+index 52305db..a7f7858 100644
+--- a/libc/machine/riscv/strcmp.S
++++ b/libc/machine/riscv/strcmp.S
+@@ -60,7 +60,7 @@ strcmp:
+  *                    data + 4 intermediates + (-1) const = 10 regs).
+  *                    Fall through to single-word loop.
+  * ------------------------------------------------------------------- */
+-#if defined(__riscv_e) || defined(__riscv_32e)
++#if defined(__riscv_e) || defined(__riscv_32e) || defined(__riscv_64e)
+ #  ifdef __riscv_zbb
+ #    define R_W1A a5    /* second a1 word (was a6) */
+ #    define R_O0  t0    /* orc.b result 0 (was t3) */
+diff --git a/picocrt/machine/riscv/crt0.c b/picocrt/machine/riscv/crt0.c
+index 5ab6dab..2959d02 100644
+--- a/picocrt/machine/riscv/crt0.c
++++ b/picocrt/machine/riscv/crt0.c
+@@ -75,7 +75,7 @@ _cstart(void)
+ #include <unistd.h>
+ #include <stdio.h>
+ 
+-#ifdef __riscv_32e
++#if defined(__riscv_32e) || defined(__riscv_64e)
+ #define NUM_REG 16
+ #else
+ #define NUM_REG 32
+@@ -164,7 +164,7 @@ _trap(void)
+ 
+     SAVE_REGS_8(0);
+     SAVE_REGS_8(8);
+-#ifndef __riscv_32e
++#if !defined(__riscv_32e) && !defined(__riscv_64e)
+     SAVE_REGS_8(16);
+     SAVE_REGS_8(24);
+ #endif

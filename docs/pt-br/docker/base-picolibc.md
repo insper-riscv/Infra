@@ -13,6 +13,8 @@ O arquivo `/opt/riscv-foundation/riscv32-elf/.picolibc.tag` (`.picolibc-rv64.tag
 
 A picolibc é compilada por um cross compiler, então o build usa a imagem de GCC mais recente. A imagem leva o commit desse GCC no rótulo `riscv-gnu-toolchain.commit`, e um GCC novo gera um build novo da picolibc.
 
+O código-fonte da picolibc leva um patch (`docker/base/picolibc/patches/riscv-rv64e-macros.patch`), aplicado antes da construção. A picolibc testa o macro da base E de 32 bits (`__riscv_32e`) em três arquivos (`crt0.c`, `setjmp.h` e `strcmp.S`), mas o GCC define `__riscv_64e` para a base E de 64 bits, então o `crt0` de semihost das variantes `rv64e` salva 32 registradores e não monta. O patch acrescenta o macro de 64 bits a esses testes. O build falha com uma mensagem que cita o patch se ele deixar de aplicar, e então é preciso conferir se a picolibc já trata o RV64E e remover o patch.
+
 ## 2. Variantes
 
 ### 2.1. O que roda em hardware e o que roda em software
