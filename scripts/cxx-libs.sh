@@ -49,6 +49,37 @@ WRAP
   chmod +x "$work/wrap/wrap-$lang"
 done
 
+# The archives are made deterministic: ar and ranlib run in the D mode (no timestamp, owner or file mode
+# in the archive), so the same objects give the same libstdc++.a, libstdc++exp.a and libsupc++.a on
+# any machine and on any day. libtool calls $AR with its own flags (cru), so the wrapper adds D to the
+# operation letters instead of relying on AR_FLAGS.
+cat > "$work/wrap/wrap-ar" <<WRAP
+#!/bin/bash
+# libtool calls: ar --plugin <lto plugin> cru <archive> <objects>; D goes on the operation letters.
+args=()
+done=0
+for arg in "\$@"; do
+  if [ "\$done" = 0 ] && [[ "\$arg" =~ ^-?[a-zA-Z]+\$ ]] && [[ "\$arg" != -[Vh] ]]; then
+    arg="\${arg}D"; done=1
+  fi
+  args+=("\$arg")
+done
+exec $tool-ar "\${args[@]}"
+WRAP
+cat > "$work/wrap/wrap-ranlib" <<WRAP
+#!/bin/bash
+exec $tool-ranlib -D "\$@"
+WRAP
+chmod +x "$work/wrap/wrap-ar" "$work/wrap/wrap-ranlib"
+
+# The configure of the target libraries takes ar and ranlib from the build-time tools directory and
+# writes them into libtool, so the variable AR_FOR_TARGET alone does not reach the archives. A copy of
+# that directory (links) with the two wrappers in place of ar and ranlib is what the configure gets.
+mkdir "$work/btt"
+for f in "$prefix/$tuple/bin"/*; do ln -s "$f" "$work/btt/$(basename "$f")"; done
+ln -sf "$work/wrap/wrap-ar" "$work/btt/ar"
+ln -sf "$work/wrap/wrap-ranlib" "$work/btt/ranlib"
+
 "$tool-gcc" -print-multi-lib | grep -E "$pick" > "$work/all.txt"
 total="$(wc -l < "$work/all.txt")"
 split -l "$batch" -d "$work/all.txt" "$work/batch."
@@ -56,6 +87,8 @@ echo "libstdc++ for $total variants of width $width, in batches of $batch"
 
 cc="$work/wrap/wrap-gcc"
 cxx="$work/wrap/wrap-g++"
+ar="$work/wrap/wrap-ar"
+ranlib="$work/wrap/wrap-ranlib"
 for lines in "$work"/batch.*; do
   n="$(wc -l < "$lines")"
   start="$(date +%s)"
@@ -70,13 +103,14 @@ for lines in "$work"/batch.*; do
       --disable-libmudflap --disable-libssp --disable-libquadmath --disable-libgomp --disable-nls \
       --disable-tm-clone-registry \
       --with-arch=rv32i --with-abi=ilp32 --with-isa-spec=20191213 --enable-languages=c,c++ \
-      --with-build-time-tools="$prefix/$tuple/bin" \
-      CC_FOR_TARGET="$cc" CXX_FOR_TARGET="$cxx" \
+      --with-build-time-tools="$work/btt" \
+      CC_FOR_TARGET="$cc" CXX_FOR_TARGET="$cxx" AR_FOR_TARGET="$ar" RANLIB_FOR_TARGET="$ranlib" \
       CFLAGS_FOR_TARGET="-Os -mcmodel=$cmodel" CXXFLAGS_FOR_TARGET="-Os -mcmodel=$cmodel"
     # The compiler targets are marked as up to date (-o), so make does not build the GCC, and the
     # compilers are given on the command line because the configure values do not reach the rules.
     make -j"$(nproc)" -o all-gcc -o maybe-all-gcc -o all-target-libgcc -o maybe-all-target-libgcc \
       CC_FOR_TARGET="$cc" GCC_FOR_TARGET="$cc" CXX_FOR_TARGET="$cxx" RAW_CXX_FOR_TARGET="$cxx" \
+      AR_FOR_TARGET="$ar" RANLIB_FOR_TARGET="$ranlib" \
       all-target-libstdc++-v3
     # install-target-libstdc++-v3 depends on install-target-libgcc, which is not built here.
     rm -rf "$work/inst"

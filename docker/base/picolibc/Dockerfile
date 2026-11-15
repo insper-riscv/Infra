@@ -10,13 +10,20 @@
 #     --build-arg GCC_COMMIT=<the riscv-gnu-toolchain.commit label of base-gcc> .
 #
 # WIDTH=64 builds base-picolibc-rv64 from the same recipe.
+#
+# The result is identical for every platform (see scripts/cxx-libs.sh, which makes the archives
+# deterministic), so one build serves linux/amd64 and linux/arm64: add --platform linux/amd64,linux/arm64.
 
 ARG BASE_IMAGE=ubuntu:26.04
 ARG GCC_IMAGE=ghcr.io/insper-riscv/base-gcc:latest
 
-FROM ${GCC_IMAGE} AS gcc
+# Both stages run on the architecture of the builder (BUILDPLATFORM), never under emulation: picolibc
+# and libstdc++ are libraries of the RISC-V target, so their content does not depend on the host
+# architecture. The final stage only copies the files, and buildx assembles it for linux/amd64 and
+# linux/arm64 without running anything.
+FROM --platform=$BUILDPLATFORM ${GCC_IMAGE} AS gcc
 
-FROM ${BASE_IMAGE} AS build
+FROM --platform=$BUILDPLATFORM ${BASE_IMAGE} AS build
 ARG PICOLIBC_COMMIT
 # The riscv-gnu-toolchain commit of the GCC: its gcc source builds the C++ libraries.
 ARG GCC_COMMIT

@@ -191,6 +191,8 @@ A program that uses `new` or exceptions pulls in `getentropy` and `read` (and, f
 
 The workflow follows series 1 (`SERIES`), so the scheduled run takes the latest `1.x.y` release tag. The scheduled run waits for a `GCC image` run that is going, and the end of that run triggers this workflow again with the new GCC. The tag has the two commits only, so the run also compares the number of variants in the label of the image of that tag with the one of the GCC, and builds again when they differ. The two images are built together, and the lack of either one builds both.
 
+Each image is built once, on `linux/amd64`, and published for `linux/amd64` and `linux/arm64` by a single `docker/build-push-action`. The build stages of the `Dockerfile` use `--platform=$BUILDPLATFORM`, so nothing runs under emulation, and the final `FROM scratch` stage only copies the files. This holds because picolibc and libstdc++ are libraries of the RISC-V target and their content does not depend on the host, and because the `ar` and `ranlib` of libstdc++ run in deterministic mode (`D`), which makes the `.a` files byte-identical on any machine. The two jobs (32 and 64 bits) are independent and run on different machines, on the `build` runner or, with the variable `RUNNERS_BUILD` set to `hosted`, on `ubuntu-26.04`.
+
 ## 6. Manual run
 
 | Field | Meaning |
