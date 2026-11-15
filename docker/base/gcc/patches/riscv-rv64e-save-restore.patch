@@ -1,0 +1,98 @@
+--- a/libgcc/config/riscv/save-restore.S
++++ b/libgcc/config/riscv/save-restore.S
+@@ -29,6 +29,86 @@
+ 
+ #if __riscv_xlen == 64
+ 
++#ifdef __riscv_abi_rve
++
++/* RV64E has only ra, s0 and s1 to save (x1, x8 and x9), so only routines 0 to 2 exist,
++   and the frame is a multiple of 8 bytes, the stack alignment of the lp64e ABI.  */
++
++FUNC_BEGIN (__riscv_save_2)
++  .cfi_startproc
++  # __riscv_save_* routine use t0/x5 as return address
++  .cfi_return_column 5
++  addi sp, sp, -24
++  .cfi_def_cfa_offset 24
++  sd s1, 0(sp)
++  .cfi_offset 9, -24
++  sd s0, 8(sp)
++  .cfi_offset 8, -16
++  sd ra, 16(sp)
++  .cfi_offset 1, -8
++  SET_LPAD
++  jr t0
++  .cfi_endproc
++FUNC_END (__riscv_save_2)
++
++FUNC_BEGIN (__riscv_save_1)
++  .cfi_startproc
++  # __riscv_save_* routine use t0/x5 as return address
++  .cfi_return_column 5
++  addi sp, sp, -16
++  .cfi_def_cfa_offset 16
++  sd s0, 0(sp)
++  .cfi_offset 8, -16
++  sd ra, 8(sp)
++  .cfi_offset 1, -8
++  SET_LPAD
++  jr t0
++  .cfi_endproc
++FUNC_END (__riscv_save_1)
++
++FUNC_BEGIN (__riscv_save_0)
++  .cfi_startproc
++  # __riscv_save_* routine use t0/x5 as return address
++  .cfi_return_column 5
++  addi sp, sp, -8
++  .cfi_def_cfa_offset 8
++  sd ra, 0(sp)
++  .cfi_offset 1, -8
++  SET_LPAD
++  jr t0
++  .cfi_endproc
++FUNC_END (__riscv_save_0)
++
++FUNC_BEGIN (__riscv_restore_2)
++  .cfi_startproc
++  .cfi_def_cfa_offset 24
++  ld s1, 0(sp)
++  .cfi_restore 9
++  addi sp, sp, 8
++
++FUNC_BEGIN (__riscv_restore_1)
++  .cfi_restore 9
++  .cfi_def_cfa_offset 16
++  ld s0, 0(sp)
++  .cfi_restore 8
++  addi sp, sp, 8
++
++FUNC_BEGIN (__riscv_restore_0)
++  .cfi_restore 8
++  .cfi_restore 9
++  .cfi_def_cfa_offset 8
++  ld ra, 0(sp)
++  .cfi_restore 1
++  addi sp, sp, 8
++  .cfi_def_cfa_offset 0
++  ret
++  .cfi_endproc
++FUNC_END (__riscv_restore_2)
++FUNC_END (__riscv_restore_1)
++FUNC_END (__riscv_restore_0)
++
++#else
++
+ FUNC_BEGIN (__riscv_save_12)
+   .cfi_startproc
+   # __riscv_save_* routine use t0/x5 as return address
+@@ -295,6 +375,8 @@
+ FUNC_END (__riscv_restore_1)
+ FUNC_END (__riscv_restore_0)
+ 
++#endif /* __riscv_abi_rve */
++
+ #else
+ 
+ #ifdef __riscv_abi_rve

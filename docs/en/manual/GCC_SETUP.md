@@ -234,6 +234,9 @@ cd "$BUILD_DIR"
 
 rm -rf "$CACHE_DIR" && mkdir -p "$CACHE_DIR"
 
+# patch of libgcc for RV64E, applied once to the source (git apply --check tells if it is already applied)
+git -C "$SRC_DIR/gcc" apply --check "$INFRA_DIR/docker/base/gcc/patches/riscv-rv64e-save-restore.patch" && git -C "$SRC_DIR/gcc" apply "$INFRA_DIR/docker/base/gcc/patches/riscv-rv64e-save-restore.patch" || true
+
 # binutils and GDB, with the Makefile of riscv-gnu-toolchain
 "$SRC_DIR/configure" --prefix="$CACHE_DIR" --with-arch=rv32i --with-abi=ilp32 --enable-picolibc
 make -j"$(nproc)" stamps/build-binutils-picolibc stamps/build-gdb-picolibc
@@ -259,6 +262,7 @@ cd ..
 # picolibc, compiled with that compiler for the variants of each width
 export PATH="$CACHE_DIR/bin:$PATH"
 tool=riscv32-unknown-elf
+git -C "$SRC_DIR/picolibc" apply --check "$INFRA_DIR/docker/base/picolibc/patches/riscv-rv64e-macros.patch" && git -C "$SRC_DIR/picolibc" apply "$INFRA_DIR/docker/base/picolibc/patches/riscv-rv64e-macros.patch"
 for width in 32 64; do
   if [ "$width" = 32 ]; then pick='^(\.|rv32)'; else pick='^rv64'; fi
   list="$($tool-gcc -print-multi-lib | cut -d';' -f1 | grep -E "$pick" | paste -sd,)"

@@ -47,6 +47,16 @@ RUN git init /src \
  && git -C /src fetch --depth 1 https://github.com/picolibc/picolibc "${PICOLIBC_COMMIT}" \
  && git -C /src checkout FETCH_HEAD
 
+# picolibc tests the macro of the RV32E base (__riscv_32e) where it also has to test the RV64E one
+# (__riscv_64e): the crt0 of the semihost build saves 32 registers, and rv64e does not assemble. The
+# patch adds the macro of RV64E to those tests. If it stops applying, picolibc changed those lines:
+# check whether it already handles RV64E and remove the patch.
+COPY docker/base/picolibc/patches/riscv-rv64e-macros.patch /tmp/riscv-rv64e-macros.patch
+RUN git -C /src apply --check /tmp/riscv-rv64e-macros.patch \
+ || { echo "docker/base/picolibc/patches/riscv-rv64e-macros.patch no longer applies to picolibc: check if it already handles RV64E and remove the patch"; exit 1; } \
+ && git -C /src apply /tmp/riscv-rv64e-macros.patch \
+ && rm /tmp/riscv-rv64e-macros.patch
+
 # The cross file and the options of riscv-gnu-toolchain's picolibc rule: the code model of the GCC
 # (medlow), picolibc's own -msave-restore and -fno-common, minimum size, and a sysroot install
 # into riscv32-unknown-elf. DESTDIR keeps the result apart from the GCC's files. picolibc has no
