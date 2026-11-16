@@ -80,7 +80,7 @@ jobs:
           # the build steps use public resolvers instead of the runner one.
           buildkitd-config-inline: |
             [dns]
-              nameservers = ["1.1.1.1", "8.8.8.8"]
+              nameservers = ${{ vars.BUILD_DNS || '["1.1.1.1", "8.8.8.8"]' }}
 
       - uses: docker/login-action@v4.6.0
         with:
