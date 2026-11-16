@@ -227,6 +227,7 @@ The build takes hours, because it builds libstdc++ for 192 variants. The `MULTIL
 | `GCC_COMMIT` | none | the GCC commit of that image, where the libstdc++ source comes from, recorded in the tag |
 | `WIDTH` | `32` | `32` builds the RV32 variants (the root and the `rv32` ones), and `64` the RV64 ones |
 | `CXX_BATCH` | `12` | how many libstdc++ variants are built before the build tree is deleted |
+| `CXX_JOBS` | `auto` | how many batches are built at the same time: a number, or `auto` for one for every 7 cores of the builder |
 
 ## 8. Known limitations
 

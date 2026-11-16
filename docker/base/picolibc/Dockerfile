@@ -32,6 +32,9 @@ ARG GCC_COMMIT
 ARG WIDTH=32
 # How many variants of libstdc++ are built before the build tree is deleted (about 0.65 GB each).
 ARG CXX_BATCH=12
+# How many batches are built at the same time: a number, or auto for one for every 7 cores of the
+# builder (4 cores build one at a time; 28 cores build four, each with make -j7).
+ARG CXX_JOBS=auto
 
 RUN test -n "${PICOLIBC_COMMIT}" \
  || { echo "pass --build-arg PICOLIBC_COMMIT=<commit>"; exit 1; }
@@ -136,7 +139,7 @@ RUN set -e; \
     git -C /gcc-src submodule update --init --depth 1 gcc; \
     export PATH=/opt/riscv-foundation/riscv32-elf/bin:$PATH; \
     test "$(cat /gcc-src/gcc/gcc/BASE-VER)" = "$(riscv32-unknown-elf-gcc -dumpfullversion)"; \
-    bash /usr/local/bin/cxx-libs.sh "${WIDTH}" /gcc-src/gcc /opt/riscv-foundation/riscv32-elf /out "${CXX_BATCH}"; \
+    bash /usr/local/bin/cxx-libs.sh "${WIDTH}" /gcc-src/gcc /opt/riscv-foundation/riscv32-elf /out "${CXX_BATCH}" "${CXX_JOBS}"; \
     rm -rf /gcc-src
 
 # Fail the build if a variant of the width lacks libstdc++, libsupc++ or a C++ header set, or if a
