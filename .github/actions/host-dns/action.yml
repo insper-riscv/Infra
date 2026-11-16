@@ -1,0 +1,30 @@
+name: Host DNS
+description: >
+  Discovers the DNS resolvers of the runner and returns them as a TOML list for the [dns] section of the
+  BuildKit config. The build containers cannot reach the stub resolver of the host (127.0.0.53), so the
+  upstream resolvers come from the file of systemd-resolved, with the loopback ones dropped, and the public
+  resolvers follow as a fallback.
+
+outputs:
+  nameservers:
+    description: 'TOML list of resolvers, e.g. ["10.0.0.2", "1.1.1.1", "8.8.8.8"]'
+    value: ${{ steps.detect.outputs.nameservers }}
+
+runs:
+  using: composite
+  steps:
+    - id: detect
+      shell: bash
+      run: |
+        file=/run/systemd/resolve/resolv.conf
+        [ -r "$file" ] || file=/etc/resolv.conf
+        list=""
+        # only a literal IPv4 address passes, so nothing else reaches the TOML
+        for ns in $(awk '$1 == "nameserver" {print $2}' "$file") 1.1.1.1 8.8.8.8; do
+          [[ "$ns" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || continue
+          [[ "$ns" == 127.* || "$ns" == 0.* ]] && continue
+          [[ ",$list," == *",\"$ns\","* ]] && continue
+          list="${list:+$list,}\"$ns\""
+        done
+        echo "nameservers=[${list//,/, }]" >> "$GITHUB_OUTPUT"
+        echo "DNS of the build: [${list//,/, }]"
