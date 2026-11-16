@@ -227,6 +227,7 @@ O build leva horas, porque constrói a `libstdc++` de 192 variantes. O argumento
 | `GCC_COMMIT` | nenhum | o commit do GCC dessa imagem, de onde sai o fonte da `libstdc++`, registrado na tag |
 | `WIDTH` | `32` | `32` constrói as variantes de RV32 (a raiz e as `rv32`), e `64` as de RV64 |
 | `CXX_BATCH` | `12` | quantas variantes de `libstdc++` são construídas antes de apagar a árvore de construção |
+| `CXX_JOBS` | `auto` | quantos lotes são construídos ao mesmo tempo: um número, ou `auto` para um a cada 7 núcleos do construtor |
 
 ## 8. Limitações conhecidas
 
