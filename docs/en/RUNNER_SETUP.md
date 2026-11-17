@@ -153,6 +153,18 @@ Two jobs on different boards of the same machine run together, and on the same b
 flock -w 3600 /tmp/de2115-<host>.lock <command>
 ```
 
+The lock files are created once, as root, with mode `666`. With the `fs.protected_regular=2` that Ubuntu ships, a user cannot open in `/tmp` a file that another user created, and the `runner` and whoever works over ssh would stop sharing the same lock. A `systemd-tmpfiles` file creates the files again at every boot and excludes them from the periodic cleanup of `/tmp`, with one `f` line and one `x` line per board. The first command creates the file, and each following board goes in with `tee -a`, because `tee` without `-a` overwrites the boards already listed:
+
+```bash
+h=$(hostname -s)
+printf 'f /tmp/de2115-%s.lock 0666 root root -\nx /tmp/de2115-%s.lock\n' $h $h | sudo tee /etc/tmpfiles.d/board-locks.conf
+printf 'f /tmp/de0cv-%s.lock 0666 root root -\nx /tmp/de0cv-%s.lock\n' $h $h | sudo tee -a /etc/tmpfiles.d/board-locks.conf
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/board-locks.conf
+ls -l /tmp/*.lock
+```
+
+The `ls` must list one `-rw-rw-rw-` file per board of the machine, and the number of `f` lines in the configuration file equals the number of files listed.
+
 The board that the job programs must have the IDCODE the `.sof` expects. Programming the `.sof` of one board into another is the mistake to avoid.
 
 ## 5. Registering a runner

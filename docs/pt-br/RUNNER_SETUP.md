@@ -153,6 +153,18 @@ Dois jobs em placas diferentes da mesma máquina rodam juntos, e na mesma placa 
 flock -w 3600 /tmp/de2115-<host>.lock <comando>
 ```
 
+Os arquivos de trava são criados uma vez, como root, com modo `666`. Com o `fs.protected_regular=2` que o Ubuntu traz, um usuário não consegue abrir em `/tmp` um arquivo que outro usuário criou, e o `runner` e quem trabalha por ssh deixariam de dividir a mesma trava. Um arquivo do `systemd-tmpfiles` cria os arquivos de novo a cada boot e os exclui da limpeza periódica de `/tmp`, com uma linha `f` e uma linha `x` por placa. O primeiro comando cria o arquivo, e cada placa seguinte entra com `tee -a`, porque o `tee` sem `-a` sobrescreve as placas já listadas:
+
+```bash
+h=$(hostname -s)
+printf 'f /tmp/de2115-%s.lock 0666 root root -\nx /tmp/de2115-%s.lock\n' $h $h | sudo tee /etc/tmpfiles.d/board-locks.conf
+printf 'f /tmp/de0cv-%s.lock 0666 root root -\nx /tmp/de0cv-%s.lock\n' $h $h | sudo tee -a /etc/tmpfiles.d/board-locks.conf
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/board-locks.conf
+ls -l /tmp/*.lock
+```
+
+O `ls` tem de listar um arquivo `-rw-rw-rw-` por placa da máquina, e o número de linhas `f` do arquivo de configuração é igual ao de arquivos listados.
+
 A placa que o job programa precisa ter o IDCODE esperado pelo `.sof`. Programar o `.sof` de uma placa em outra é o erro a evitar.
 
 ## 5. Registrar um runner
