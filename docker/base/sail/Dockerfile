@@ -53,8 +53,9 @@ RUN install -D /build/c_emulator/sail_riscv_sim /opt/riscv-foundation/sail/bin/s
  && { echo "${SAIL_COMMIT}"; echo "${SAIL_VERSION} $(git -C /src log -1 --format=%cs) ($(echo "${SAIL_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/sail/.tag
 
 # Fail the build, before anything is published, if the binary does not run, prints a version other
-# than the one declared, or lacks a library that this image does not install.
-RUN test "$(/opt/riscv-foundation/sail/bin/sail_riscv_sim --version)" = "${SAIL_VERSION}" \
+# than the one declared, or lacks a library that this image does not install. The binary prints either only the release
+# number (the commits up to 2026-11-20) or a list whose first line is "Sail RISC-V release: <number>" (since 2026-11-21).
+RUN test "$(/opt/riscv-foundation/sail/bin/sail_riscv_sim --version | sed -n 's/^Sail RISC-V release: *//p;t;/^[0-9][0-9.]*$/p' | head -n 1)" = "${SAIL_VERSION}" \
  && ! ldd /opt/riscv-foundation/sail/bin/sail_riscv_sim | grep "not found"
 
 
