@@ -43,7 +43,12 @@ RUN case "${TARGETARCH}" in amd64) arch=x86_64 ;; arm64) arch=aarch64 ;; *) echo
  && sail --version
 
 # Static, as the upstream release builds it, so the executable runs in images that do not have libgmp.
-RUN cmake -S /src -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTATIC=TRUE -DENABLE_LTO=TRUE \
+# The version the executable prints comes from `git describe --tags --match "[0-9]*.[0-9]*"`, which cmake runs in its
+# working directory; outside a repository it falls back to "<release>-unknown". So cmake runs inside /src, and the
+# commit carries the release number it declares as a (lightweight) tag, which makes `--version` print exactly that number.
+RUN git -C /src tag "${SAIL_VERSION}" \
+ && cd /src \
+ && cmake -S . -B /build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSTATIC=TRUE -DENABLE_LTO=TRUE \
       -DENABLE_RISCV_TESTS=FALSE \
  && cmake --build /build
 
@@ -53,9 +58,8 @@ RUN install -D /build/c_emulator/sail_riscv_sim /opt/riscv-foundation/sail/bin/s
  && { echo "${SAIL_COMMIT}"; echo "${SAIL_VERSION} $(git -C /src log -1 --format=%cs) ($(echo "${SAIL_COMMIT}" | cut -c1-7))"; } > /opt/riscv-foundation/sail/.tag
 
 # Fail the build, before anything is published, if the binary does not run, prints a version other
-# than the one declared, or lacks a library that this image does not install. The binary prints either only the release
-# number (the commits up to 2026-11-20) or a list whose first line is "Sail RISC-V release: <number>" (since 2026-11-21).
-RUN test "$(/opt/riscv-foundation/sail/bin/sail_riscv_sim --version | sed -n 's/^Sail RISC-V release: *//p;t;/^[0-9][0-9.]*$/p' | head -n 1)" = "${SAIL_VERSION}" \
+# than the one declared, or lacks a library that this image does not install.
+RUN test "$(/opt/riscv-foundation/sail/bin/sail_riscv_sim --version)" = "${SAIL_VERSION}" \
  && ! ldd /opt/riscv-foundation/sail/bin/sail_riscv_sim | grep "not found"
 
 
