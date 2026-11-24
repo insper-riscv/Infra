@@ -180,6 +180,9 @@ jobs:
           fi
           echo "uv $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          . .github/scripts/name-of.sh
+          show=$(tag_show_of https://github.com/astral-sh/uv "$version")
+          if [ -n "$show" ]; then echo "show=$show" >> "$GITHUB_OUTPUT"; fi
 
       - name: Resolve the Python patch and read the fixed versions
         # The Python of the image is the latest patch of the series in docker/ci/vhdl/Dockerfile that this
@@ -206,11 +209,15 @@ jobs:
             echo "::error::uv $UV knows no Python $series"
             exit 1
           fi
+          . .github/scripts/name-of.sh
           echo "python $python, cocotb $cocotb, click $click"
           {
             echo "python=$python"
             echo "cocotb=$cocotb"
             echo "click=$click"
+            echo "python_show=$(tag_show_of https://github.com/python/cpython "$python")"
+            echo "cocotb_show=$(tag_show_of https://github.com/cocotb/cocotb "$cocotb")"
+            echo "click_show=$(tag_show_of https://github.com/pallets/click "$click")"
           } >> "$GITHUB_OUTPUT"
 
       - name: Choose the commit of Tools
@@ -359,9 +366,13 @@ jobs:
           BUILD: ${{ steps.skip.outputs.build }}
           SHORT: ${{ steps.pins.outputs.short }}
           UV: ${{ steps.uv.outputs.version }}
+          UV_SHOW: ${{ steps.uv.outputs.show }}
           PYTHON: ${{ steps.python.outputs.python }}
           COCOTB: ${{ steps.python.outputs.cocotb }}
           CLICK: ${{ steps.python.outputs.click }}
+          PYTHON_SHOW: ${{ steps.python.outputs.python_show }}
+          COCOTB_SHOW: ${{ steps.python.outputs.cocotb_show }}
+          CLICK_SHOW: ${{ steps.python.outputs.click_show }}
           TOOLS: ${{ steps.pins.outputs.tools_show }}
           GHDL_COMMIT: ${{ steps.pins.outputs.ghdl }}
           GHDL_RELEASE: ${{ steps.pins.outputs.ghdl_release }}
@@ -371,26 +382,27 @@ jobs:
           YICES: ${{ steps.pins.outputs.yices_show }}
           BITWUZLA: ${{ steps.pins.outputs.bitwuzla_show }}
         run: |
+          . .github/scripts/summary-row.sh
           if [ "$SKIP" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
           ghdl="${GHDL_RELEASE:+$GHDL_RELEASE }$GHDL_DATE (${GHDL_COMMIT:0:7})"
           echo "::notice title=Stage 1, VHDL::uv $UV, Python $PYTHON, cocotb $COCOTB, click $CLICK, Tools $TOOLS, GHDL $ghdl, Yosys $YOSYS, SymbiYosys $SBY, Yices $YICES, Bitwuzla $BITWUZLA. ${decision^}."
           {
-            echo "### Stage 1, VHDL (level 1)"
+            echo "### Stage 1, VHDL"
             echo
-            echo "| Component | Selected |"
-            echo "| :--- | :--- |"
-            echo "| uv | $UV |"
-            echo "| Python | $PYTHON |"
-            echo "| cocotb | $COCOTB |"
-            echo "| click | $CLICK |"
-            echo "| Tools, version, date and commit | $TOOLS |"
-            echo "| GHDL, version, date and commit | $ghdl |"
-            echo "| Yosys, version, date and commit | $YOSYS |"
-            echo "| SymbiYosys, version, date and commit | $SBY |"
-            echo "| Yices, version, date and commit | $YICES |"
-            echo "| Bitwuzla, version, date and commit | $BITWUZLA |"
+            echo "| Component | Version | Date | Commit |"
+            echo "| :--- | :--- | :--- | :--- |"
+            summary_row "uv" "${UV_SHOW:-$UV}"
+            summary_row "Python" "${PYTHON_SHOW:-$PYTHON}"
+            summary_row "cocotb" "${COCOTB_SHOW:-$COCOTB}"
+            summary_row "Click" "${CLICK_SHOW:-$CLICK}"
+            summary_row "Tools" "$TOOLS"
+            summary_row "GHDL" "$ghdl"
+            summary_row "Yosys" "$YOSYS"
+            summary_row "SymbiYosys" "$SBY"
+            summary_row "Yices" "$YICES"
+            summary_row "Bitwuzla" "$BITWUZLA"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -584,6 +596,7 @@ jobs:
           SPIKE_DATE: ${{ steps.pins.outputs.spike_date }}
           VARIANTS: ${{ steps.pins.outputs.variants }}
         run: |
+          . .github/scripts/summary-row.sh
           if [ "$MISSING" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
@@ -591,14 +604,14 @@ jobs:
           spike="${SPIKE_RELEASE:+$SPIKE_RELEASE }$SPIKE_DATE (${SPIKE_COMMIT:0:7})"
           echo "::notice title=Stage 2, ELF::GCC $gcc, picolibc $PICOLIBC, Spike $spike, ${VARIANTS:-unknown} library variants. ${decision^}."
           {
-            echo "### Stage 2, ELF (level 2)"
+            echo "### Stage 2, ELF"
             echo
-            echo "| Component | Selected |"
-            echo "| :--- | :--- |"
-            echo "| RISC-V GCC (riscv-gnu-toolchain), GCC version, release date and commit | $gcc |"
-            echo "| picolibc, version, date and commit | $PICOLIBC |"
-            echo "| Spike, version, date and commit | $spike |"
-            echo "| Library variants of the GCC and the picolibc | ${VARIANTS:-unknown} |"
+            echo "| Component | Version | Date | Commit |"
+            echo "| :--- | :--- | :--- | :--- |"
+            summary_row "RISC-V GCC" "$gcc"
+            summary_row "Picolibc" "$PICOLIBC"
+            summary_row "Spike" "$spike"
+            echo "| Multilib variants | ${VARIANTS:-unknown} | | |"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -827,6 +840,7 @@ jobs:
           ACT4_DATE: ${{ steps.act4version.outputs.date }}
           SAIL_DATE: ${{ steps.sail.outputs.sail_date }}
         run: |
+          . .github/scripts/summary-row.sh
           if [ "$MISSING" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
@@ -834,13 +848,12 @@ jobs:
           act4="$ACT4_VERSION $ACT4_DATE (${ACT4:0:7})"
           echo "::notice title=Stage 3, ACT4::Sail $sail, ACT4 $act4. ${decision^}."
           {
-            echo "### Stage 3, ACT4 (level 3)"
+            echo "### Stage 3, ACT4"
             echo
-            echo "| Component | Selected |"
-            echo "| :--- | :--- |"
-            echo "| Sail (sail-riscv), version, date and commit | $sail |"
-            echo "| ACT4 (riscv-arch-test), release plus commits after it, date and commit | $act4 |"
-            echo "| ACT4 commit | ${ACT4:-none} |"
+            echo "| Component | Version | Date | Commit |"
+            echo "| :--- | :--- | :--- | :--- |"
+            summary_row "Sail" "$sail"
+            summary_row "ACT4" "$act4"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -975,17 +988,18 @@ jobs:
           GTKWAVE_VERSION: ${{ steps.gtkwave.outputs.version }}
           GTKWAVE_DATE: ${{ steps.gtkwave.outputs.date }}
         run: |
+          . .github/scripts/summary-row.sh
           if [ "$MISSING" = "true" ]; then decision="nothing to assemble now";
           elif [ "$BUILD" = "true" ]; then decision="the image is built";
           else decision="the image of this combination is reused"; fi
           gtkwave="$GTKWAVE_VERSION $GTKWAVE_DATE (${GTKWAVE_COMMIT:0:7})"
           echo "::notice title=Stage 4, dev tools::GTKWave $gtkwave. ${decision^}."
           {
-            echo "### Stage 4, dev tools (level 4)"
+            echo "### Stage 4, dev tools"
             echo
-            echo "| Component | Selected |"
-            echo "| :--- | :--- |"
-            echo "| GTKWave, version, date and commit | $gtkwave |"
+            echo "| Component | Version | Date | Commit |"
+            echo "| :--- | :--- | :--- | :--- |"
+            summary_row "GTKWave" "$gtkwave"
             echo
             echo "Combination \`${SHORT:-none}\`, $decision."
           } >> "$GITHUB_STEP_SUMMARY"

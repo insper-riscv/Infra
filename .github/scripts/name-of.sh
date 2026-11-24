@@ -87,3 +87,13 @@ describe_of() {
   d=$(commit_date "$1" "$2")
   printf '%s%s (%s)' "${v:+$v }" "$d" "${2:0:7}"
 }
+
+# tag_show_of <repository url> <version> prints how the summaries show a release found by its version, "<version> <date>
+# (<commit>)" as describe_of does, for the commit its tag points at (the tag is the version, with or without a v, and
+# an annotated tag is followed to its commit). It prints nothing when the repository has no such tag.
+tag_show_of() {
+  local commit
+  commit=$(git ls-remote "$1" "refs/tags/$2" "refs/tags/$2^{}" "refs/tags/v$2" "refs/tags/v$2^{}" 2>/dev/null \
+           | awk '{ c = $1 } END { print c }') || true
+  if [ -n "$commit" ]; then describe_of "$1" "$commit"; fi
+}
