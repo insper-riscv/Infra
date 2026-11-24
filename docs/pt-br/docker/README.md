@@ -117,7 +117,7 @@ Os componentes que seguem um commit em vez de uma release (`GCC image`, `Spike i
 
 As regras que valem para as imagens montadas (`ci-*` e `dev_tools`), que o `CI images` aplica em cada nível:
 
-Cada nível tem um estágio antes dele, e o estágio diz o que escolheu numa anotação do run e no resumo dele.
+Cada nível tem um estágio antes dele, e o estágio diz o que escolheu numa anotação do run e no resumo dele, uma tabela com a versão, a data e o commit de cada componente.
 
 | Estágio | Nível | O que escolhe e informa |
 | :--- | :--- | :--- |
@@ -132,7 +132,7 @@ Cada nível tem um estágio antes dele, e o estágio diz o que escolheu numa ano
 4. Cada nível publica só para uma combinação que ainda não existe. Um nível pulado por esse motivo não impede o seguinte, porque a imagem abaixo dele pode ter mudado; um nível que falha impede os de cima.
 5. O número de variantes de biblioteca do GCC é gravado num rótulo da `base-gcc` e da `base-picolibc`. O `Picolibc image` constrói de novo quando o número da imagem dele difere do do GCC, mesmo com os mesmos commits na tag, e o `plan-elf` põe o número na combinação da `ci-elf`. Assim um run do `GCC image` em que a receita mude o número de variantes reconstrói o mesmo commit, e ele percorre a picolibc, a imagem ELF e os níveis de cima sem run manual no meio.
 
-**Mudar um `Dockerfile` ou um workflow não constrói nada.** Uma imagem é construída quando uma versão muda, ou quando o número de variantes do GCC muda, não quando a receita muda, para que uma mudança de receita sem versão nova não reconstrua para nada imagens que levam até uma hora. Quando uma receita muda na `main`, o workflow `Recipe changed` lista as imagens afetadas, e a reconstrução é um run manual (`force` num componente, `from_level` no `CI images`).
+**Mudar um `Dockerfile` ou um workflow não constrói nada.** Uma imagem é construída quando uma versão muda, ou quando o número de variantes do GCC muda, não quando a receita muda, para que uma mudança de receita sem versão nova não reconstrua para nada imagens que levam até uma hora. Um pull request que muda uma receita recebe um comentário (`Recipe PR warning`) com os workflows a rodar, e a reconstrução depois do merge é um run manual (`force` num componente, `from_level` no `CI images`).
 
 Cada arquitetura é construída num runner próprio (`ubuntu-26.04` para `linux/amd64` e `ubuntu-26.04-arm` para `linux/arm64`), porque os builds do GCC e do GHDL levam horas sob emulação. Um job final junta as duas imagens num manifesto único com as tags, e `docker pull` entrega a cada máquina a sua.
 

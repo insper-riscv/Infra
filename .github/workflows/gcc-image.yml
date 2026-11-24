@@ -14,7 +14,7 @@ name: GCC image
 #   a day behind the head, and a commit still running is skipped, not waited for.
 #   A change of Dockerfile or of this workflow does not build by itself, so a recipe
 #   change that is not a new version, or a new number of variants, does not rebuild an image for
-#   nothing: the Recipe changed workflow warns about it, and a run by hand with `force` rebuilds.
+#   nothing: a run by hand with `force` rebuilds.
 #
 # The Picolibc image workflow then builds picolibc with it, and the CI images workflow assembles a
 # new image.
