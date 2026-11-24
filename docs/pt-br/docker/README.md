@@ -117,7 +117,7 @@ Os componentes que seguem um commit em vez de uma release (`GCC image`, `Spike i
 
 As regras que valem para as imagens montadas (`ci-*` e `dev_tools`), que o `CI images` aplica em cada nível:
 
-Cada nível tem um estágio antes dele, e o estágio diz o que escolheu numa anotação do run e no resumo dele.
+Cada nível tem um estágio antes dele, e o estágio diz o que escolheu numa anotação do run e no resumo dele, uma tabela com a versão, a data e o commit de cada componente.
 
 | Estágio | Nível | O que escolhe e informa |
 | :--- | :--- | :--- |

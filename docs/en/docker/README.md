@@ -117,7 +117,7 @@ The components that follow a commit instead of a release (`GCC image`, `Spike im
 
 The rules that hold for the assembled images (`ci-*` and `dev_tools`), which `CI images` applies at each level:
 
-Each level has a stage before it, and the stage says what it selected in an annotation of the run and in its summary.
+Each level has a stage before it, and the stage says what it selected in an annotation of the run and in its summary, a table with the version, the date and the commit of each component.
 
 | Stage | Level | What it selects and reports |
 | :--- | :--- | :--- |
