@@ -1,0 +1,103 @@
+name: Recipe PR warning
+
+# An image is built when a version changes (a new release of a component, a new commit of the green CI
+# of Spike, Sail, GHDL or the GCC), not when its Dockerfile or workflow changes: a change of the recipe
+# that is not a new version would otherwise rebuild, for nothing, images that take most of an hour. So
+# the merge of a recipe change builds nothing, and the pull request is where that is said: this workflow
+# lists the files of the pull request, finds the images they affect, and keeps one comment on the pull
+# request with the workflows to run by hand after the merge. The comment is updated on each push and
+# removed when the pull request stops touching a recipe.
+#
+# It has no effect on the images, and it only reads the list of files of the pull request, never its code.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: recipe-pr-warning-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  warn:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Which images the pull request affects
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          marker='<!-- recipe-pr-warning -->'
+          # the workflows (by the name in Actions) that a file of the pull request makes stale
+          workflows_of() {
+            case "$1" in
+              docker/ci/*|docker/dev-tools/*|.github/workflows/ci-images.yml) echo "CI images" ;;
+              docker/base/ghdl/*|.github/workflows/ghdl-image.yml) echo "GHDL image" ;;
+              docker/base/gcc/*|.github/workflows/gcc-image.yml) echo "GCC image" ;;
+              docker/base/picolibc/*|.github/workflows/picolibc-image.yml) echo "Picolibc image" ;;
+              docker/base/spike/*|.github/workflows/spike-image.yml) echo "Spike image" ;;
+              docker/base/yosys/*|.github/workflows/yosys-image.yml) echo "Yosys image" ;;
+              docker/base/yices/*|.github/workflows/yices-image.yml) echo "Yices image" ;;
+              docker/base/bitwuzla/*|.github/workflows/bitwuzla-image.yml) echo "Bitwuzla image" ;;
+              docker/base/gtkwave/*|.github/workflows/gtkwave-image.yml) echo "GTKWave image" ;;
+              docker/base/sail/*|.github/workflows/sail-image.yml) echo "Sail image" ;;
+              # the script that picks the latest green commit of an upstream branch
+              .github/scripts/green-commit.sh) printf '%s\n' "GHDL image" "GCC image" "Spike image" "Sail image" ;;
+              # the reusable workflow every image is built with
+              .github/workflows/build-image.yml)
+                printf '%s\n' "GHDL image" "GCC image" "Picolibc image" "Spike image" "Yosys image" \
+                  "Yices image" "Bitwuzla image" "GTKWave image" "Sail image" "CI images" ;;
+            esac
+          }
+
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename')
+          declare -A seen=(); rows=""
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            while IFS= read -r w; do
+              [ -n "$w" ] || continue
+              [ -z "${seen[$w]:-}" ] || continue
+              seen[$w]=1; rows+="| $w | \`$f\` |"$'\n'
+            done < <(workflows_of "$f")
+          done <<< "$files"
+
+          # the comment this workflow left on an earlier push, if any
+          old=$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+                  --jq ".[] | select(.body | contains(\"$marker\")) | .id" | head -n 1)
+
+          if [ -z "$rows" ]; then
+            echo "no image recipe in this pull request"
+            [ -z "$old" ] || gh api -X DELETE "repos/$REPO/issues/comments/$old" > /dev/null
+            exit 0
+          fi
+
+          names=$(printf '%s' "$rows" | cut -d'|' -f2 | sed 's/^ *//; s/ *$//' | paste -sd, - | sed 's/,/, /g')
+          echo "::warning title=Image recipe changed::$names: nothing is rebuilt when this merges. Run the workflows by hand."
+          body=$(cat <<EOT
+          $marker
+          **This pull request changes the recipe of an image, and merging it rebuilds nothing.**
+
+          Images are built when a version changes (a new release, a new commit of a green upstream CI), not when a Dockerfile or a workflow changes. After the merge, run these workflows by hand (Actions, *Run workflow*) with the confirmation value and \`force\` on, to publish the image with the new recipe:
+
+          | Workflow | Changed file |
+          | :--- | :--- |
+          $rows
+
+          The \`CI images\` workflow assembles the four images that follow the components (VHDL, ELF, ACT4 and Dev tools, in that order); to rebuild from a given one, choose it in \`from_level\`.
+          EOT
+          )
+          { echo "### Image recipe changed: run by hand after the merge"; echo; echo "$body"; } >> "$GITHUB_STEP_SUMMARY"
+
+          # a pull request from a fork has a read-only token: the warning above and the summary are then all there is
+          if [ -n "$old" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$old" -f body="$body" > /dev/null \
+              || echo "::notice::could not update the comment of the pull request"
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -f body="$body" > /dev/null \
+              || echo "::notice::could not comment on the pull request"
+          fi
