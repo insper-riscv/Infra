@@ -12,8 +12,8 @@ name: Sail image
 #   image already exists.
 # - Runs every day (schedule): it takes the latest green commit and builds it only if that image
 #   does not exist yet.
-#   A change of Dockerfile or of this workflow does not build by itself: the Recipe changed
-#   workflow warns about it, and a run by hand with `force` rebuilds.
+#   A change of Dockerfile or of this workflow does not build by itself: a run by hand with
+#   `force` rebuilds.
 #
 # The CI images workflow then assembles a new image.
 on:

@@ -19,8 +19,7 @@ name: CI images
 # finishes, every day at
 # 03:00 UTC (the `uv` has no component image, so it is looked up here, and the GTKWave image is
 # picked up here too), and on demand. A change of a Dockerfile in docker/ci or docker/dev-tools or
-# of this workflow does not assemble by itself: the Recipe changed workflow warns about it, and a
-# run by hand rebuilds.
+# of this workflow does not assemble by itself: a run by hand rebuilds.
 #
 # The commit of ACT4 (riscv/riscv-arch-test) that the ELF image prepares is the latest commit of its
 # `act4` branch on which the upstream regression workflow succeeded (green-commit.sh), as long as the
